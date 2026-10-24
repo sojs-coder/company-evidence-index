@@ -284,3 +284,28 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .util-row{cursor:pointer}
 .util-detail{grid-column:1/-1;padding:4px 0 12px}
 .util-row:focus-visible{outline:1px solid var(--color-brand);outline-offset:2px}
+
+/* ===== 3b. Dashboard components (dense, GA-style) ===== */
+.dash-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.dash-title{font-size:clamp(30px,4vw,44px);letter-spacing:-.01em}
+.dash-badges{display:flex;gap:8px;flex-wrap:wrap;padding-bottom:6px}
+.badge-live,.badge-dim,.badge-demo{font:10px/1.6 var(--font-mono);letter-spacing:.1em;padding:2px 8px;border:1px solid var(--color-brand-border);color:var(--color-brand-hover)}
+.badge-live{border-color:var(--color-success-border);color:var(--color-success)}
+.badge-dim,.badge-demo{border-color:var(--border);color:var(--text-faint)}
+.chip-row{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 28px}
+.chip{border:1px solid var(--border);padding:7px 14px;font:500 13px var(--font-body);color:var(--text-muted)}
+.chip-on{border-color:var(--color-brand);color:var(--color-brand-hover)}
+.company-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+.company-card{display:flex;flex-direction:column;gap:14px;border:1px solid var(--border);padding:22px 22px 18px;transition:border-color var(--t-fast)}
+.company-card:hover{border-color:var(--color-brand)}
+.company-card-top{display:flex;flex-direction:column;gap:2px}
+.company-name{font:600 21px var(--font-heading);color:var(--text)}
+.company-card-meta{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted)}
+.company-card-cta{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--color-brand-hover)}
+.stream-head{grid-template-columns:150px minmax(0,1fr) 90px}
+.stream-list{display:flex;flex-direction:column}
+.stream-list li{display:grid;grid-template-columns:150px minmax(0,1fr) 90px;gap:16px;align-items:baseline;padding:7px 0;border-top:1px solid var(--border-muted)}
+.stream-list li:first-child{border-top:0}
+.stream-src{font:10.5px var(--font-mono);letter-spacing:.06em;color:var(--text-faint);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.foot-note{margin-top:44px}
+@media(max-width:760px){.stream-head,.stream-list li{grid-template-columns:minmax(0,1fr) 76px}.stream-src{display:none}}
