@@ -215,6 +215,26 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .tl-dot{transition:transform var(--t-fast),filter var(--t-fast)}
 .tl-dot:hover{transform:scale(1.35)}
 .outline-button,.text-button,.icon-link,.theme-toggle{transition:color var(--t-fast),border-color var(--t-fast),transform var(--t-fast)}
+/* --- Collection + Results pages --- */
+.collect-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1px;background:var(--border-muted);border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin:18px 0}
+.collect-card{background:var(--bg);padding:22px 24px}
+.collect-card.muted{opacity:.75}
+.collect-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}
+.collect-head h2{font:600 20px/1.2 var(--font-heading)}
+.collect-badge{font:500 10px var(--font-mono);letter-spacing:.12em;padding:3px 8px;border:1px solid var(--border)}
+.collect-badge.live{color:var(--color-success);border-color:var(--color-success-border);background:var(--color-success-muted)}
+.collect-badge.down{color:var(--color-error);border-color:var(--color-error-border);background:var(--color-error-muted)}
+.collect-badge.demo{color:var(--color-warning);border-color:var(--color-warning-border);background:var(--color-warning-muted)}
+.collect-list{list-style:none;margin:12px 0;padding:0}
+.collect-list li{display:grid;grid-template-columns:78px 1fr;gap:4px 12px;padding:8px 0;border-top:1px solid var(--border-muted);font-size:12.5px}
+.collect-item-title{grid-column:2}
+.collect-list .faint{grid-column:2}
+.collect-feeds{font-size:12px;color:var(--text-faint);margin-top:10px}
+.faint{color:var(--text-faint)}
+.results-list{display:flex;flex-direction:column;gap:1px;background:var(--border-muted);border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin:14px 0}
+.result-block{background:var(--bg);padding:20px 24px}
+.result-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.result-title{font:600 19px/1.3 var(--font-heading);margin-bottom:10px}
 @media(max-width:900px){
   .topbar{gap:24px}
   .main-nav{gap:18px}
