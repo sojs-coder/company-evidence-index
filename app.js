@@ -1,38 +1,38 @@
-// Demo fixtures - illustrative only, no live sources. Charts and lists render from this one source of truth.
-const claims=[
- {id:'CL-0042',claim:'Apple says iPhone 17 offers up to 30 hours of video playback.',attribution:'Apple product claim',source:'Apple Newsroom',date:'Sep 09, 2026',status:'supported',for:'Apple’s technical specifications list up to 30 hours of video playback for iPhone 17 Pro Max.',against:'No directly contradicting evidence found in the checked source set.',citation:'https://www.apple.com/newsroom/'},
- {id:'CL-0041',claim:'Apple will reach carbon neutrality across its entire footprint by 2030.',attribution:'Apple environmental commitment',source:'Apple Environment',date:'Apr 15, 2026',status:'unresolved',for:'Apple’s 2030 plan documents a target to become carbon neutral across its entire footprint.',against:'Latest independently verified progress data was not found in the sources checked for this snapshot.',citation:'https://www.apple.com/environment/'},
- {id:'CL-0040',claim:'Apple says MacBook Air with M4 delivers up to 18 hours of battery life.',attribution:'Apple product claim',source:'Apple Newsroom',date:'Mar 05, 2026',status:'supported',for:'The current technical specifications list up to 18 hours of video playback for MacBook Air with M4.',against:'Battery life varies by configuration and use; the figure is an Apple test maximum.',citation:'https://www.apple.com/newsroom/'},
- {id:'CL-0039',claim:'Apple Intelligence features are available in more than 10 languages.',attribution:'Apple product claim',source:'Apple Newsroom',date:'Sep 09, 2026',status:'contradicted',for:'Apple announced additional language support in a product update.',against:'The current support page lists 8 supported languages as of this snapshot.',citation:'https://www.apple.com/newsroom/'},
- {id:'CL-0038',claim:'Apple says it will invest $500 billion in US facilities over four years.',attribution:'Company commitment',source:'Apple Newsroom',date:'Feb 24, 2026',status:'unresolved',for:'Apple announced a four-year US investment commitment in a Newsroom release.',against:'Multi-year commitment; annual progress is not independently itemized in the checked source set.',citation:'https://www.apple.com/newsroom/'},
- {id:'CL-0037',claim:'Apple’s services business continues to grow year over year.',attribution:'Company statement · earnings call',source:'SEC 10-Q filing',date:'Jul 31, 2026',status:'supported',for:'Reported Services net sales were higher than the comparable prior-year quarter.',against:'None found in the cited filing; growth is for the reported period only.',citation:'https://www.sec.gov/edgar/browse/?CIK=320193'},
- {id:'CL-0036',claim:'Apple says Apple Pay is available in more than 75 markets worldwide.',attribution:'Apple product claim',source:'Apple Newsroom',date:'Jan 15, 2026',status:'supported',for:'Apple materials list Apple Pay availability across dozens of markets as of this snapshot.',against:'Market count changes between snapshots; not independently verified.',citation:'https://www.apple.com/newsroom/'},
- {id:'CL-0035',claim:'Apple says Services set an all-time revenue record in the June quarter.',attribution:'Company statement · earnings call',source:'SEC 10-Q filing',date:'Jul 31, 2026',status:'supported',for:'The 10-Q reports record Services net sales for the quarter.',against:'Records are company-reported figures for the stated period only.',citation:'https://www.sec.gov/edgar/browse/?CIK=320193'},
- {id:'CL-0034',claim:'Apple says Siri requests are always processed entirely on-device.',attribution:'Apple product claim',source:'Apple Support',date:'Jun 10, 2026',status:'contradicted',for:'Apple documents on-device processing for many Siri request types.',against:'The support page states some requests use Private Cloud Compute, so the blanket claim does not hold.',citation:'https://support.apple.com/'},
- {id:'CL-0033',claim:'Apple says all packaging will be fiber-based by the end of 2026.',attribution:'Apple environmental commitment',source:'Apple Environment',date:'Apr 15, 2026',status:'unresolved',for:'The environmental progress report restates the fiber-based packaging goal.',against:'The target date has not yet passed; final figures are not yet published.',citation:'https://www.apple.com/environment/'},
- {id:'CL-0032',claim:'Apple says iPhone 16e includes the Apple-designed C1 modem.',attribution:'Apple product claim',source:'Apple Newsroom',date:'Feb 19, 2026',status:'supported',for:'The Newsroom release and the product specification page name the C1 modem in iPhone 16e.',against:'None found in the cited source set.',citation:'https://www.apple.com/newsroom/'},
- {id:'CL-0031',claim:'Apple says notification summaries never change a notification’s meaning.',attribution:'Apple product claim',source:'Apple Support',date:'Jan 30, 2026',status:'contradicted',for:'Apple describes summaries as generated from notification content.',against:'The support page warns that summaries may contain errors and recommends checking the original notifications.',citation:'https://support.apple.com/'}
-];
-const sources=[
- {name:'SEC EDGAR filings',state:'checked',note:'Checked · demo'},
- {name:'Apple Newsroom',state:'checked',note:'Checked · demo'},
- {name:'Google News RSS',state:'checked',note:'Checked · demo'},
- {name:'Apple investor relations',state:'checked',note:'Checked · demo'},
- {name:'Apple support pages',state:'checked',note:'Checked · demo'},
- {name:'Employee posts',state:'gap',note:'Manual only'},
- {name:'X public posts',state:'gap',note:'Not connected'}
-];
-const changes=[
- {date:'OCT 24',type:'new',label:'NEW CLAIM',copy:'Apple announced expanded satellite features for iPhone 17.',source:'Apple Newsroom'},
- {date:'OCT 23',type:'updated',label:'SOURCE UPDATE',copy:'SEC filing index refreshed; no new filings detected.',source:'SEC EDGAR'}
-];
+// Frontend for the Company Evidence Index demo. All data comes from the
+// backend API (server.mjs + data/seed.json) - the server is the single
+// source of truth. Demo fixtures only; no live sources connected.
+let claims=[], sources=[], changes=[], overview=null;
 
+const list=document.querySelector('#claim-list'),dialog=document.querySelector('#claim-dialog');
 const ICON_LINK='<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M5.5 4H12v6.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
 const ICON_REFRESH='<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 8a5.2 5.2 0 1 1-1.5-3.7M13.2 2.2v3h-3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
 const STATUSES=['supported','unresolved','contradicted'];
 
+async function boot(){
+  try{
+    const [ov,cl,cov,chg]=await Promise.all([
+      fetch('/api/companies/apple/overview').then(r=>r.json()),
+      fetch('/api/companies/apple/claims').then(r=>r.json()),
+      fetch('/api/companies/apple/coverage').then(r=>r.json()),
+      fetch('/api/companies/apple/changes').then(r=>r.json())
+    ]);
+    overview=ov; claims=cl.claims; sources=cov.sources; changes=chg.changes;
+  }catch(e){
+    list.innerHTML='<p class="small-note">The demo API is unavailable, so no data is shown. No cached figures are substituted.</p>';
+    return;
+  }
+  renderMetrics(); renderClaims(); renderStatusBar(); renderSourceBars(); renderCoverage(); renderChanges();
+}
+function renderMetrics(){
+  const m=overview.metrics;
+  document.querySelector('#m-claims').textContent=m.claimsIndexed;
+  document.querySelector('#m-claims-note').textContent=`across ${m.sourceClasses} source classes`;
+  document.querySelector('#m-contradicted').textContent=m.contradicted;
+  document.querySelector('#m-sources').innerHTML=`${m.sourcesChecked} <small>/ ${m.sourcesTotal}</small>`;
+  document.querySelector('#m-sources-note').textContent=`${m.sourcesTotal-m.sourcesChecked} explicit coverage gaps`;
+}
+
 // --- Ledger ---
-const list=document.querySelector('#claim-list'),dialog=document.querySelector('#claim-dialog');
 function renderClaims(){const q=document.querySelector('#claim-search').value.toLowerCase(),s=document.querySelector('#status-filter').value;const rows=claims.filter(c=>(s==='all'||c.status===s)&&`${c.claim} ${c.source} ${c.attribution}`.toLowerCase().includes(q));list.innerHTML=rows.map(c=>`<article class="claim-row" tabindex="0" role="button" data-id="${c.id}"><div><p class="claim-title">${c.claim}</p><span class="claim-attribution">${c.attribution} <span class="mono">· ${c.id}</span></span></div><div><div class="claim-source">${c.source}</div><div class="claim-date">${c.date}</div></div><span class="status ${c.status}">${c.status}</span></article>`).join('')||'<p class="small-note">No claims match these filters.</p>';document.querySelector('#visible-count').textContent=rows.length;list.querySelectorAll('.claim-row').forEach(row=>{row.addEventListener('click',()=>openClaim(row.dataset.id));row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openClaim(row.dataset.id)}})})}
 function openClaim(id){const c=claims.find(x=>x.id===id);document.querySelector('#dialog-eyebrow').textContent=`${c.id} · ${c.status.toUpperCase()}`;document.querySelector('#dialog-title').textContent=c.claim;document.querySelector('#dialog-body').innerHTML=`<p class="detail-meta">${c.attribution} · ${c.date}</p><div class="detail-block"><h3>EVIDENCE FOR</h3><p>${c.for}</p></div><div class="detail-block"><h3>EVIDENCE AGAINST / LIMITS</h3><p>${c.against}</p></div><div class="detail-block"><h3>SOURCE CITATION</h3><p><a class="detail-source" href="${c.citation}" target="_blank" rel="noreferrer">${c.source} ${ICON_LINK}</a></p></div>`;dialog.showModal()}
 document.querySelector('#claim-search').addEventListener('input',renderClaims);
@@ -51,7 +51,9 @@ function renderCoverage(){const strip=document.querySelector('#coverage-strip');
 // --- Snapshot change timeline + rows ---
 function renderChanges(){const line=document.querySelector('#change-timeline');line.innerHTML=[...changes].reverse().map(c=>`<span class="tl-dot ${c.type}" tabindex="0" aria-label="${c.date}: ${c.label} - ${c.copy}"><span class="chart-tip" role="tooltip">${c.date} · ${c.label}</span></span>`).join('');document.querySelector('#change-rows').innerHTML=changes.map(c=>`<div class="change-row"><span class="change-date mono">${c.date}</span><span class="change-type ${c.type}">${c.label}</span><span class="change-copy">${c.copy}</span><span class="change-source">${c.source}</span><span class="change-arrow">${ICON_LINK}</span></div>`).join('')}
 
-renderClaims();renderStatusBar();renderSourceBars();renderCoverage();renderChanges();
 document.querySelectorAll('[data-view]').forEach(el=>el.addEventListener('click',()=>{const v=el.dataset.view;document.querySelectorAll('.nav-link').forEach(n=>n.classList.toggle('active',n.dataset.view===v));if(v==='ledger')document.querySelector('#ledger-section').scrollIntoView({behavior:'smooth'});else if(v==='coverage')document.querySelector('.coverage-summary').scrollIntoView({behavior:'smooth'});else if(v==='sentiment')document.querySelector('.sentiment-summary').scrollIntoView({behavior:'smooth'});else if(v==='changes')document.querySelector('#changes-section').scrollIntoView({behavior:'smooth'});else window.scrollTo({top:0,behavior:'smooth'})}));
 document.querySelector('.theme-toggle').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name="theme-color"]').content=dark?'#02205e':'#f5f4f4'});
-document.querySelector('.refresh-button').addEventListener('click',e=>{const b=e.currentTarget;b.disabled=true;b.textContent='Refreshing...';document.querySelector('.snapshot-state').innerHTML='<i></i> Snapshot refreshed';document.querySelector('.snapshot-banner p').innerHTML='<strong>Snapshot refreshed just now.</strong> No new changes were found in the checked source set.';document.querySelector('.snapshot-banner .overline').innerHTML='LATEST REFRESH <span class="mono">· JUST NOW</span>';setTimeout(()=>{b.disabled=false;b.innerHTML=ICON_REFRESH+' Refresh snapshot'},700)});
+// Refresh calls the real API. The admin gate is intentionally unprovisioned
+// for this demo (no OTP provider/broker approved), so the honest 503 is shown.
+document.querySelector('.refresh-button').addEventListener('click',async e=>{const b=e.currentTarget;b.disabled=true;b.textContent='Refreshing...';try{const r=await fetch('/api/companies/apple/refresh',{method:'POST'});const d=await r.json();document.querySelector('.snapshot-banner p').innerHTML=r.ok?'<strong>Snapshot refreshed.</strong> No new changes were found.':`<strong>Refresh unavailable in this demo.</strong> ${d.detail||'The admin gate is not provisioned.'}`;document.querySelector('.snapshot-banner .overline').innerHTML=`REFRESH ATTEMPT <span class="mono">· ${r.status}</span>`}catch{document.querySelector('.snapshot-banner p').textContent='Refresh failed: the demo API is unreachable.'}setTimeout(()=>{b.disabled=false;b.innerHTML=ICON_REFRESH+' Refresh snapshot'},700)});
+boot();
