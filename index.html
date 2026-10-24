@@ -20,11 +20,16 @@
     <div class="top-actions"><span class="snapshot-state"><i></i> Snapshot saved</span><button class="theme-toggle" aria-label="Switch color theme" title="Switch theme">◐</button></div>
   </header>
 
-  <main>
-    <div class="eyebrow page-kicker"><span>COMPANY EVIDENCE INDEX</span><span class="kicker-rule"></span><span>CAL HACKS 13.0</span></div>
-    <section class="company-head">
-      <div><p class="overline">PUBLIC COMPANY <span class="dot-sep">·</span> NASDAQ: AAPL</p><h1>Apple Inc.</h1><p class="lede">Claims, citations and change history, drawn from a named set of public sources.</p></div>
-      <div class="head-meta"><span class="meta-label">LATEST SNAPSHOT</span><span class="mono">OCT 24, 2026 · 09:42 UTC</span><button class="outline-button refresh-button">↻&nbsp; Refresh snapshot</button></div>
+  <main id="overview">
+    <p class="page-kicker"><span>COMPANY EVIDENCE INDEX</span><span class="kicker-rule"></span><span>CAL HACKS 13.0</span></p>
+
+    <section class="hero">
+      <h1>Apple Inc. <span class="ticker">(AAPL)</span></h1>
+      <p class="lede">Claims, citations and change history, drawn from a named set of public sources.</p>
+      <div class="hero-meta">
+        <div class="hero-snapshot"><span class="meta-label">LATEST SNAPSHOT</span><span class="mono">OCT 24, 2026 · 09:42 UTC</span></div>
+        <button class="outline-button refresh-button">↻&nbsp; Refresh snapshot</button>
+      </div>
     </section>
 
     <section class="metric-row" aria-label="Index summary">
@@ -34,13 +39,17 @@
       <div class="metric metric-last"><span class="metric-number">5 <small>/ 7</small></span><span class="metric-label">Sources checked</span><span class="metric-note">2 explicit coverage gaps</span></div>
     </section>
 
-    <section class="snapshot-banner" id="snapshot-banner" aria-live="polite"><div class="snapshot-icon">↗</div><div><span class="overline">LATEST REFRESH <span class="mono">· OCT 24, 2026</span></span><p><strong>2 changes</strong> since the previous snapshot: 1 new claim from Apple Newsroom, 1 source status updated.</p></div><button class="text-button" data-view="changes">View changes <span>→</span></button></section>
+    <section class="snapshot-banner" id="snapshot-banner" aria-live="polite">
+      <div class="snapshot-copy"><span class="overline">LATEST REFRESH <span class="mono">· OCT 24, 2026</span></span><p><strong>2 changes</strong> since the previous snapshot: 1 new claim from Apple Newsroom, 1 source status updated.</p></div>
+      <button class="text-button" data-view="changes">View changes <span>→</span></button>
+    </section>
 
     <div class="content-grid">
       <section class="ledger-section" id="ledger-section">
         <div class="section-heading"><div><p class="overline">EVIDENCE INDEX</p><h2>Claim ledger</h2></div><button class="text-button" data-view="ledger">All claims <span>→</span></button></div>
+        <div class="status-legend" aria-label="Status legend"><span class="status-pill supported">Supported</span><span class="status-pill unresolved">Unresolved</span><span class="status-pill contradicted">Contradicted</span></div>
         <div class="ledger-tools"><label class="search-wrap"><span>⌕</span><input id="claim-search" type="search" placeholder="Search claims or sources" aria-label="Search claims or sources" /></label><select id="status-filter" aria-label="Filter claims by status"><option value="all">All statuses</option><option value="supported">Supported</option><option value="contradicted">Contradicted</option><option value="unresolved">Unresolved</option></select></div>
-        <div class="table-head"><span>CLAIM / ATTRIBUTION</span><span>SOURCE & DATE</span><span>STATUS</span></div>
+        <div class="table-head"><span>CLAIM / ATTRIBUTION</span><span>SOURCE &amp; DATE</span><span>STATUS</span></div>
         <div id="claim-list" class="claim-list"></div>
         <div class="ledger-foot"><span>Showing <span id="visible-count">4</span> of 42 claims</span><button class="text-button" data-view="ledger">Open full ledger →</button></div>
       </section>
@@ -52,7 +61,7 @@
           <div class="coverage-count"><span class="metric-number accent-number">5</span><span>of 7 sources checked</span></div>
           <div class="coverage-bar"><i></i></div>
           <ul class="source-list"><li><span class="source-dot checked"></span><span>SEC EDGAR filings</span><span class="source-status">Checked</span></li><li><span class="source-dot checked"></span><span>Apple Newsroom</span><span class="source-status">Checked</span></li><li><span class="source-dot checked"></span><span>Google News RSS</span><span class="source-status">Checked</span></li><li><span class="source-dot gap"></span><span>Employee posts</span><span class="source-status">Manual only</span></li><li><span class="source-dot gap"></span><span>X public posts</span><span class="source-status">Not connected</span></li></ul>
-          <button class="text-button side-link" data-view="coverage">View methodology & all gaps <span>→</span></button>
+          <button class="text-button side-link" data-view="coverage">View methodology &amp; all gaps <span>→</span></button>
         </section>
         <section class="side-section sentiment-summary">
           <div class="section-heading side-heading"><div><p class="overline">SEPARATE EVIDENCE LAYER</p><h2>Sampled sentiment</h2></div><button class="icon-link" data-view="sentiment" aria-label="Open sentiment">↗</button></div>
