@@ -200,6 +200,21 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .chart-empty{width:100%;height:auto;margin:2px 0}
 .chart-empty line{stroke:var(--border-muted);stroke-dasharray:3 4}
 .chart-empty text{fill:var(--text-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+
+/* --- Interaction texture: hover depth and pressed states --- */
+.status-bar,.coverage-strip{box-shadow:inset 0 0 0 1px var(--border-muted)}
+.seg,.cov-seg{transition:filter var(--t-fast)}
+.seg:hover,.cov-seg:hover{filter:brightness(1.18)}
+.seg:active{transform:translateY(1px)}
+.claim-row{box-shadow:inset 0 0 0 0 transparent}
+.claim-row:hover{box-shadow:inset 2px 0 0 var(--color-brand)}
+.claim-row:active{background:var(--color-brand-border)}
+.outline-button:active,.text-button:active,.icon-link:active,.theme-toggle:active,.refresh-button:active{transform:translateY(1px)}
+.hbar rect{transition:fill var(--t-fast)}
+.hbar-row:hover .hbar rect{fill:var(--color-brand-hover)}
+.tl-dot{transition:transform var(--t-fast),filter var(--t-fast)}
+.tl-dot:hover{transform:scale(1.35)}
+.outline-button,.text-button,.icon-link,.theme-toggle{transition:color var(--t-fast),border-color var(--t-fast),transform var(--t-fast)}
 @media(max-width:900px){
   .topbar{gap:24px}
   .main-nav{gap:18px}
