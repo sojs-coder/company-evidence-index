@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f5f4f4" />
   <title>Open · Company Evidence Index</title>
-  <link rel="stylesheet" href="cal-hacks-tokens.css?v=4" />
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="stylesheet" href="cal-hacks-tokens.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body>
   <header class="topbar">
@@ -33,10 +33,10 @@
     </section>
 
     <section class="metric-row" aria-label="Index summary">
-      <div class="metric"><span class="metric-number accent-number">12</span><span class="metric-label">Claims indexed</span><span class="metric-note">across 4 source classes</span></div>
-      <div class="metric"><span class="metric-number">3</span><span class="metric-label">Contradicted</span><span class="metric-note">with cited evidence chains</span></div>
+      <div class="metric"><span class="metric-number accent-number" id="m-claims">12</span><span class="metric-label">Claims indexed</span><span class="metric-note" id="m-claims-note">across 4 source classes</span></div>
+      <div class="metric"><span class="metric-number" id="m-contradicted">3</span><span class="metric-label">Contradicted</span><span class="metric-note">with cited evidence chains</span></div>
       <div class="metric"><span class="metric-plain">Not connected</span><span class="metric-label">Sentiment registry</span><span class="metric-note">no live registry for this demo</span></div>
-      <div class="metric"><span class="metric-number">5 <small>/ 7</small></span><span class="metric-label">Sources checked</span><span class="metric-note">2 explicit coverage gaps</span></div>
+      <div class="metric"><span class="metric-number" id="m-sources">5 <small>/ 7</small></span><span class="metric-label">Sources checked</span><span class="metric-note" id="m-sources-note">2 explicit coverage gaps</span></div>
     </section>
 
     <p class="data-note" role="note">ILLUSTRATIVE SNAPSHOT · ALL FIGURES, CLAIMS AND SOURCE STATES ARE DEMO FIXTURES · NO LIVE SOURCES CONNECTED</p>
@@ -83,6 +83,6 @@
   </main>
   <footer><span>OPEN <span class="footer-dot">·</span> COMPANY EVIDENCE INDEX</span><span>ILLUSTRATIVE DATA · NOT ACTUAL APPLE FIGURES</span><span>Public sources only <span class="footer-dot">·</span> No investment recommendation</span></footer>
   <dialog id="claim-dialog" aria-labelledby="dialog-title"><form method="dialog"><button class="dialog-close" aria-label="Close details"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button></form><p class="overline" id="dialog-eyebrow">CLAIM DETAIL</p><h2 id="dialog-title"></h2><div id="dialog-body"></div></dialog>
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
