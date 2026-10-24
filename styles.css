@@ -174,12 +174,12 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 /* --- Charts (fixture-rendered, no libraries) --- */
 .chart-figure{margin:12px 0 4px}
 .chart-caption{font-size:11px;color:var(--text-faint);margin-top:6px;letter-spacing:.02em}
-.chart-tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:11px;padding:3px 8px;border-radius:0;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity var(--t-fast);z-index:5}
+.chart-tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:11px;padding:3px 8px;border-radius:0;white-space:nowrap;display:none;pointer-events:none;z-index:5}
 .status-bar{display:flex;gap:2px;position:relative}
 .seg{position:relative;display:block;height:10px;border:0;padding:0;cursor:pointer;border-radius:0}
 .seg:focus-visible,.cov-seg:focus-visible,.tl-dot:focus-visible{outline:2px solid var(--color-brand);outline-offset:2px}
 .seg.active{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--text)}
-.seg:hover .chart-tip,.seg:focus-visible .chart-tip,.cov-seg:hover .chart-tip,.cov-seg:focus-visible .chart-tip,.tl-dot:hover .chart-tip,.tl-dot:focus-visible .chart-tip{opacity:1}
+.seg:hover .chart-tip,.seg:focus-visible .chart-tip,.cov-seg:hover .chart-tip,.cov-seg:focus-visible .chart-tip,.tl-dot:hover .chart-tip,.tl-dot:focus-visible .chart-tip{display:block}
 .seg.u1{flex:1}.seg.u2{flex:2}.seg.u3{flex:3}.seg.u4{flex:4}.seg.u5{flex:5}.seg.u6{flex:6}.seg.u7{flex:7}.seg.u8{flex:8}.seg.u9{flex:9}.seg.u10{flex:10}.seg.u11{flex:11}.seg.u12{flex:12}
 .seg.supported{background:var(--color-success)}
 .seg.unresolved{background:var(--color-warning)}
