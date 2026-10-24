@@ -1,0 +1,208 @@
+{
+ "company": {
+  "id": "apple",
+  "name": "Apple Inc.",
+  "ticker": "AAPL"
+ },
+ "claims": [
+  {
+   "id": "CL-0042",
+   "claim": "Apple says iPhone 17 offers up to 30 hours of video playback.",
+   "attribution": "Apple product claim",
+   "source": "Apple Newsroom",
+   "date": "Sep 09, 2026",
+   "status": "supported",
+   "for": "Apple’s technical specifications list up to 30 hours of video playback for iPhone 17 Pro Max.",
+   "against": "No directly contradicting evidence found in the checked source set.",
+   "citation": "https://www.apple.com/newsroom/"
+  },
+  {
+   "id": "CL-0041",
+   "claim": "Apple will reach carbon neutrality across its entire footprint by 2030.",
+   "attribution": "Apple environmental commitment",
+   "source": "Apple Environment",
+   "date": "Apr 15, 2026",
+   "status": "unresolved",
+   "for": "Apple’s 2030 plan documents a target to become carbon neutral across its entire footprint.",
+   "against": "Latest independently verified progress data was not found in the sources checked for this snapshot.",
+   "citation": "https://www.apple.com/environment/"
+  },
+  {
+   "id": "CL-0040",
+   "claim": "Apple says MacBook Air with M4 delivers up to 18 hours of battery life.",
+   "attribution": "Apple product claim",
+   "source": "Apple Newsroom",
+   "date": "Mar 05, 2026",
+   "status": "supported",
+   "for": "The current technical specifications list up to 18 hours of video playback for MacBook Air with M4.",
+   "against": "Battery life varies by configuration and use; the figure is an Apple test maximum.",
+   "citation": "https://www.apple.com/newsroom/"
+  },
+  {
+   "id": "CL-0039",
+   "claim": "Apple Intelligence features are available in more than 10 languages.",
+   "attribution": "Apple product claim",
+   "source": "Apple Newsroom",
+   "date": "Sep 09, 2026",
+   "status": "contradicted",
+   "for": "Apple announced additional language support in a product update.",
+   "against": "The current support page lists 8 supported languages as of this snapshot.",
+   "citation": "https://www.apple.com/newsroom/"
+  },
+  {
+   "id": "CL-0038",
+   "claim": "Apple says it will invest $500 billion in US facilities over four years.",
+   "attribution": "Company commitment",
+   "source": "Apple Newsroom",
+   "date": "Feb 24, 2026",
+   "status": "unresolved",
+   "for": "Apple announced a four-year US investment commitment in a Newsroom release.",
+   "against": "Multi-year commitment; annual progress is not independently itemized in the checked source set.",
+   "citation": "https://www.apple.com/newsroom/"
+  },
+  {
+   "id": "CL-0037",
+   "claim": "Apple’s services business continues to grow year over year.",
+   "attribution": "Company statement · earnings call",
+   "source": "SEC 10-Q filing",
+   "date": "Jul 31, 2026",
+   "status": "supported",
+   "for": "Reported Services net sales were higher than the comparable prior-year quarter.",
+   "against": "None found in the cited filing; growth is for the reported period only.",
+   "citation": "https://www.sec.gov/edgar/browse/?CIK=320193"
+  },
+  {
+   "id": "CL-0036",
+   "claim": "Apple says Apple Pay is available in more than 75 markets worldwide.",
+   "attribution": "Apple product claim",
+   "source": "Apple Newsroom",
+   "date": "Jan 15, 2026",
+   "status": "supported",
+   "for": "Apple materials list Apple Pay availability across dozens of markets as of this snapshot.",
+   "against": "Market count changes between snapshots; not independently verified.",
+   "citation": "https://www.apple.com/newsroom/"
+  },
+  {
+   "id": "CL-0035",
+   "claim": "Apple says Services set an all-time revenue record in the June quarter.",
+   "attribution": "Company statement · earnings call",
+   "source": "SEC 10-Q filing",
+   "date": "Jul 31, 2026",
+   "status": "supported",
+   "for": "The 10-Q reports record Services net sales for the quarter.",
+   "against": "Records are company-reported figures for the stated period only.",
+   "citation": "https://www.sec.gov/edgar/browse/?CIK=320193"
+  },
+  {
+   "id": "CL-0034",
+   "claim": "Apple says Siri requests are always processed entirely on-device.",
+   "attribution": "Apple product claim",
+   "source": "Apple Support",
+   "date": "Jun 10, 2026",
+   "status": "contradicted",
+   "for": "Apple documents on-device processing for many Siri request types.",
+   "against": "The support page states some requests use Private Cloud Compute, so the blanket claim does not hold.",
+   "citation": "https://support.apple.com/"
+  },
+  {
+   "id": "CL-0033",
+   "claim": "Apple says all packaging will be fiber-based by the end of 2026.",
+   "attribution": "Apple environmental commitment",
+   "source": "Apple Environment",
+   "date": "Apr 15, 2026",
+   "status": "unresolved",
+   "for": "The environmental progress report restates the fiber-based packaging goal.",
+   "against": "The target date has not yet passed; final figures are not yet published.",
+   "citation": "https://www.apple.com/environment/"
+  },
+  {
+   "id": "CL-0032",
+   "claim": "Apple says iPhone 16e includes the Apple-designed C1 modem.",
+   "attribution": "Apple product claim",
+   "source": "Apple Newsroom",
+   "date": "Feb 19, 2026",
+   "status": "supported",
+   "for": "The Newsroom release and the product specification page name the C1 modem in iPhone 16e.",
+   "against": "None found in the cited source set.",
+   "citation": "https://www.apple.com/newsroom/"
+  },
+  {
+   "id": "CL-0031",
+   "claim": "Apple says notification summaries never change a notification’s meaning.",
+   "attribution": "Apple product claim",
+   "source": "Apple Support",
+   "date": "Jan 30, 2026",
+   "status": "contradicted",
+   "for": "Apple describes summaries as generated from notification content.",
+   "against": "The support page warns that summaries may contain errors and recommends checking the original notifications.",
+   "citation": "https://support.apple.com/"
+  }
+ ],
+ "sources": [
+  {
+   "name": "SEC EDGAR filings",
+   "state": "checked",
+   "note": "Checked · demo"
+  },
+  {
+   "name": "Apple Newsroom",
+   "state": "checked",
+   "note": "Checked · demo"
+  },
+  {
+   "name": "Google News RSS",
+   "state": "checked",
+   "note": "Checked · demo"
+  },
+  {
+   "name": "Apple investor relations",
+   "state": "checked",
+   "note": "Checked · demo"
+  },
+  {
+   "name": "Apple support pages",
+   "state": "checked",
+   "note": "Checked · demo"
+  },
+  {
+   "name": "Employee posts",
+   "state": "gap",
+   "note": "Manual only"
+  },
+  {
+   "name": "X public posts",
+   "state": "gap",
+   "note": "Not connected"
+  }
+ ],
+ "changes": [
+  {
+   "date": "OCT 24",
+   "type": "new",
+   "label": "NEW CLAIM",
+   "copy": "Apple announced expanded satellite features for iPhone 17.",
+   "source": "Apple Newsroom"
+  },
+  {
+   "date": "OCT 23",
+   "type": "updated",
+   "label": "SOURCE UPDATE",
+   "copy": "SEC filing index refreshed; no new filings detected.",
+   "source": "SEC EDGAR"
+  }
+ ],
+ "snapshots": [
+  {
+   "id": "snap-2026-10-23",
+   "capturedAt": "2026-10-23T09:41:00Z",
+   "manifestHash": "demo-prev-a3f1",
+   "illustrative": true
+  },
+  {
+   "id": "snap-2026-10-24",
+   "capturedAt": "2026-10-24T09:42:00Z",
+   "manifestHash": "demo-curr-9c42",
+   "illustrative": true
+  }
+ ]
+}
