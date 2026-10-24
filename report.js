@@ -14,7 +14,7 @@ async function boot(){
   document.querySelector('#run-summary').innerHTML=[
     ['Sources live',`${r.liveCount} / ${r.liveCount+r.downCount}`],
     ['Items collected',r.sources.reduce((n,s)=>n+s.itemCount,0)],
-    ['Generated',new Date(r.generatedAt).toUTCString().slice(17,25)+' UTC']
+    ['Run window',`${new Date(Math.min(...r.sources.map(s=>+new Date(s.fetchedAt)))).toUTCString().slice(17,25)} - ${new Date(r.generatedAt).toUTCString().slice(17,25)} UTC`]
   ].map(([k,v])=>`<div class="metric"><p class="metric-label">${k}</p><p class="metric-number">${v}</p></div>`).join('');
   document.querySelector('#run-sources').innerHTML=r.sources.map(s=>`<article class="result-block">
     <div class="result-head"><span class="collect-badge ${s.mode==='live'?'live':'down'}">${s.mode==='live'?'LIVE':'UNAVAILABLE'}</span><span class="mono faint">${esc(s.source)} · fetched ${new Date(s.fetchedAt).toUTCString().slice(17,25)} UTC${s.cached?' · cached 10 min':''} · ${s.itemCount} items</span></div>
