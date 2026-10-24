@@ -3,7 +3,7 @@
 // the claim ledger stays labeled as demo fixtures.
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function itemLine(i){
-  const title=i.form?`Form ${i.form} · ${i.description||'filing'}`:(i.title||'(untitled)');
+  const title=i.form?('Form '+i.form+(i.description?' · '+i.description:'')):(i.title||'(untitled)');
   const meta=i.outlet||(i.rating?i.rating+'/5':(i.points!=null?i.points+' pts':(i.date||'')));
   return `<li><span class="collect-item-title">${i.link?`<a class="detail-source" href="${esc(i.link)}" target="_blank" rel="noreferrer">${esc(title)}</a>`:esc(title)}</span>${meta?`<span class="faint">${esc(meta)}</span>`:''}</li>`;
 }
@@ -30,7 +30,7 @@ async function boot(){
   document.querySelector('#run-summary').insertAdjacentHTML('afterend',`<p class="type-strip">${Object.entries(byType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span><b>${v.toLocaleString('en-US')}</b> ${k}</span>`).join('')}</p>`);
   // Evidence stream: latest items across all live sources, dense.
   const stream=[];
-  for(const s of r.sources)for(const it of (s.allItems||s.items))stream.push({src:s.name,title:it.form?`Form ${it.form} · ${it.description||'filing'}`:(it.title||''),link:it.link||'',date:it.date||''});
+  for(const s of r.sources)for(const it of (s.allItems||s.items))stream.push({src:s.name,title:it.form?('Form '+it.form+(it.description?' · '+it.description:'')):(it.title||''),link:it.link||'',date:it.date||''});
   stream.sort((a,b)=>(Date.parse(b.date)||0)-(Date.parse(a.date)||0));
   document.querySelector('#evidence-stream').innerHTML=stream.slice(0,40).map(it=>`<li><span class="stream-src">${esc(it.src)}</span><span class="collect-item-title">${it.link?`<a class="detail-source" href="${esc(it.link)}" target="_blank" rel="noreferrer">${esc(it.title)}</a>`:esc(it.title)}</span><span class="mono faint">${esc(Date.parse(it.date)?new Date(Date.parse(it.date)).toISOString().slice(0,10):(it.date||'').slice(0,10))}</span></li>`).join('');
   const a=r.analysis;
