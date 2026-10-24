@@ -35,9 +35,11 @@
     <section class="metric-row" aria-label="Index summary">
       <div class="metric"><span class="metric-number accent-number">42</span><span class="metric-label">Claims indexed</span><span class="metric-note">across 3 source classes</span></div>
       <div class="metric"><span class="metric-number">3</span><span class="metric-label">Contradicted</span><span class="metric-note">with cited evidence chains</span></div>
-      <div class="metric"><span class="metric-number">recent quarters</span><span class="metric-label">Sentiment history</span><span class="metric-note">sampled mentions · 2024–26</span></div>
+      <div class="metric"><span class="metric-number">—</span><span class="metric-label">Sentiment registry</span><span class="metric-note">not connected for this demo</span></div>
       <div class="metric metric-last"><span class="metric-number">5 <small>/ 7</small></span><span class="metric-label">Sources checked</span><span class="metric-note">2 explicit coverage gaps</span></div>
     </section>
+
+    <p class="data-note" role="note">ILLUSTRATIVE SNAPSHOT · ALL FIGURES, CLAIMS AND SOURCE STATES ARE DEMO FIXTURES · NO LIVE SOURCES CONNECTED</p>
 
     <section class="snapshot-banner" id="snapshot-banner" aria-live="polite">
       <div class="snapshot-copy"><span class="overline">LATEST REFRESH <span class="mono">· OCT 24, 2026</span></span><p><strong>2 changes</strong> since the previous snapshot: 1 new claim from Apple Newsroom, 1 source status updated.</p></div>
@@ -48,6 +50,7 @@
       <section class="ledger-section" id="ledger-section">
         <div class="section-heading"><div><p class="overline">EVIDENCE INDEX</p><h2>Claim ledger</h2></div><button class="text-button" data-view="ledger">All claims <span>→</span></button></div>
         <div class="status-legend" aria-label="Status legend"><span class="status-pill supported">Supported</span><span class="status-pill unresolved">Unresolved</span><span class="status-pill contradicted">Contradicted</span></div>
+        <p class="small-note">Claims, statuses and citations below are illustrative demo fixtures.</p>
         <div class="ledger-tools"><label class="search-wrap"><span>⌕</span><input id="claim-search" type="search" placeholder="Search claims or sources" aria-label="Search claims or sources" /></label><select id="status-filter" aria-label="Filter claims by status"><option value="all">All statuses</option><option value="supported">Supported</option><option value="contradicted">Contradicted</option><option value="unresolved">Unresolved</option></select></div>
         <div class="table-head"><span>CLAIM / ATTRIBUTION</span><span>SOURCE &amp; DATE</span><span>STATUS</span></div>
         <div id="claim-list" class="claim-list"></div>
@@ -60,20 +63,21 @@
           <p class="side-copy">A defined source set. Coverage gaps are visible; absence of evidence is not evidence of wrongdoing.</p>
           <div class="coverage-count"><span class="metric-number accent-number">5</span><span>of 7 sources checked</span></div>
           <div class="coverage-bar"><i></i></div>
-          <ul class="source-list"><li><span class="source-dot checked"></span><span>SEC EDGAR filings</span><span class="source-status">Checked</span></li><li><span class="source-dot checked"></span><span>Apple Newsroom</span><span class="source-status">Checked</span></li><li><span class="source-dot checked"></span><span>Google News RSS</span><span class="source-status">Checked</span></li><li><span class="source-dot gap"></span><span>Employee posts</span><span class="source-status">Manual only</span></li><li><span class="source-dot gap"></span><span>X public posts</span><span class="source-status">Not connected</span></li></ul>
+          <ul class="source-list"><li><span class="source-dot checked"></span><span>SEC EDGAR filings</span><span class="source-status">Checked · demo</span></li><li><span class="source-dot checked"></span><span>Apple Newsroom</span><span class="source-status">Checked · demo</span></li><li><span class="source-dot checked"></span><span>Google News RSS</span><span class="source-status">Checked · demo</span></li><li><span class="source-dot gap"></span><span>Employee posts</span><span class="source-status">Manual only</span></li><li><span class="source-dot gap"></span><span>X public posts</span><span class="source-status">Not connected</span></li></ul>
+          <p class="small-note">Source states are illustrative; nothing was fetched for this demo snapshot.</p>
           <button class="text-button side-link" data-view="coverage">View methodology &amp; all gaps <span>→</span></button>
         </section>
         <section class="side-section sentiment-summary">
           <div class="section-heading side-heading"><div><p class="overline">SEPARATE EVIDENCE LAYER</p><h2>Sampled sentiment</h2></div><button class="icon-link" data-view="sentiment" aria-label="Open sentiment">↗</button></div>
           <p class="side-copy">Collected public mentions about Apple. This sample is not blended with verified financials.</p>
-          <div class="sentiment-figure"><span class="metric-number accent-number">[count removed]</span><span>historical mentions<br />registry aggregate</span></div>
+          <div class="sentiment-figure"><span class="metric-number accent-number">—</span><span>registry not connected<br />no aggregate shown</span></div>
           <div class="sentiment-pending"><span class="source-dot gap"></span><span>Sentiment breakdown pending data access</span></div>
-          <p class="small-note">Historical aggregate exists for 8 quarters, recent quarters. Current freshness, platform mix and per-record provenance are unverified.</p>
+          <p class="small-note">No registry is connected for this demo, so no aggregate figure is shown. A production view would list sampled mention counts here with per-record provenance.</p>
         </section>
       </aside>
     </div>
 
-    <section class="bottom-section" id="changes-section"><div class="section-heading"><div><p class="overline">PERSISTENT SNAPSHOT</p><h2>What changed</h2></div><button class="text-button" data-view="changes">Snapshot history <span>→</span></button></div><div class="change-row"><span class="change-date mono">OCT 24</span><span class="change-type new">NEW CLAIM</span><span class="change-copy">Apple announced expanded satellite features for iPhone 17.</span><span class="change-source">Apple Newsroom</span><span class="change-arrow">↗</span></div><div class="change-row"><span class="change-date mono">OCT 23</span><span class="change-type updated">SOURCE UPDATE</span><span class="change-copy">SEC filing index refreshed; no new filings detected.</span><span class="change-source">SEC EDGAR</span><span class="change-arrow">↗</span></div></section>
+    <section class="bottom-section" id="changes-section"><div class="section-heading"><div><p class="overline">PERSISTENT SNAPSHOT</p><h2>What changed</h2></div><button class="text-button" data-view="changes">Snapshot history <span>→</span></button></div><p class="small-note">Snapshot history entries are illustrative.</p><div class="change-row"><span class="change-date mono">OCT 24</span><span class="change-type new">NEW CLAIM</span><span class="change-copy">Apple announced expanded satellite features for iPhone 17.</span><span class="change-source">Apple Newsroom</span><span class="change-arrow">↗</span></div><div class="change-row"><span class="change-date mono">OCT 23</span><span class="change-type updated">SOURCE UPDATE</span><span class="change-copy">SEC filing index refreshed; no new filings detected.</span><span class="change-source">SEC EDGAR</span><span class="change-arrow">↗</span></div></section>
   </main>
   <footer><span>OPEN <span class="footer-dot">·</span> COMPANY EVIDENCE INDEX</span><span>ILLUSTRATIVE DATA · NOT ACTUAL APPLE FIGURES</span><span>Public sources only <span class="footer-dot">·</span> No investment recommendation</span></footer>
   <dialog id="claim-dialog" aria-labelledby="dialog-title"><form method="dialog"><button class="dialog-close" aria-label="Close details">×</button></form><p class="overline" id="dialog-eyebrow">CLAIM DETAIL</p><h2 id="dialog-title"></h2><div id="dialog-body"></div></dialog>
