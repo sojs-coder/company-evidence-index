@@ -1,191 +1,63 @@
-/* ============================================================
-   Cal Hacks hackathon project - design tokens
-   Adapted from Signalor's tokens.css (signalor/signalor,
-   apps/frontend/src/lib/styles/tokens.css) with the palette
-   swapped to Cal Hacks 13.0 colors observed on calhacks.io
-   (Oct 24, 2026). Token names and structure unchanged so the
-   same design system applies; values re-typed, no component
-   code carried over. Same one-accent editorial discipline:
-   accent is stroke and figure, never fill; hairlines and
-   whitespace over boxes; squared corners; serif throughout.
-
-   Accent mapping: gilt #b68235 -> brand blue #0560b4
-   Dark ground:    ink #171614  -> deep navy #02205e
-   Dark accent:    gilt #d3a459 -> sky #75bcff
-   ============================================================ */
+/* Company Evidence Index - design tokens
+   Single source for palette, type and rhythm. One blue accent: stroke and
+   figure, never fill. Hairlines and whitespace over boxes; squared corners;
+   serif body, mono data labels. Tints derive from their base color, so the
+   dark theme only restates base values. */
 
 @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap");
 
 :root {
-  /* --- Accent: one Cal Hacks blue, stroke and figure, never fill --- */
+  /* Accent: Cal Hacks blue */
   --color-brand: #0560b4;
-  --color-brand-hover: #044a8a; /* accent-700 - accent-colored running text, links */
-  --color-brand-muted: color-mix(in srgb, #0560b4 10%, transparent);
-  --color-brand-border: color-mix(in srgb, #0560b4 45%, transparent);
-  --glow-brand: none;
+  --color-brand-hover: #044a8a;
+  --color-brand-muted: color-mix(in srgb, var(--color-brand) 10%, transparent);
+  --color-brand-border: color-mix(in srgb, var(--color-brand) 45%, transparent);
 
-  /* Tonal ramp (blue, shared lightness scale; 400/900 anchor to site colors) */
-  --color-accent-100: #e9f3fe;
-  --color-accent-200: #d1e6fd;
-  --color-accent-300: #a9cdf5;
-  --color-accent-400: #75bcff; /* calhacks.io sky */
-  --color-accent-500: #3f90e8;
-  --color-accent-600: #0560b4; /* calhacks.io primary */
-  --color-accent-700: #044a8a;
-  --color-accent-800: #03376a;
-  --color-accent-900: #02205e; /* calhacks.io deep navy */
-
-  /* Secondary tint (no second brand hue in components; periwinkle for charts/highlights) */
-  --color-periwinkle: #a7a5f9; /* calhacks.io secondary */
-  --color-highlight: #b9df74;  /* calhacks.io grass - rare tint only, never text */
-
-  --color-neutral-100: #f8f6f6;
-  --color-neutral-200: #eae8e9;
-  --color-neutral-300: #d7d4d6;
-  --color-neutral-400: #bab7ba;
-  --color-neutral-500: #9b979b;
-  --color-neutral-600: #7d797f;
-  --color-neutral-700: #605c64;
-  --color-neutral-800: #443f48;
-  --color-neutral-900: #2c2832;
-
-  /* --- Sentiment (archival, desaturated - carried over unchanged) --- */
-  --color-sentiment-positive: #3f6b4a;
-  --color-sentiment-positive-muted: color-mix(in srgb, #3f6b4a 9%, transparent);
-  --color-sentiment-positive-border: color-mix(in srgb, #3f6b4a 40%, transparent);
-  --color-sentiment-neutral: #8a7238;
-  --color-sentiment-neutral-muted: color-mix(in srgb, #8a7238 9%, transparent);
-  --color-sentiment-neutral-border: color-mix(in srgb, #8a7238 40%, transparent);
-  --color-sentiment-negative: #8c3a34;
-  --color-sentiment-negative-muted: color-mix(in srgb, #8c3a34 9%, transparent);
-  --color-sentiment-negative-border: color-mix(in srgb, #8c3a34 40%, transparent);
-
-  /* --- Star / rating + status --- */
-  --color-star: #0560b4;
-  --color-status-active: #3f6b4a;
-  --color-status-inactive: #7d797f;
-  --color-status-paused: #7d797f;
-
-  /* Small badge/label text on light: neutral deepened for >= 4.5:1 on tint */
-  --color-badge-neutral-text: #6f5b2a;
-
-  /* --- Semantic --- */
+  /* Semantic: archival, desaturated */
   --color-success: #3f6b4a;
-  --color-success-muted: color-mix(in srgb, #3f6b4a 9%, transparent);
-  --color-success-border: color-mix(in srgb, #3f6b4a 40%, transparent);
   --color-warning: #8a7238;
-  --color-warning-muted: color-mix(in srgb, #8a7238 9%, transparent);
-  --color-warning-border: color-mix(in srgb, #8a7238 40%, transparent);
   --color-error: #8c3a34;
-  --color-error-muted: color-mix(in srgb, #8c3a34 9%, transparent);
-  --color-error-border: color-mix(in srgb, #8c3a34 40%, transparent);
-  --color-info: #0560b4;
-  --color-info-muted: color-mix(in srgb, #0560b4 9%, transparent);
-  --color-info-border: color-mix(in srgb, #0560b4 40%, transparent);
+  --color-success-muted: color-mix(in srgb, var(--color-success) 9%, transparent);
+  --color-success-border: color-mix(in srgb, var(--color-success) 40%, transparent);
+  --color-warning-muted: color-mix(in srgb, var(--color-warning) 9%, transparent);
+  --color-warning-border: color-mix(in srgb, var(--color-warning) 40%, transparent);
+  --color-error-muted: color-mix(in srgb, var(--color-error) 9%, transparent);
+  --color-error-border: color-mix(in srgb, var(--color-error) 40%, transparent);
 
-  /* --- Surfaces (Cal Hacks paper ground) --- */
+  /* Surfaces, text, hairlines */
   --bg: #f5f4f4;
-  --bg-raised: #f0efef;
-  --bg-elevated: #ebe9ec;
-  --surface: #faf9f9;
-  --surface-raised: #fcfbfc;
-
-  /* --- Text (navy ink) --- */
   --text: #101c36;
-  --text-muted: color-mix(in srgb, #101c36 62%, transparent);
-  --text-faint: color-mix(in srgb, #101c36 42%, transparent);
+  --text-muted: color-mix(in srgb, var(--text) 62%, transparent);
+  --text-faint: color-mix(in srgb, var(--text) 42%, transparent);
+  --border: color-mix(in srgb, var(--text) 16%, transparent);
+  --border-muted: color-mix(in srgb, var(--text) 8%, transparent);
 
-  /* --- Border: a single hairline rule colour --- */
-  --border: color-mix(in srgb, #101c36 16%, transparent);
-  --border-muted: color-mix(in srgb, #101c36 8%, transparent);
-
-  /* --- Typography (unchanged from Signalor) --- */
-  --font-sans: "Lora", Georgia, "Times New Roman", serif;
-  --font-body: var(--font-sans);
+  /* Type and rhythm */
+  --font-body: "Lora", Georgia, "Times New Roman", serif;
   --font-heading: "Cormorant Garamond", Georgia, serif;
-  --font-heading-weight: 600;
-  --font-mono: "DM Mono", "JetBrains Mono", "Fira Code", monospace;
-
-  /* --- Editorial rhythm (unchanged) --- */
-  --leading: 28px;
-  --half: 14px;
+  --font-mono: "DM Mono", "JetBrains Mono", monospace;
   --edge: clamp(20px, 5vw, 76px);
   --measure: 60ch;
 
-  /* --- Type scale (Major Third, unchanged) --- */
-  --text-2xs: 0.625rem;
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-  --text-3xl: 1.875rem;
-  --text-4xl: 2.25rem;
-  --text-5xl: 3rem;
-
-  --h1-size: clamp(2.75rem, 6.2vw, 5.25rem);
-  --h2-size: clamp(1.5rem, 2.4vw, 1.9rem);
-  --h3-size: clamp(1.375rem, 1.9vw, 1.65rem);
-  --h4-size: 1.3rem;
-  --h5-size: 1.125rem;
-  --h6-size: 0.8125rem;
-
-  /* --- Spacing (8px grid, unchanged) --- */
-  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem;
-  --space-4: 1rem; --space-5: 1.25rem; --space-6: 1.5rem;
-  --space-8: 2rem; --space-10: 2.5rem; --space-12: 3rem;
-  --space-16: 4rem; --space-20: 5rem; --space-24: 6rem; --space-32: 8rem;
-
-  /* --- Squared corners (unchanged); --r-full for avatars/dots only --- */
-  --r-none: 0; --r-sm: 0; --r-md: 0; --r-full: 9999px;
-
-  /* --- Transitions (unchanged) --- */
+  /* Motion and elevation: hairlines, not shadows; overlays only */
   --t-fast: 150ms ease;
-  --t-normal: 220ms ease;
-  --t-slow: 400ms cubic-bezier(0.16, 1, 0.3, 1);
-
-  /* --- Elevation: hairlines, not shadows; overlays only --- */
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: 0 12px 32px color-mix(in srgb, #101c36 18%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, var(--text) 18%, transparent);
   --scrim: color-mix(in srgb, #02205e 55%, transparent);
 }
 
-/* === DARK THEME - Cal Hacks deep navy ground, sky accent === */
+/* Dark: near-black navy ground, sky accent; tints follow the base colors */
 [data-theme="dark"] {
   --color-brand: #75bcff;
   --color-brand-hover: #a9cdf5;
-  --color-brand-muted: color-mix(in srgb, #75bcff 12%, transparent);
-  --color-brand-border: color-mix(in srgb, #75bcff 40%, transparent);
-
-  --bg: #02205e;
-  --bg-raised: #072a6e;
-  --bg-elevated: #0c347e;
-  --surface: #072a6e;
-  --surface-raised: #0c347e;
-
-  --text: #eef4ff;
-  --text-muted: color-mix(in srgb, #eef4ff 60%, transparent);
-  --text-faint: color-mix(in srgb, #eef4ff 38%, transparent);
-
-  --border: color-mix(in srgb, #eef4ff 18%, transparent);
-  --border-muted: color-mix(in srgb, #eef4ff 9%, transparent);
-
-  /* Sentiment / semantic, lifted for navy ground (badge/label text
-     measured >= 4.8:1 on its own 16% tint over #02205e) */
-  --color-sentiment-positive: #93c29a;
-  --color-sentiment-neutral: #d4ba76;
-  --color-sentiment-negative: #dda19a;
   --color-success: #93c29a;
   --color-warning: #d4ba76;
   --color-error: #dda19a;
-  --color-info: #75bcff;
-  --color-star: #75bcff;
-  --color-status-active: #93c29a;
-  --color-status-inactive: #8a94a8;
-  --color-status-paused: #8a94a8;
-
+  --bg: #081326;
+  --text: #eef4ff;
+  --text-muted: color-mix(in srgb, var(--text) 60%, transparent);
+  --text-faint: color-mix(in srgb, var(--text) 38%, transparent);
+  --border: color-mix(in srgb, var(--text) 24%, transparent);
+  --border-muted: color-mix(in srgb, var(--text) 12%, transparent);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
   --scrim: rgba(1, 12, 38, 0.62);
 }
