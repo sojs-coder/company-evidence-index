@@ -5,7 +5,8 @@
 // (docs/auth-backend-spec.md §9). Admin mutations return an honest
 // not-provisioned state instead of a fake gate. Public GETs only.
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 
 const PORT = process.env.PORT || 3000;
@@ -75,7 +76,7 @@ async function handleApi(req, res, url, ip) {
   if (p === '/api/companies/apple/report') return send(res, 200, await runReport());
   if (p === '/api/companies/apple/analysis') {
     const report = await runReport();
-    return send(res, 200, { ...report, analysis: matchClaims(report), history: runHistory, historyNote: 'Runs since last deploy only; nothing is persisted across restarts.' });
+    return send(res, 200, { ...report, analysis: matchClaims(report), history: store.runs, historyNote: 'Runs persist to disk within this deployment; a redeploy resets the store. No external database.' });
   }
   const traceMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z]+)\/trace$/);
   if (traceMatch && ALLOWED[traceMatch[1]]) {
@@ -216,7 +217,15 @@ async function collect(kind) {
     return { mode: 'unavailable', source: meta.label, name: meta.name, fetchedAt, detail: String(e.message || e), items: [] };
   }
 }
-const runHistory = [];
+// Persistence: JSON store on the deployment's local disk. Survives process
+// restarts inside this deployment; a redeploy or container replacement resets
+// it. No external database is provisioned.
+const STORE_PATH = join(ROOT, 'data', 'run-store.json');
+let store = { runs: [], items: {} };
+try { store = JSON.parse(await readFile(STORE_PATH, 'utf8')); } catch { /* first boot */ }
+async function saveStore() { try { await writeFile(STORE_PATH, JSON.stringify(store)); } catch { /* read-only fs */ } }
+const itemTitle = it => it.form ? `Form ${it.form} ${it.description || ''}` : (it.title || '');
+const itemKey = (sourceKey, it) => createHash('sha1').update(sourceKey + '|' + (it.link || (itemTitle(it) + '|' + (it.date || '')))).digest('hex').slice(0, 12);
 const STOP = new Set('the a an and or of to in on for with from by at as is are was were be been it its this that these those apple inc company aapl says said new over after before into their they will has have more than'.split(' '));
 const tokens = t => (String(t).toLowerCase().match(/[a-z][a-z0-9-]{2,}/g) || []).filter(w => !STOP.has(w));
 function matchClaims(report) {
@@ -258,8 +267,17 @@ async function runReport() {
     liveCount: sources.filter(s => s.mode === 'live').length, downCount: sources.filter(s => s.mode !== 'live').length,
     sources
   };
-  runHistory.push({ generatedAt: runAt, live: report.liveCount, down: report.downCount, items: sources.reduce((n, s) => n + s.itemCount, 0) });
-  if (runHistory.length > 20) runHistory.shift();
+  let newItems = 0, seenBefore = 0;
+  for (const s of sources) for (const it of s.allItems) {
+    const k = itemKey(s.key, it);
+    const rec = store.items[k];
+    if (rec) { rec.lastSeenAt = runAt; rec.runCount++; seenBefore++; }
+    else { store.items[k] = { source: s.name, title: itemTitle(it), link: it.link || '', date: it.date || '', firstSeenAt: runAt, lastSeenAt: runAt, runCount: 1 }; newItems++; }
+  }
+  store.runs.push({ generatedAt: runAt, live: report.liveCount, down: report.downCount, items: sources.reduce((n, s) => n + s.itemCount, 0), newItems });
+  if (store.runs.length > 50) store.runs.shift();
+  await saveStore();
+  report.persistence = { runs: store.runs.length, uniqueItems: Object.keys(store.items).length, newThisRun: newItems, seenBeforeThisRun: seenBefore, storage: 'on-disk JSON within this deployment', resetsOn: 'redeploy or container replacement' };
   return report;
 }
 
