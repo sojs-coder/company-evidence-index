@@ -4,15 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f5f4f4" />
-  <title>Collection run · Company Evidence Index</title>
-  <link rel="stylesheet" href="cal-hacks-tokens.css?v=10" />
-  <link rel="stylesheet" href="styles.css?v=10" />
+  <title>Apple Inc. · Company Evidence Index</title>
+  <link rel="stylesheet" href="cal-hacks-tokens.css?v=11" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
   <header class="topbar">
     <a class="wordmark" href="/" aria-label="Open home"><span class="mark">O</span><span>open<span class="wordmark-period">.</span></span></a>
     <nav class="main-nav" aria-label="Primary navigation">
-      <a class="nav-link" href="/">Company</a>
+      <a class="nav-link" href="/">Companies</a>
       <a class="nav-link" href="/collection.html">Collection</a>
       <a class="nav-link" href="/results.html">Results</a>
       <a class="nav-link active" href="/report.html">Report</a>
@@ -20,27 +20,26 @@
     <div class="top-actions"><span class="snapshot-state"><i></i> Live</span><button class="theme-toggle" aria-label="Switch color theme" title="Switch theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor"/></svg></button></div>
   </header>
   <main id="overview">
-    <p class="page-kicker"><span>COLLECTION RUN</span><span class="kicker-rule"></span><span id="run-stamp">RUNNING</span></p>
-    <section class="hero">
-      <h1>Run report</h1>
-      <p class="lede">One collection run, generated when this page opened. Each source shows its own fetch time; sources fetched within the last 10 minutes are served from the run cache. Every item links back to where it came from.</p>
-    </section>
-    <p class="data-note" role="note">GENERATED LIVE FROM PUBLIC SOURCES · PER-SOURCE FETCH TIMES SHOWN · EACH ITEM LINKS TO ITS ORIGIN · NO FIXTURE DATA ON THIS PAGE</p>
+    <div class="dash-head">
+      <div>
+        <p class="page-kicker"><span>COMPANY REPORT</span><span class="kicker-rule"></span><span id="run-stamp">RUNNING</span></p>
+        <h1 class="dash-title">Apple Inc. <span class="ticker">AAPL</span></h1>
+      </div>
+      <div class="dash-badges" id="run-badges"></div>
+    </div>
     <section id="run-summary" class="metric-row" aria-label="Run summary"></section>
-    <section class="bottom-section" aria-label="Collected volume and use">
-      <div class="section-heading"><div><p class="overline">COLLECTED VS OVERLAPPING</p><h2>How much of this run overlaps the ledger</h2></div></div>
-      <p class="small-note">Per source: items collected in this run vs items that share at least two significant terms with a claim in the ledger. Overlap marks candidate relevance for review - it is not verification, and an unmatched item is unexamined, not wrong.</p>
-      <div id="run-graph" class="util-graph" role="img" aria-label="Collected items versus items feeding candidate claim matches, per source"></div>
-      <div id="run-history" class="small-note"></div>
+    <section class="bottom-section" aria-label="Latest collected evidence">
+      <div class="section-heading"><div><p class="overline">EVIDENCE STREAM</p><h2>Latest collected items</h2></div><a class="text-button" href="/collection.html">By source <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h10M9 3.5 13 8l-4 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></a></div>
+      <div class="table-head stream-head"><span>SOURCE</span><span>ITEM</span><span>DATE</span></div>
+      <ul id="evidence-stream" class="stream-list"></ul>
     </section>
-    <section class="bottom-section" aria-label="Claims with candidate evidence">
-      <div class="section-heading"><div><p class="overline">CANDIDATE EVIDENCE</p><h2>Ledger claims with matching collected items</h2></div></div>
-      <p class="small-note">Keyword-overlap candidates from this run, for human review. Claims and their statuses remain demo-snapshot fixtures; the matched items are live.</p>
-      <div id="run-claims" class="results-list"></div>
+    <section class="bottom-section" aria-label="Volume by source">
+      <div class="section-heading"><div><p class="overline">BY SOURCE</p><h2>Collected volume</h2></div></div>
+      <div id="run-graph" class="util-graph"></div>
+      <p id="run-history" class="chart-caption"></p>
     </section>
-    <section id="run-sources" aria-label="Collected sources"></section>
+    <p class="chart-caption foot-note" id="foot-note"></p>
   </main>
-  <footer><span>OPEN <span class="footer-dot">·</span> COMPANY EVIDENCE INDEX</span><span>GENERATED LIVE FROM PUBLIC SOURCES ONLY</span><span>Public sources only <span class="footer-dot">·</span> No investment recommendation</span></footer>
-  <script src="report.js?v=11"></script>
+  <script src="report.js?v=12"></script>
 </body>
 </html>
