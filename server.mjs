@@ -73,6 +73,31 @@ async function handleApi(req, res, url, ip) {
   const collectMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z]+)$/);
   if (collectMatch && ALLOWED[collectMatch[1]]) return send(res, 200, await collect(collectMatch[1]));
   if (p === '/api/companies/apple/report') return send(res, 200, await runReport());
+  const traceMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z]+)\/trace$/);
+  if (traceMatch && ALLOWED[traceMatch[1]]) {
+    const d = await collect(traceMatch[1]);
+    const escH = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const itemRows = d.items.map(i => `<tr><td>${escH(i.date || '')}</td><td>${escH(i.form ? `Form ${i.form} · ${i.description || 'filing'}` : (i.title || ''))}</td><td>${escH(i.outlet || (i.rating ? i.rating + '/5' : (i.points != null ? i.points + ' pts' : '')))}</td></tr>`).join('');
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escH(d.name)} - collector execution</title><style>
+body{margin:0;background:#f5f4f4;color:#0f1115;font:13px/1.5 ui-monospace,Menlo,monospace;padding:14px 16px}
+.h{font-size:10px;letter-spacing:.14em;color:#02205e;text-transform:uppercase;margin:10px 0 4px}
+.line{background:#fff;border:1px solid #d8d9dc;padding:8px 10px;word-break:break-all}
+pre{background:#fff;border:1px solid #d8d9dc;padding:8px 10px;margin:0;white-space:pre-wrap;word-break:break-all;max-height:150px;overflow:hidden;font-size:10.5px;color:#3b3f47}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #d8d9dc}td{border-top:1px solid #ececef;padding:4px 8px;font-size:10.5px;vertical-align:top}
+td:first-child{white-space:nowrap;color:#6b7280;width:78px}td:last-child{color:#6b7280;width:70px}
+.badge{color:#1a7f37;border:1px solid #b7e4c7;background:#e9f7ef;padding:0 6px;font-size:10px;letter-spacing:.1em}
+.bad{color:#b42318;border:1px solid #f3c2bd;background:#fdf0ef;padding:0 6px;font-size:10px;letter-spacing:.1em}
+</style></head><body>
+<div class="h">${escH(d.name)} - collector execution ${d.mode==='live'?'<span class="badge">LIVE</span>':'<span class="bad">FAILED</span>'}</div>
+<div class="h">1 · Request</div><div class="line">GET ${escH(d.trace ? d.trace.url : d.source)}</div>
+<div class="h">2 · Source response</div><div class="line">${d.trace ? `HTTP ${d.trace.status} · ${d.trace.bytes.toLocaleString('en-US')} bytes · ${d.trace.durationMs} ms · fetched ${escH(d.fetchedAt)} · run ${escH(d.runId)}${d.cached?' · served from 10-min run cache':''}` : escH(d.detail || 'fetch failed')}</div>
+${d.trace?`<div class="h">3 · Raw response (excerpt)</div><pre>${escH(d.trace.excerpt)}</pre>`:''}
+<div class="h">4 · Extracted evidence (${d.items.length} items)</div>
+<table>${itemRows || '<tr><td>No items extracted.</td></tr>'}</table>
+</body></html>`;
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    return res.end(html);
+  }
 
   if (p === `/api/companies/${COMPANY}/refresh` || p.startsWith('/api/admin/ingest/')) {
     return send(res, 503, { error: 'admin_gate_not_provisioned', detail: 'Mutations are gated behind a one-time-code admin session (spec §2). No OTP provider or broker is provisioned for this demo, so this route is intentionally unavailable - no fake gate.' });
@@ -108,12 +133,14 @@ const collectCache = new Map();
 async function cappedFetch(url) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);
+  const started = Date.now();
   try {
     const r = await fetch(url, { headers: UA, signal: ctrl.signal });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const buf = await r.arrayBuffer();
     if (buf.byteLength > 2_000_000) throw new Error('response too large');
-    return Buffer.from(buf).toString('utf8');
+    const body = Buffer.from(buf).toString('utf8');
+    return { body, trace: { method: 'GET', url, status: r.status, bytes: buf.byteLength, durationMs: Date.now() - started, excerpt: body.slice(0, 1600) } };
   } finally { clearTimeout(t); }
 }
 const items = xml => [...xml.matchAll(/<item[ >][\s\S]*?<\/item>/g)].map(m => m[0]);
@@ -172,8 +199,8 @@ async function collect(kind) {
   const meta = SOURCES.find(s => s.key === kind);
   const fetchedAt = new Date().toISOString();
   try {
-    const raw = await cappedFetch(resolveUrl(kind, meta.url));
-    const data = { mode: 'live', source: meta.label, name: meta.name, fetchedAt, items: parse(kind, raw) };
+    const { body: raw, trace } = await cappedFetch(resolveUrl(kind, meta.url));
+    const data = { mode: 'live', source: meta.label, name: meta.name, fetchedAt, runId: fetchedAt, items: parse(kind, raw), trace };
     collectCache.set(kind, { at: Date.now(), data });
     return data;
   } catch (e) {
