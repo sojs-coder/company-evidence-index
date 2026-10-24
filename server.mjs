@@ -68,10 +68,58 @@ async function handleApi(req, res, url, ip) {
   if (p === `/api/companies/${COMPANY}/sentiment`) return send(res, 200, { state: 'not_connected', detail: 'No sentiment registry is connected for this demo, so no aggregate is served. A production view serves extract-backed aggregates with sample size, window, platforms and method (spec §7).', illustrative: true });
   if (p === `/api/companies/${COMPANY}/changes`) return send(res, 200, { snapshots: seed.snapshots, changes: seed.changes, illustrative: true });
 
+  // Live collection (public Apple material only). Real fetches, marked live;
+  // failures reported honestly. Host allowlist + caps per spec §4.
+  const collectMatch = p.match(/^\/api\/companies\/apple\/collect\/(edgar|newsroom|news)$/);
+  if (collectMatch) return send(res, 200, await collect(collectMatch[1]));
+
   if (p === `/api/companies/${COMPANY}/refresh` || p.startsWith('/api/admin/ingest/')) {
     return send(res, 503, { error: 'admin_gate_not_provisioned', detail: 'Mutations are gated behind a one-time-code admin session (spec §2). No OTP provider or broker is provisioned for this demo, so this route is intentionally unavailable - no fake gate.' });
   }
   return send(res, 404, { error: 'not_found', detail: `${p} is not part of the demo API surface (spec §8).` });
+}
+
+
+// --- Live collectors (public sources only; allowlisted hosts, size/timeout caps) ---
+const ALLOWED = { edgar: 'https://data.sec.gov/submissions/CIK0000320193.json', newsroom: 'https://www.apple.com/newsroom/rss-feed.rss', news: 'https://news.google.com/rss/search?q=Apple%20Inc&hl=en-US&gl=US&ceid=US:en' };
+const UA = { 'user-agent': 'company-evidence-index-demo (Cal Hacks 13.0; public-data collection)', accept: '*/*' };
+const collectCache = new Map();
+async function cappedFetch(url) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch(url, { headers: UA, signal: ctrl.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const buf = await r.arrayBuffer();
+    if (buf.byteLength > 2_000_000) throw new Error('response too large');
+    return Buffer.from(buf).toString('utf8');
+  } finally { clearTimeout(t); }
+}
+const items = xml => [...xml.matchAll(/<item[ >][\s\S]*?<\/item>/g)].map(m => m[0]);
+const field = (item, name) => { const m = item.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`)); return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').trim() : ''; };
+async function collect(kind) {
+  const hit = collectCache.get(kind);
+  if (hit && Date.now() - hit.at < 600_000) return { ...hit.data, cached: true };
+  const fetchedAt = new Date().toISOString();
+  try {
+    const raw = await cappedFetch(ALLOWED[kind]);
+    let data;
+    if (kind === 'edgar') {
+      const j = JSON.parse(raw);
+      const r = j.filings.recent;
+      data = { mode: 'live', source: 'SEC EDGAR submissions API', fetchedAt, items: r.form.slice(0, 5).map((f, i) => ({ form: f, date: r.filingDate[i], accession: r.accessionNumber[i], description: r.primaryDocDescription[i] || '' })) };
+    } else if (kind === 'newsroom') {
+      const entries = [...raw.matchAll(/<entry[ >][\s\S]*?<\/entry>/g)].map(m => m[0]);
+      const href = it => { const m = it.match(/<link[^>]*href="([^"]+)"/); return m ? m[1] : ''; };
+      data = { mode: 'live', source: 'Apple Newsroom Atom feed', fetchedAt, items: entries.slice(0, 5).map(it => ({ title: field(it, 'title'), date: field(it, 'updated'), link: href(it) })) };
+    } else {
+      data = { mode: 'live', source: 'Google News RSS (query: Apple Inc)', fetchedAt, items: items(raw).slice(0, 5).map(it => ({ title: field(it, 'title'), date: field(it, 'pubDate'), outlet: field(it, 'source') })) };
+    }
+    collectCache.set(kind, { at: Date.now(), data });
+    return data;
+  } catch (e) {
+    return { mode: 'unavailable', source: ALLOWED[kind], fetchedAt, detail: String(e.message || e), items: [] };
+  }
 }
 
 createServer(async (req, res) => {
