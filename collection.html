@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f5f4f4" />
   <title>Collection · Company Evidence Index</title>
-  <link rel="stylesheet" href="cal-hacks-tokens.css?v=7" />
-  <link rel="stylesheet" href="styles.css?v=7" />
+  <link rel="stylesheet" href="cal-hacks-tokens.css?v=8" />
+  <link rel="stylesheet" href="styles.css?v=8" />
 </head>
 <body>
   <header class="topbar">
@@ -15,16 +15,17 @@
       <a class="nav-link" href="/">Company</a>
       <a class="nav-link active" href="/collection.html">Collection</a>
       <a class="nav-link " href="/results.html">Results</a>
+      <a class="nav-link" href="/report.html">Report</a>
     </nav>
-    <div class="top-actions"><span class="snapshot-state"><i></i> Live + demo</span><button class="theme-toggle" aria-label="Switch color theme" title="Switch theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor"/></svg></button></div>
+    <div class="top-actions"><span class="snapshot-state"><i></i> <span id="collect-count">Live</span></span><button class="theme-toggle" aria-label="Switch color theme" title="Switch theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor"/></svg></button></div>
   </header>
   <main id="overview">
     <p class="page-kicker"><span>SOURCE TO FINDINGS</span><span class="kicker-rule"></span><span>APPLE (AAPL)</span></p>
     <section class="hero">
       <h1>Collection</h1>
-      <p class="lede">What the index pulls from each named public source. Live panels are fetched from the real source when this page loads; demo steps are labeled as such.</p>
+      <p class="lede">Twelve public sources, fetched from the real source when this page loads. Sources that cannot be collected live are labeled as such.</p>
     </section>
-    <p class="data-note" role="note">LIVE PANELS FETCH REAL PUBLIC DATA AT PAGE LOAD · DEMO PANELS ARE ILLUSTRATIVE FIXTURES · THE TWO ARE NEVER BLENDED</p>
+    <p class="data-note" role="note">EVERY LIVE PANEL FETCHES REAL PUBLIC DATA AT PAGE LOAD · NOT-LIVE SOURCES SAY SO · THE TWO ARE NEVER BLENDED</p>
     <section id="collect-live" class="collect-grid" aria-label="Live collection panels"></section>
     <section class="bottom-section">
       <div class="section-heading"><div><p class="overline">FIXED SOURCE SET</p><h2>Remaining sources and gaps</h2></div></div>
@@ -33,6 +34,6 @@
     </section>
   </main>
   <footer><span>OPEN <span class="footer-dot">·</span> COMPANY EVIDENCE INDEX</span><span>LIVE COLLECTION FROM PUBLIC SOURCES ONLY</span><span>Public sources only <span class="footer-dot">·</span> No investment recommendation</span></footer>
-  <script src="collection.js?v=7"></script>
+  <script src="collection.js?v=8"></script>
 </body>
 </html>
