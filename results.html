@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f5f4f4" />
+  <title>Results · Company Evidence Index</title>
+  <link rel="stylesheet" href="cal-hacks-tokens.css?v=7" />
+  <link rel="stylesheet" href="styles.css?v=7" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="wordmark" href="/" aria-label="Open home"><span class="mark">O</span><span>open<span class="wordmark-period">.</span></span></a>
+    <nav class="main-nav" aria-label="Primary navigation">
+      <a class="nav-link" href="/">Company</a>
+      <a class="nav-link " href="/collection.html">Collection</a>
+      <a class="nav-link active" href="/results.html">Results</a>
+    </nav>
+    <div class="top-actions"><span class="snapshot-state"><i></i> Snapshot Oct 24</span><button class="theme-toggle" aria-label="Switch color theme" title="Switch theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor"/></svg></button></div>
+  </header>
+  <main id="overview">
+    <p class="page-kicker"><span>RESULTS SUMMARY</span><span class="kicker-rule"></span><span>APPLE (AAPL) · DEMO SNAPSHOT</span></p>
+    <section class="hero">
+      <h1>What the index surfaced</h1>
+      <p class="lede">One snapshot, twelve claims, three contradictions with cited evidence chains, two coverage gaps named outright.</p>
+    </section>
+    <p class="data-note" role="note">DEMO SNAPSHOT · CLAIMS AND STATUSES ARE ILLUSTRATIVE FIXTURES · LIVE COLLECTION IS SHOWN SEPARATELY ON THE COLLECTION PAGE</p>
+    <section class="bottom-section">
+      <div class="section-heading"><div><p class="overline">CONTRADICTIONS FOUND</p><h2>Claims that do not hold up</h2></div></div>
+      <div id="results-contradicted" class="results-list"></div>
+    </section>
+    <section class="bottom-section">
+      <div class="section-heading"><div><p class="overline">STILL OPEN</p><h2>Unresolved, with the reason stated</h2></div></div>
+      <div id="results-unresolved" class="results-list"></div>
+    </section>
+    <section class="bottom-section">
+      <div class="section-heading"><div><p class="overline">KNOWN LIMITS</p><h2>What this snapshot cannot see</h2></div></div>
+      <div id="results-gaps" class="results-list"></div>
+      <p class="small-note">Absence of evidence is not evidence of wrongdoing. Gaps are named so the coverage of every conclusion is visible.</p>
+      <button class="text-button side-link" onclick="location.href='/'">Open the full ledger <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h10M9 3.5 13 8l-4 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+    </section>
+  </main>
+  <footer><span>OPEN <span class="footer-dot">·</span> COMPANY EVIDENCE INDEX</span><span>ILLUSTRATIVE DATA · NOT ACTUAL APPLE FIGURES</span><span>Public sources only <span class="footer-dot">·</span> No investment recommendation</span></footer>
+  <script src="results.js?v=7"></script>
+</body>
+</html>
