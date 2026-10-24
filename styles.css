@@ -126,6 +126,7 @@ select{background:transparent;border:0;border-bottom:1px solid var(--border);pad
 .sentiment-figure>span:last-child{font-size:10.5px;color:var(--text-muted);line-height:1.45}
 .sentiment-pending{display:flex;align-items:center;gap:9px;padding:11px 0;border-top:1px solid var(--border-muted);border-bottom:1px solid var(--border-muted);font-size:11.5px;color:var(--text-muted)}
 .small-note{font-size:10.5px;color:var(--text-faint);line-height:1.6;margin:14px 0 0}
+.data-note{margin:18px 0 0;font:11px var(--font-mono);letter-spacing:.09em;color:var(--text-faint)}
 
 /* ---------- What changed ---------- */
 .bottom-section{margin-top:56px;padding-top:30px;border-top:1px solid var(--border)}
@@ -185,4 +186,12 @@ dialog h2{font:600 28px/1.25 var(--font-heading);margin:10px 0 22px}
   .change-row{grid-template-columns:56px 84px 1fr 18px;gap:8px;font-size:12px}
   .change-source{display:none}
   footer{display:grid;gap:10px}
+}
+
+/* Dark ground softened from token navy to desaturated ink-navy (keeps sky accent) */
+[data-theme="dark"]{
+  --bg:#081326;--bg-raised:#0b1830;--bg-elevated:#0f1e3a;
+  --surface:#0b1830;--surface-raised:#0f1e3a;
+  --border:color-mix(in srgb,#eef4ff 24%,transparent);
+  --border-muted:color-mix(in srgb,#eef4ff 12%,transparent);
 }
