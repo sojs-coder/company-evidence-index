@@ -22,14 +22,17 @@ async function boot(){
   document.querySelector('#run-summary').innerHTML=[
     ['Items this run',total.toLocaleString('en-US'),`${r.liveCount} of ${r.liveCount+r.downCount} sources live`],
     ['Records on file',(p.uniqueItems||total).toLocaleString('en-US'),'deduplicated within each source'],
-    ['New this run',(p.newThisRun!=null?p.newThisRun:0).toLocaleString('en-US'),(p.seenBeforeThisRun||0).toLocaleString('en-US')+' already on file'],
+    ['New this run',(p.newThisRun!=null?p.newThisRun:0).toLocaleString('en-US'),(p.seenBeforeThisRun||0).toLocaleString('en-US')+' repeat sightings this run'],
     ['Runs recorded',(p.runs||1),'on-disk store, resets on redeploy']
   ].map(([k,v,n])=>`<div class="metric"><p class="metric-label">${k}</p><p class="metric-number">${v}</p><p class="metric-note">${n}</p></div>`).join('');
+  const TYPE={edgar:'Filings',newsroom:'Press',news:'Press',macrumors:'Press',ninetofive:'Press',verge:'Press',hackernews:'Forum stories',hncomments:'Comments',reviews:'Reviews',itunes:'App metadata',pageviews:'Time series',xbrl:'Time series',wikipedia:'Reference'};
+  const byType={};for(const s of r.sources){const t=TYPE[s.key]||'Other';byType[t]=(byType[t]||0)+s.itemCount}
+  document.querySelector('#run-summary').insertAdjacentHTML('afterend',`<p class="type-strip">${Object.entries(byType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span><b>${v.toLocaleString('en-US')}</b> ${k}</span>`).join('')}</p>`);
   // Evidence stream: latest items across all live sources, dense.
   const stream=[];
   for(const s of r.sources)for(const it of (s.allItems||s.items))stream.push({src:s.name,title:it.form?`Form ${it.form} · ${it.description||'filing'}`:(it.title||''),link:it.link||'',date:it.date||''});
-  stream.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  document.querySelector('#evidence-stream').innerHTML=stream.slice(0,40).map(it=>`<li><span class="stream-src">${esc(it.src)}</span><span class="collect-item-title">${it.link?`<a class="detail-source" href="${esc(it.link)}" target="_blank" rel="noreferrer">${esc(it.title)}</a>`:esc(it.title)}</span><span class="mono faint">${esc((it.date||'').slice(0,10))}</span></li>`).join('');
+  stream.sort((a,b)=>(Date.parse(b.date)||0)-(Date.parse(a.date)||0));
+  document.querySelector('#evidence-stream').innerHTML=stream.slice(0,40).map(it=>`<li><span class="stream-src">${esc(it.src)}</span><span class="collect-item-title">${it.link?`<a class="detail-source" href="${esc(it.link)}" target="_blank" rel="noreferrer">${esc(it.title)}</a>`:esc(it.title)}</span><span class="mono faint">${esc(Date.parse(it.date)?new Date(Date.parse(it.date)).toISOString().slice(0,10):(it.date||'').slice(0,10))}</span></li>`).join('');
   const a=r.analysis;
   const maxC=Math.max(1,...a.perSource.map(q=>q.collected));
   document.querySelector('#run-graph').innerHTML='<div class="util-legend"><span><i class="util-sw collected"></i>Collected this run</span></div>'+a.perSource.map((q,idx)=>`<div class="util-row" data-idx="${idx}" role="button" tabindex="0" aria-expanded="false"><span class="util-name">${esc(q.name)}</span><span class="util-bars"><span class="util-bar collected" style="width:${Math.round(q.collected/maxC*100)}%"></span></span><span class="util-nums"><b>${q.collected.toLocaleString('en-US')}</b>${q.mode!=='live'?' · unavailable':''}</span></div><div class="util-detail" id="util-detail-${idx}" hidden><ul class="collect-list">${q.items.slice(0,100).map(it=>`<li><span class="mono faint">${esc((it.date||'').slice(0,10))}</span><span class="collect-item-title">${it.link?`<a class="detail-source" href="${esc(it.link)}" target="_blank" rel="noreferrer">${esc(it.title)}</a>`:esc(it.title)}</span></li>`).join('')}${q.items.length>100?`<li class="faint">+${(q.items.length-100).toLocaleString('en-US')} more from this source</li>`:''}</ul></div>`).join('');
