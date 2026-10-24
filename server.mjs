@@ -122,15 +122,22 @@ const SOURCES = [
   { key: 'macrumors', name: 'MacRumors', url: 'https://feeds.macrumors.com/MacRumors-All', label: 'MacRumors RSS' },
   { key: 'ninetofive', name: '9to5Mac', url: 'https://9to5mac.com/feed/', label: '9to5Mac RSS' },
   { key: 'pageviews', name: 'Wikipedia pageviews', url: 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents/Apple_Inc./daily/PVDATES', label: 'Wikimedia pageviews API (Apple Inc. article)' },
-  { key: 'itunes', name: 'Apple on the App Store', url: 'https://itunes.apple.com/search?term=Apple&entity=software&limit=6', label: 'iTunes Search API' },
+  { key: 'itunes', name: 'Apple on the App Store', url: 'https://itunes.apple.com/search?term=Apple&entity=software&limit=50', label: 'iTunes Search API' },
   { key: 'reviews', name: 'App Store reviews', url: 'https://itunes.apple.com/us/rss/customerreviews/id=408709785/sortBy=mostRecent/json', label: 'App Store customer reviews RSS (GarageBand, an Apple app)' },
   { key: 'xbrl', name: 'SEC XBRL facts', url: 'https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax.json', label: 'SEC EDGAR XBRL company concept API' },
   { key: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', label: 'The Verge RSS' }
 ];
 const ALLOWED = Object.fromEntries(SOURCES.map(s => [s.key, s.url]));
+// Paginated collectors: several pages per source, fetched sequentially with
+// per-page caps. Bounded samples, deduplicated within the source by link.
+const MULTI = {
+  hackernews: Array.from({ length: 10 }, (_, i) => `https://hn.algolia.com/api/v1/search?query=Apple&tags=story&hitsPerPage=100&page=${i}`),
+  hncomments: Array.from({ length: 5 }, (_, i) => `https://hn.algolia.com/api/v1/search_by_date?query=Apple&tags=comment&hitsPerPage=100&page=${i}`),
+  reviews: Array.from({ length: 10 }, (_, i) => `https://itunes.apple.com/us/rss/customerreviews/page=${i + 1}/id=408709785/sortBy=mostRecent/json`)
+};
 function resolveUrl(key, url) {
   if (key !== 'pageviews') return url;
-  const end = new Date(); const start = new Date(end.getTime() - 6 * 864e5);
+  const end = new Date(); const start = new Date(end.getTime() - 364 * 864e5);
   const f = d => d.toISOString().slice(0, 10).replace(/-/g, '');
   return url.replace('PVDATES', `${f(start)}00/${f(end)}00`);
 }
@@ -156,28 +163,28 @@ const linkOf = it => { const m = it.match(/<link[^>]*href="([^"]+)"/) || it.matc
 function parse(kind, raw) {
   if (kind === 'edgar') {
     const r = JSON.parse(raw).filings.recent;
-    return r.form.slice(0, 5).map((f, i) => ({ form: f, date: r.filingDate[i], accession: r.accessionNumber[i], description: r.primaryDocDescription[i] || '', link: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000320193&type=${encodeURIComponent(f)}&dateb=&owner=include&count=10` }));
+    return r.form.slice(0, 1500).map((f, i) => ({ form: f, date: r.filingDate[i], accession: r.accessionNumber[i], description: r.primaryDocDescription[i] || '', link: `https://www.sec.gov/Archives/edgar/data/320193/${String(r.accessionNumber[i]).replace(/-/g, '')}/${r.primaryDocument[i] || ''}` }));
   }
   if (kind === 'newsroom') {
     const entries = [...raw.matchAll(/<entry[ >][\s\S]*?<\/entry>/g)].map(m => m[0]);
-    return entries.slice(0, 5).map(it => ({ title: field(it, 'title'), date: field(it, 'updated'), link: linkOf(it) }));
+    return entries.slice(0, 20).map(it => ({ title: field(it, 'title'), date: field(it, 'updated'), link: linkOf(it) }));
   }
-  if (kind === 'news') return items(raw).slice(0, 5).map(it => ({ title: field(it, 'title'), date: field(it, 'pubDate'), outlet: field(it, 'source'), link: field(it, 'link') }));
+  if (kind === 'news') return items(raw).slice(0, 30).map(it => ({ title: field(it, 'title'), date: field(it, 'pubDate'), outlet: field(it, 'source'), link: field(it, 'link') }));
   if (kind === 'wikipedia') {
     const j = JSON.parse(raw);
     return [{ title: j.title, date: j.timestamp, excerpt: (j.extract || '').slice(0, 220), link: j.content_urls && j.content_urls.desktop ? j.content_urls.desktop.page : '' }];
   }
   if (kind === 'hackernews') {
     const j = JSON.parse(raw);
-    return (j.hits || []).slice(0, 5).map(h => ({ title: h.title, date: (h.created_at || '').slice(0, 10), points: h.points, link: h.url || `https://news.ycombinator.com/item?id=${h.objectID}` }));
+    return (j.hits || []).map(h => ({ title: h.title, date: (h.created_at || '').slice(0, 10), points: h.points, link: h.url || `https://news.ycombinator.com/item?id=${h.objectID}` }));
   }
   if (kind === 'hncomments') {
     const j = JSON.parse(raw);
-    return (j.hits || []).slice(0, 5).map(h => ({ title: (h.comment_text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140), date: (h.created_at || '').slice(0, 10), outlet: `comment by ${h.author}`, link: `https://news.ycombinator.com/item?id=${h.objectID}` }));
+    return (j.hits || []).map(h => ({ title: (h.comment_text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140), date: (h.created_at || '').slice(0, 10), outlet: `comment by ${h.author}`, link: `https://news.ycombinator.com/item?id=${h.objectID}` }));
   }
   if (kind === 'pageviews') {
     const j = JSON.parse(raw);
-    return (j.items || []).slice(-5).reverse().map(v => ({ title: `${Number(v.views).toLocaleString('en-US')} views of Apple Inc.`, date: `${v.timestamp.slice(0,4)}-${v.timestamp.slice(4,6)}-${v.timestamp.slice(6,8)}`, link: 'https://en.wikipedia.org/wiki/Apple_Inc.' }));
+    return (j.items || []).slice().reverse().map(v => ({ title: `${Number(v.views).toLocaleString('en-US')} views of Apple Inc.`, date: `${v.timestamp.slice(0,4)}-${v.timestamp.slice(4,6)}-${v.timestamp.slice(6,8)}`, link: 'https://en.wikipedia.org/wiki/Apple_Inc.' }));
   }
   if (kind === 'xbrl') {
     const j = JSON.parse(raw);
@@ -186,12 +193,12 @@ function parse(kind, raw) {
   }
   if (kind === 'itunes') {
     const j = JSON.parse(raw);
-    return (j.results || []).slice(0, 5).map(a => ({ title: a.trackName, date: (a.currentVersionReleaseDate || '').slice(0, 10), link: a.trackViewUrl, outlet: a.sellerName }));
+    return (j.results || []).slice(0, 50).map(a => ({ title: a.trackName, date: (a.currentVersionReleaseDate || '').slice(0, 10), link: a.trackViewUrl, outlet: a.sellerName }));
   }
   if (kind === 'reviews') {
     const j = JSON.parse(raw);
     const entries = ((j.feed && j.feed.entry) || []).filter(e => e['im:rating']);
-    return entries.slice(0, 5).map(e => ({ title: e.title && e.title.label, date: e.updated && e.updated.label && e.updated.label.slice(0, 10), rating: e['im:rating'] && e['im:rating'].label, link: e.link && e.link.attributes ? e.link.attributes.href : '' }));
+    return entries.map(e => ({ title: e.title && e.title.label, date: e.updated && e.updated.label && e.updated.label.slice(0, 10), rating: e['im:rating'] && e['im:rating'].label, link: e.link && e.link.attributes ? e.link.attributes.href : '' }));
   }
   if (kind === 'stooq') {
     const lines = raw.trim().split('\n').filter(l => /^\d{4}-/.test(l));
@@ -199,9 +206,9 @@ function parse(kind, raw) {
   }
   // macrumors, ninetofive: RSS item feeds; verge: Atom feed
   const its = items(raw);
-  if (its.length) return its.slice(0, 5).map(it => ({ title: field(it, 'title'), date: field(it, 'pubDate'), link: linkOf(it) }));
+  if (its.length) return its.slice(0, 30).map(it => ({ title: field(it, 'title'), date: field(it, 'pubDate'), link: linkOf(it) }));
   const entries = [...raw.matchAll(/<entry[ >][\s\S]*?<\/entry>/g)].map(m => m[0]);
-  return entries.slice(0, 5).map(it => ({ title: field(it, 'title'), date: field(it, 'published') || field(it, 'updated'), link: linkOf(it) }));
+  return entries.slice(0, 30).map(it => ({ title: field(it, 'title'), date: field(it, 'published') || field(it, 'updated'), link: linkOf(it) }));
 }
 async function collect(kind) {
   const hit = collectCache.get(kind);
@@ -209,6 +216,20 @@ async function collect(kind) {
   const meta = SOURCES.find(s => s.key === kind);
   const fetchedAt = new Date().toISOString();
   try {
+    if (MULTI[kind]) {
+      const urls = MULTI[kind];
+      const pages = []; let bytes = 0, ms = 0;
+      for (const u of urls) {
+        try { const { body, trace } = await cappedFetch(u); pages.push(body); bytes += trace.bytes; ms += trace.durationMs; }
+        catch { break; } // stop at first failed page; keep what arrived
+      }
+      if (!pages.length) throw new Error('all pages failed');
+      const seen = new Set();
+      const itemsOut = pages.flatMap(b => parse(kind, b)).filter(it => { const k = it.link || ((it.title || '') + '|' + (it.date || '')); if (seen.has(k)) return false; seen.add(k); return true; });
+      const data = { mode: 'live', source: meta.label, name: meta.name, fetchedAt, runId: fetchedAt, items: itemsOut, trace: { method: 'GET', url: `${pages.length} pages, first ${urls[0]}`, status: 200, bytes, durationMs: ms, excerpt: pages[0].slice(0, 1600) } };
+      collectCache.set(kind, { at: Date.now(), data });
+      return data;
+    }
     const { body: raw, trace } = await cappedFetch(resolveUrl(kind, meta.url));
     const data = { mode: 'live', source: meta.label, name: meta.name, fetchedAt, runId: fetchedAt, items: parse(kind, raw), trace };
     collectCache.set(kind, { at: Date.now(), data });
