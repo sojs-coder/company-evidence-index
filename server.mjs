@@ -73,6 +73,10 @@ async function handleApi(req, res, url, ip) {
   const collectMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z]+)$/);
   if (collectMatch && ALLOWED[collectMatch[1]]) return send(res, 200, await collect(collectMatch[1]));
   if (p === '/api/companies/apple/report') return send(res, 200, await runReport());
+  if (p === '/api/companies/apple/analysis') {
+    const report = await runReport();
+    return send(res, 200, { ...report, analysis: matchClaims(report), history: runHistory, historyNote: 'Runs since last deploy only; nothing is persisted across restarts.' });
+  }
   const traceMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z]+)\/trace$/);
   if (traceMatch && ALLOWED[traceMatch[1]]) {
     const d = await collect(traceMatch[1]);
@@ -113,6 +117,7 @@ const SOURCES = [
   { key: 'news', name: 'Google News', url: 'https://news.google.com/rss/search?q=Apple%20Inc&hl=en-US&gl=US&ceid=US:en', label: 'Google News RSS (query: Apple Inc)' },
   { key: 'wikipedia', name: 'Wikipedia', url: 'https://en.wikipedia.org/api/rest_v1/page/summary/Apple_Inc.', label: 'Wikipedia REST summary API' },
   { key: 'hackernews', name: 'Hacker News', url: 'https://hn.algolia.com/api/v1/search?query=Apple&tags=story&hitsPerPage=5', label: 'Hacker News Algolia API' },
+  { key: 'hncomments', name: 'Hacker News comments', url: 'https://hn.algolia.com/api/v1/search_by_date?query=Apple&tags=comment&hitsPerPage=6', label: 'Hacker News Algolia API (public comments)' },
   { key: 'macrumors', name: 'MacRumors', url: 'https://feeds.macrumors.com/MacRumors-All', label: 'MacRumors RSS' },
   { key: 'ninetofive', name: '9to5Mac', url: 'https://9to5mac.com/feed/', label: '9to5Mac RSS' },
   { key: 'pageviews', name: 'Wikipedia pageviews', url: 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents/Apple_Inc./daily/PVDATES', label: 'Wikimedia pageviews API (Apple Inc. article)' },
@@ -165,6 +170,10 @@ function parse(kind, raw) {
     const j = JSON.parse(raw);
     return (j.hits || []).slice(0, 5).map(h => ({ title: h.title, date: (h.created_at || '').slice(0, 10), points: h.points, link: h.url || `https://news.ycombinator.com/item?id=${h.objectID}` }));
   }
+  if (kind === 'hncomments') {
+    const j = JSON.parse(raw);
+    return (j.hits || []).slice(0, 5).map(h => ({ title: (h.comment_text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140), date: (h.created_at || '').slice(0, 10), outlet: `comment by ${h.author}`, link: `https://news.ycombinator.com/item?id=${h.objectID}` }));
+  }
   if (kind === 'pageviews') {
     const j = JSON.parse(raw);
     return (j.items || []).slice(-5).reverse().map(v => ({ title: `${Number(v.views).toLocaleString('en-US')} views of Apple Inc.`, date: `${v.timestamp.slice(0,4)}-${v.timestamp.slice(4,6)}-${v.timestamp.slice(6,8)}`, link: 'https://en.wikipedia.org/wiki/Apple_Inc.' }));
@@ -207,6 +216,30 @@ async function collect(kind) {
     return { mode: 'unavailable', source: meta.label, name: meta.name, fetchedAt, detail: String(e.message || e), items: [] };
   }
 }
+const runHistory = [];
+const STOP = new Set('the a an and or of to in on for with from by at as is are was were be been it its this that these those apple inc company aapl says said new over after before into their they will has have more than'.split(' '));
+const tokens = t => (String(t).toLowerCase().match(/[a-z][a-z0-9-]{2,}/g) || []).filter(w => !STOP.has(w));
+function matchClaims(report) {
+  const pool = [];
+  for (const src of report.sources) for (const it of src.items) pool.push({ source: src.name, key: src.key, title: it.form ? `Form ${it.form} ${it.description || ''}` : (it.title || ''), link: it.link || '' });
+  const usedKeys = new Set();
+  const claimsOut = seed.claims.map(c => {
+    const ct = new Set(tokens(c.claim));
+    const matches = pool.map(it => {
+      const shared = [...new Set(tokens(it.title))].filter(w => ct.has(w));
+      const distinctive = shared.some(w => w.length >= 7) ? 1 : 0;
+      return { ...it, shared, score: shared.length + distinctive };
+    }).filter(m => m.score >= 2).sort((a, b) => b.score - a.score).slice(0, 4);
+    matches.forEach(m => usedKeys.add(m.key + '|' + m.title));
+    return { id: c.id, claim: c.claim, snapshotStatus: c.status, candidateMatches: matches };
+  });
+  const perSource = report.sources.map(src => {
+    const total = src.items.length;
+    const used = src.items.filter(it => usedKeys.has(src.key + '|' + (it.form ? `Form ${it.form} ${it.description || ''}` : (it.title || '')))).length;
+    return { key: src.key, name: src.name, mode: src.mode, collected: total, feedingFindings: used };
+  });
+  return { claims: claimsOut, perSource, totalCollected: pool.length, totalFeeding: usedKeys.size };
+}
 async function runReport() {
   const runAt = new Date().toISOString();
   const settled = await Promise.allSettled(SOURCES.map(s => collect(s.key)));
@@ -214,11 +247,14 @@ async function runReport() {
     const d = r.status === 'fulfilled' ? r.value : { mode: 'unavailable', source: SOURCES[i].label, name: SOURCES[i].name, fetchedAt: runAt, detail: String(r.reason), items: [] };
     return { key: SOURCES[i].key, name: d.name, source: d.source, mode: d.mode, fetchedAt: d.fetchedAt, cached: !!d.cached, itemCount: d.items.length, items: d.items.slice(0, 3), detail: d.detail };
   });
-  return {
+  const report = {
     company: 'Apple Inc. (AAPL)', generatedAt: runAt,
     liveCount: sources.filter(s => s.mode === 'live').length, downCount: sources.filter(s => s.mode !== 'live').length,
     sources
   };
+  runHistory.push({ generatedAt: runAt, live: report.liveCount, down: report.downCount, items: sources.reduce((n, s) => n + s.itemCount, 0) });
+  if (runHistory.length > 20) runHistory.shift();
+  return report;
 }
 
 createServer(async (req, res) => {
