@@ -221,8 +221,9 @@ const STOP = new Set('the a an and or of to in on for with from by at as is are 
 const tokens = t => (String(t).toLowerCase().match(/[a-z][a-z0-9-]{2,}/g) || []).filter(w => !STOP.has(w));
 function matchClaims(report) {
   const pool = [];
-  for (const src of report.sources) for (const it of src.items) pool.push({ source: src.name, key: src.key, title: it.form ? `Form ${it.form} ${it.description || ''}` : (it.title || ''), link: it.link || '' });
+  for (const src of report.sources) for (const it of (src.allItems || src.items)) pool.push({ source: src.name, key: src.key, title: it.form ? `Form ${it.form} ${it.description || ''}` : (it.title || ''), link: it.link || '' });
   const usedKeys = new Set();
+  const claimMatches = new Map();
   const claimsOut = seed.claims.map(c => {
     const ct = new Set(tokens(c.claim));
     const matches = pool.map(it => {
@@ -234,9 +235,14 @@ function matchClaims(report) {
     return { id: c.id, claim: c.claim, snapshotStatus: c.status, candidateMatches: matches };
   });
   const perSource = report.sources.map(src => {
-    const total = src.items.length;
-    const used = src.items.filter(it => usedKeys.has(src.key + '|' + (it.form ? `Form ${it.form} ${it.description || ''}` : (it.title || '')))).length;
-    return { key: src.key, name: src.name, mode: src.mode, collected: total, feedingFindings: used };
+    const all = src.allItems || src.items;
+    const itemsOut = all.map(it => {
+      const title = it.form ? `Form ${it.form} ${it.description || ''}` : (it.title || '');
+      const feeds = claimsOut.filter(c => c.candidateMatches.some(m => m.key === src.key && m.title === title)).map(c => c.id);
+      return { title, link: it.link || '', date: it.date || '', feeds };
+    });
+    const used = itemsOut.filter(i => i.feeds.length).length;
+    return { key: src.key, name: src.name, mode: src.mode, collected: src.itemCount, feedingFindings: used, items: itemsOut };
   });
   return { claims: claimsOut, perSource, totalCollected: pool.length, totalFeeding: usedKeys.size };
 }
@@ -245,7 +251,7 @@ async function runReport() {
   const settled = await Promise.allSettled(SOURCES.map(s => collect(s.key)));
   const sources = settled.map((r, i) => {
     const d = r.status === 'fulfilled' ? r.value : { mode: 'unavailable', source: SOURCES[i].label, name: SOURCES[i].name, fetchedAt: runAt, detail: String(r.reason), items: [] };
-    return { key: SOURCES[i].key, name: d.name, source: d.source, mode: d.mode, fetchedAt: d.fetchedAt, cached: !!d.cached, itemCount: d.items.length, items: d.items.slice(0, 3), detail: d.detail };
+    return { key: SOURCES[i].key, name: d.name, source: d.source, mode: d.mode, fetchedAt: d.fetchedAt, cached: !!d.cached, itemCount: d.items.length, items: d.items.slice(0, 3), allItems: d.items, detail: d.detail };
   });
   const report = {
     company: 'Apple Inc. (AAPL)', generatedAt: runAt,
