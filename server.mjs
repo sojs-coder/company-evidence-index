@@ -225,7 +225,7 @@ async function collect(kind) {
       }
       if (!pages.length) throw new Error('all pages failed');
       const seen = new Set();
-      const itemsOut = pages.flatMap(b => parse(kind, b)).filter(it => { const k = it.link || ((it.title || '') + '|' + (it.date || '')); if (seen.has(k)) return false; seen.add(k); return true; });
+      const itemsOut = pages.flatMap(b => parse(kind, b)).filter(it => { const k = (it.title || '') + '|' + (it.date || '') + '|' + (it.link || ''); if (seen.has(k)) return false; seen.add(k); return true; });
       const data = { mode: 'live', source: meta.label, name: meta.name, fetchedAt, runId: fetchedAt, items: itemsOut, trace: { method: 'GET', url: `${pages.length} pages, first ${urls[0]}`, status: 200, bytes, durationMs: ms, excerpt: pages[0].slice(0, 1600) } };
       collectCache.set(kind, { at: Date.now(), data });
       return data;
