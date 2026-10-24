@@ -309,3 +309,5 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .stream-src{font:10.5px var(--font-mono);letter-spacing:.06em;color:var(--text-faint);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .foot-note{margin-top:44px}
 @media(max-width:760px){.stream-head,.stream-list li{grid-template-columns:minmax(0,1fr) 76px}.stream-src{display:none}}
+.type-strip{display:flex;gap:22px;flex-wrap:wrap;font:11px var(--font-mono);letter-spacing:.06em;color:var(--text-faint);margin:14px 0 0}
+.type-strip b{color:var(--text);font-weight:500;margin-right:4px}
