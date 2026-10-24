@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f5f4f4" />
   <title>Collection run · Company Evidence Index</title>
-  <link rel="stylesheet" href="cal-hacks-tokens.css?v=8" />
-  <link rel="stylesheet" href="styles.css?v=8" />
+  <link rel="stylesheet" href="cal-hacks-tokens.css?v=9" />
+  <link rel="stylesheet" href="styles.css?v=9" />
 </head>
 <body>
   <header class="topbar">
@@ -27,9 +27,20 @@
     </section>
     <p class="data-note" role="note">GENERATED LIVE FROM PUBLIC SOURCES · PER-SOURCE FETCH TIMES SHOWN · EACH ITEM LINKS TO ITS ORIGIN · NO FIXTURE DATA ON THIS PAGE</p>
     <section id="run-summary" class="metric-row" aria-label="Run summary"></section>
+    <section class="bottom-section" aria-label="Collected volume and use">
+      <div class="section-heading"><div><p class="overline">COLLECTED VS USED</p><h2>How much of a run feeds the findings</h2></div></div>
+      <p class="small-note">Per source: items collected in this run vs items that share at least two significant terms with a claim in the ledger. Overlap marks candidate relevance for review - it is not verification, and an unmatched item is unexamined, not wrong.</p>
+      <div id="run-graph" class="util-graph" role="img" aria-label="Collected items versus items feeding candidate claim matches, per source"></div>
+      <div id="run-history" class="small-note"></div>
+    </section>
+    <section class="bottom-section" aria-label="Claims with candidate evidence">
+      <div class="section-heading"><div><p class="overline">CANDIDATE EVIDENCE</p><h2>Ledger claims with matching collected items</h2></div></div>
+      <p class="small-note">Keyword-overlap candidates from this run, for human review. Claims and their statuses remain demo-snapshot fixtures; the matched items are live.</p>
+      <div id="run-claims" class="results-list"></div>
+    </section>
     <section id="run-sources" aria-label="Collected sources"></section>
   </main>
   <footer><span>OPEN <span class="footer-dot">·</span> COMPANY EVIDENCE INDEX</span><span>GENERATED LIVE FROM PUBLIC SOURCES ONLY</span><span>Public sources only <span class="footer-dot">·</span> No investment recommendation</span></footer>
-  <script src="report.js?v=8"></script>
+  <script src="report.js?v=9"></script>
 </body>
 </html>
