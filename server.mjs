@@ -163,7 +163,7 @@ const linkOf = it => { const m = it.match(/<link[^>]*href="([^"]+)"/) || it.matc
 function parse(kind, raw) {
   if (kind === 'edgar') {
     const r = JSON.parse(raw).filings.recent;
-    return r.form.slice(0, 1500).map((f, i) => ({ form: f, date: r.filingDate[i], accession: r.accessionNumber[i], description: r.primaryDocDescription[i] || '', link: `https://www.sec.gov/Archives/edgar/data/320193/${String(r.accessionNumber[i]).replace(/-/g, '')}/${r.primaryDocument[i] || ''}` }));
+    return r.form.slice(0, 1500).map((f, i) => ({ form: f, date: r.filingDate[i], accession: r.accessionNumber[i], description: (r.primaryDocDescription[i] || '').toUpperCase() === f.toUpperCase() ? '' : (r.primaryDocDescription[i] || ''), link: `https://www.sec.gov/Archives/edgar/data/320193/${String(r.accessionNumber[i]).replace(/-/g, '')}/${r.primaryDocument[i] || ''}` }));
   }
   if (kind === 'newsroom') {
     const entries = [...raw.matchAll(/<entry[ >][\s\S]*?<\/entry>/g)].map(m => m[0]);
@@ -180,7 +180,7 @@ function parse(kind, raw) {
   }
   if (kind === 'hncomments') {
     const j = JSON.parse(raw);
-    return (j.hits || []).map(h => ({ title: (h.comment_text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140), date: (h.created_at || '').slice(0, 10), outlet: `comment by ${h.author}`, link: `https://news.ycombinator.com/item?id=${h.objectID}` }));
+    return (j.hits || []).map(h => ({ title: decodeEntities((h.comment_text || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim().slice(0, 140), date: (h.created_at || '').slice(0, 10), outlet: `comment by ${h.author}`, link: `https://news.ycombinator.com/item?id=${h.objectID}` }));
   }
   if (kind === 'pageviews') {
     const j = JSON.parse(raw);
@@ -245,13 +245,13 @@ const STORE_PATH = join(ROOT, 'data', 'run-store.json');
 let store = { runs: [], items: {} };
 try { store = JSON.parse(await readFile(STORE_PATH, 'utf8')); } catch { /* first boot */ }
 async function saveStore() { try { await writeFile(STORE_PATH, JSON.stringify(store)); } catch { /* read-only fs */ } }
-const itemTitle = it => it.form ? `Form ${it.form} ${it.description || ''}` : (it.title || '');
+const itemTitle = it => it.form ? (`Form ${it.form}` + (it.description ? ` · ${it.description}` : '')) : (it.title || '');
 const itemKey = (sourceKey, it) => createHash('sha1').update(sourceKey + '|' + (it.link || (itemTitle(it) + '|' + (it.date || '')))).digest('hex').slice(0, 12);
 const STOP = new Set('the a an and or of to in on for with from by at as is are was were be been it its this that these those apple inc company aapl says said new over after before into their they will has have more than'.split(' '));
 const tokens = t => (String(t).toLowerCase().match(/[a-z][a-z0-9-]{2,}/g) || []).filter(w => !STOP.has(w));
 function matchClaims(report) {
   const pool = [];
-  for (const src of report.sources) for (const it of (src.allItems || src.items)) pool.push({ source: src.name, key: src.key, title: it.form ? `Form ${it.form} ${it.description || ''}` : (it.title || ''), link: it.link || '' });
+  for (const src of report.sources) for (const it of (src.allItems || src.items)) pool.push({ source: src.name, key: src.key, title: itemTitle(it), link: it.link || '' });
   const usedKeys = new Set();
   const claimMatches = new Map();
   const claimsOut = seed.claims.map(c => {
