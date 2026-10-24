@@ -14,6 +14,7 @@ const WHAT={
   news:'Top current headlines matching Apple Inc from Google News.',
   wikipedia:'Current summary of the Apple Inc. article from the Wikipedia REST API.',
   hackernews:'Current Apple stories on Hacker News via the Algolia API.',
+  hncomments:'Recent public Hacker News comments mentioning Apple - public commentary, not official statements.',
   macrumors:'Latest Apple coverage from the MacRumors RSS feed.',
   ninetofive:'Latest Apple coverage from the 9to5Mac RSS feed.',
   verge:'Latest stories from The Verge\u2019s feed.',
@@ -22,12 +23,12 @@ const WHAT={
   xbrl:'Reported annual revenue for Apple from the SEC XBRL company concept API.',
   pageviews:'Daily views of the Apple Inc. Wikipedia article from the Wikimedia API.'
 };
-const ORDER=['edgar','newsroom','news','wikipedia','hackernews','macrumors','ninetofive','verge','itunes','reviews','xbrl','pageviews'];
+const ORDER=['edgar','newsroom','news','wikipedia','hackernews','hncomments','macrumors','ninetofive','verge','itunes','reviews','xbrl','pageviews'];
 const REST={sources:[
  {name:'OpenSecrets',note:'Requires an API key; no keyless public route, so no live panel in this build.'},
  {name:'Google Patents',note:'No public feed; HTML scraping blocked from this host, so no live panel in this build.'}
 ]};
-const NAMES={edgar:'SEC EDGAR filings',newsroom:'Apple Newsroom',news:'Google News',wikipedia:'Wikipedia',hackernews:'Hacker News',macrumors:'MacRumors',ninetofive:'9to5Mac',verge:'The Verge',itunes:'Apple on the App Store',reviews:'App Store reviews',xbrl:'SEC XBRL facts',pageviews:'Wikipedia pageviews'};
+const NAMES={edgar:'SEC EDGAR filings',newsroom:'Apple Newsroom',news:'Google News',wikipedia:'Wikipedia',hackernews:'Hacker News',hncomments:'HN comments (public)',macrumors:'MacRumors',ninetofive:'9to5Mac',verge:'The Verge',itunes:'Apple on the App Store',reviews:'App Store reviews',xbrl:'SEC XBRL facts',pageviews:'Wikipedia pageviews'};
 function card(inner,cls){return `<article class="collect-card ${cls||''}">${inner}</article>`}
 async function boot(){
   const wrap=document.querySelector('#collect-live');
@@ -36,7 +37,7 @@ async function boot(){
     catch(e){return{key,data:{mode:'unavailable',detail:String(e),items:[]}}}
   }));
   const liveCount=results.filter(r=>r.data.mode==='live').length;
-  document.querySelector('#collect-count').textContent=`${liveCount} OF 12 SOURCES REPORTING LIVE`;
+  document.querySelector('#collect-count').textContent=`${liveCount} OF 13 SOURCES REPORTING LIVE`;
   wrap.innerHTML=results.map(({key,data})=>card(`
     <div class="collect-head"><h2>${NAMES[key]}</h2><span class="collect-badge ${data.mode==='live'?'live':'down'}">${data.mode==='live'?'LIVE':'UNAVAILABLE'}</span></div>
     <p class="side-copy">${WHAT[key]}</p>
