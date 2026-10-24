@@ -4,85 +4,37 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f5f4f4" />
-  <title>Open · Company Evidence Index</title>
-  <link rel="stylesheet" href="cal-hacks-tokens.css?v=10" />
-  <link rel="stylesheet" href="styles.css?v=10" />
+  <title>Companies · Company Evidence Index</title>
+  <link rel="stylesheet" href="cal-hacks-tokens.css?v=11" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
   <header class="topbar">
-    <a class="wordmark" href="#overview" aria-label="Open home"><span class="mark">O</span><span>open<span class="wordmark-period">.</span></span></a>
+    <a class="wordmark" href="/" aria-label="Open home"><span class="mark">O</span><span>open<span class="wordmark-period">.</span></span></a>
     <nav class="main-nav" aria-label="Primary navigation">
-      <button class="nav-link active" data-view="overview">Company</button>
-      <button class="nav-link" data-view="ledger">Claim ledger <span class="nav-count">12</span></button>
-      <button class="nav-link" data-view="coverage">Coverage</button>
-      <button class="nav-link" data-view="sentiment">Sentiment</button>
-    <a class="nav-link" href="/collection.html">Collection</a><a class="nav-link" href="/results.html">Results</a><a class="nav-link" href="/report.html">Report</a></nav>
-    <div class="top-actions"><span class="snapshot-state"><i></i> Snapshot saved</span><button class="theme-toggle" aria-label="Switch color theme" title="Switch theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor"/></svg></button></div>
+      <a class="nav-link active" href="/">Companies</a>
+      <a class="nav-link" href="/collection.html">Collection</a>
+      <a class="nav-link" href="/results.html">Results</a>
+      <a class="nav-link" href="/report.html">Report</a>
+    </nav>
+    <div class="top-actions"><span class="snapshot-state"><i></i> Live</span><button class="theme-toggle" aria-label="Switch color theme" title="Switch theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor"/></svg></button></div>
   </header>
-
-  <main id="overview">
+  <main>
     <p class="page-kicker"><span>COMPANY EVIDENCE INDEX</span><span class="kicker-rule"></span><span>CAL HACKS 13.0</span></p>
-
     <section class="hero">
-      <h1>Apple Inc. <span class="ticker">(AAPL)</span></h1>
-      <p class="lede">Claims, citations and change history, drawn from a named set of public sources.</p>
-      <div class="hero-meta">
-        <div class="hero-snapshot"><span class="meta-label">LATEST SNAPSHOT</span><span class="mono">OCT 24, 2026 · 09:42 UTC</span></div>
-        <button class="outline-button refresh-button"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 8a5.2 5.2 0 1 1-1.5-3.7M13.2 2.2v3h-3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg> Refresh snapshot</button>
-      </div>
+      <h1>Companies</h1>
     </section>
-
-    <section class="metric-row" aria-label="Index summary">
-      <div class="metric"><span class="metric-number accent-number" id="m-claims">12</span><span class="metric-label">Claims indexed</span><span class="metric-note" id="m-claims-note">across 4 source classes</span></div>
-      <div class="metric"><span class="metric-number" id="m-contradicted">3</span><span class="metric-label">Contradicted</span><span class="metric-note">with cited evidence chains</span></div>
-      <div class="metric"><span class="metric-plain">Not connected</span><span class="metric-label">Sentiment registry</span><span class="metric-note">no live registry for this demo</span></div>
-      <div class="metric"><span class="metric-number" id="m-sources">5 <small>/ 7</small></span><span class="metric-label">Sources checked</span><span class="metric-note" id="m-sources-note">2 explicit coverage gaps</span></div>
-    </section>
-
-    <p class="data-note" role="note">ILLUSTRATIVE SNAPSHOT · ALL FIGURES, CLAIMS AND SOURCE STATES ARE DEMO FIXTURES · NO LIVE SOURCES CONNECTED</p>
-
-    <section class="snapshot-banner" id="snapshot-banner" aria-live="polite">
-      <div class="snapshot-copy"><span class="overline">LATEST REFRESH <span class="mono">· OCT 24, 2026</span></span><p><strong>2 changes</strong> since the previous snapshot: 1 new claim from Apple Newsroom, 1 source status updated.</p></div>
-      <button class="text-button" data-view="changes">View changes <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h10M9 3.5 13 8l-4 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
-    </section>
-
-    <div class="content-grid">
-      <section class="ledger-section" id="ledger-section">
-        <div class="section-heading"><div><p class="overline">EVIDENCE INDEX</p><h2>Claim ledger</h2></div><button class="text-button" data-view="ledger">All claims <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h10M9 3.5 13 8l-4 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button></div>
-        <div class="status-legend" aria-label="Status legend"><span class="status supported">Supported</span><span class="status unresolved">Unresolved</span><span class="status contradicted">Contradicted</span></div>
-        <figure class="chart-figure"><div id="status-bar" class="status-bar" role="group" aria-label="Composition of the 12 demo claims by status"></div><figcaption class="chart-caption">Share of the 12 demo claims by status. Select a segment to filter the ledger; select again to clear.</figcaption></figure>
-        <p class="small-note">Claims, statuses and citations below are illustrative demo fixtures.</p>
-        <div class="ledger-tools"><label class="search-wrap"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.4 10.4 13.6 13.6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><input id="claim-search" type="search" placeholder="Search claims or sources" aria-label="Search claims or sources" /></label><select id="status-filter" aria-label="Filter claims by status"><option value="all">All statuses</option><option value="supported">Supported</option><option value="contradicted">Contradicted</option><option value="unresolved">Unresolved</option></select></div>
-        <div class="table-head"><span>CLAIM / ATTRIBUTION</span><span>SOURCE &amp; DATE</span><span>STATUS</span></div>
-        <div id="claim-list" class="claim-list"></div>
-        <div class="ledger-foot"><span>Showing <span id="visible-count">12</span> of 12 claims</span><button class="text-button" data-view="ledger">Open full ledger <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h10M9 3.5 13 8l-4 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button></div>
-      </section>
-
-      <aside class="side-column">
-        <section class="side-section coverage-summary">
-          <div class="section-heading side-heading"><div><p class="overline">SOURCE TRANSPARENCY</p><h2>Coverage</h2></div><button class="icon-link" data-view="coverage" aria-label="Open coverage"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M5.5 4H12v6.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button></div>
-          <p class="side-copy">A defined source set. Coverage gaps are visible; absence of evidence is not evidence of wrongdoing.</p>
-          <div class="coverage-count"><span class="metric-number accent-number">5</span><span>of 7 sources checked</span></div>
-          <figure class="chart-figure"><div id="coverage-strip" class="coverage-strip" role="group" aria-label="Seven demo sources, five checked and two gaps"></div><figcaption class="chart-caption">Each segment is one demo source: filled for checked, hatched for a gap.</figcaption></figure>
-          <figure class="chart-figure"><div id="source-bars" class="source-bars" role="group" aria-label="Claims per source class"></div><figcaption class="chart-caption">Demo claims per source class.</figcaption></figure>
-          <ul class="source-list" id="source-list"></ul>
-          <p class="small-note">Source states are illustrative; nothing was fetched for this demo snapshot.</p>
-          <button class="text-button side-link" data-view="coverage">View methodology &amp; all gaps <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h10M9 3.5 13 8l-4 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
-        </section>
-        <section class="side-section sentiment-summary">
-          <div class="section-heading side-heading"><div><p class="overline">SEPARATE EVIDENCE LAYER</p><h2>Sampled sentiment</h2></div><button class="icon-link" data-view="sentiment" aria-label="Open sentiment"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M5.5 4H12v6.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button></div>
-          <p class="side-copy">Collected public mentions about Apple. This sample is not blended with verified financials.</p>
-          <div class="sentiment-figure"><span class="metric-plain">Not connected</span><span>no aggregate shown<br />for this demo</span></div>
-          <figure class="chart-figure"><svg class="chart-empty" viewBox="0 0 200 84" role="img" aria-label="Empty sentiment chart: no live registry connected"><line x1="8" y1="70" x2="192" y2="70"/><line x1="8" y1="42" x2="192" y2="42"/><line x1="8" y1="14" x2="192" y2="14"/><text x="100" y="46" text-anchor="middle">pending data access</text></svg><figcaption class="chart-caption">This chart will show sampled mention counts once a registry is connected. No data is implied here.</figcaption></figure>
-          <p class="small-note">No registry is connected for this demo, so no aggregate figure is shown. A production view would list sampled mention counts here with per-record provenance.</p>
-        </section>
-      </aside>
+    <div class="chip-row" role="listbox" aria-label="Companies" aria-multiselectable="true">
+      <span class="chip chip-on" role="option" aria-selected="true">Apple Inc. <span class="mono">AAPL</span></span>
     </div>
-
-    <section class="bottom-section" id="changes-section"><div class="section-heading"><div><p class="overline">PERSISTENT SNAPSHOT</p><h2>What changed</h2></div><button class="text-button" data-view="changes">Snapshot history <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h10M9 3.5 13 8l-4 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button></div><p class="small-note">Snapshot history entries are illustrative.</p><figure class="chart-figure"><div id="change-timeline" class="change-timeline" role="group" aria-label="Two demo changes across two snapshot days"></div><figcaption class="chart-caption">Demo changes by snapshot day.</figcaption></figure><div id="change-rows"></div></section>
+    <section class="company-grid">
+      <a class="company-card" href="/report.html">
+        <span class="company-card-top"><span class="company-name">Apple Inc.</span><span class="mono faint">AAPL · NASDAQ</span></span>
+        <span class="company-card-meta"><span class="badge-live">LIVE</span><span>13 public sources</span></span>
+        <span class="company-card-cta">Open report <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h10M9 3.5 13 8l-4 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span>
+      </a>
+    </section>
   </main>
-  <footer><span>OPEN <span class="footer-dot">·</span> COMPANY EVIDENCE INDEX</span><span>ILLUSTRATIVE DATA · NOT ACTUAL APPLE FIGURES</span><span>Public sources only <span class="footer-dot">·</span> No investment recommendation</span></footer>
-  <dialog id="claim-dialog" aria-labelledby="dialog-title"><form method="dialog"><button class="dialog-close" aria-label="Close details"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button></form><p class="overline" id="dialog-eyebrow">CLAIM DETAIL</p><h2 id="dialog-title"></h2><div id="dialog-body"></div></dialog>
-  <script src="app.js?v=10"></script>
+  <footer><span>OPEN <span class="footer-dot">·</span> COMPANY EVIDENCE INDEX</span><span>PUBLIC SOURCES ONLY</span><span>Cal Hacks 13.0 <span class="footer-dot">·</span> No investment recommendation</span></footer>
 </body>
 </html>
