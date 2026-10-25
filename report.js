@@ -28,6 +28,25 @@ async function boot(){
   const TYPE={edgar:'Filings',newsroom:'Press',news:'Press',macrumors:'Press',ninetofive:'Press',verge:'Press',hackernews:'Forum stories',hncomments:'Comments',reviews:'Reviews',mastodon:'Social posts',lemmy:'Forum posts',reddit:'Social posts',itunes:'App metadata',pageviews:'Time series',xbrl:'Filed figures',xbrl_ni:'Filed figures',xbrl_rd:'Filed figures',xbrl_eps:'Filed figures',wikipedia:'Reference'};
   const byType={};for(const s of r.sources){const t=TYPE[s.key]||'Other';byType[t]=(byType[t]||0)+(s.relevantCount!=null?s.relevantCount:s.itemCount)}
   document.querySelector('#run-summary').insertAdjacentHTML('afterend',`<p class="type-strip">${Object.entries(byType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span><b>${v.toLocaleString('en-US')}</b> ${k}</span>`).join('')}</p>`);
+  // Diligence memo summary: fundamentals, risk cues, competitors, open questions.
+  const d=r.diligence;
+  if(d){
+    const fyHead=d.fundamentals.map(f=>`<th>${esc(f.fy)}<div class="faint mono" style="font-weight:400">ended ${esc(f.date)}</div></th>`).join('');
+    const metrics=['Revenue','Net income','R&D expense','Diluted EPS'];
+    const fyRows=metrics.map(m=>`<tr><td>${m}</td>${d.fundamentals.map(f=>{const row=f.rows[m];return row?`<td><a class="detail-source" href="${esc(row.link)}" target="_blank" rel="noreferrer">${esc(row.value.split(' - ')[0])}</a><div class="faint mono" style="font-weight:400">us-gaap:${esc(row.concept)}</div></td>`:'<td class="faint">not collected</td>'}).join('')}</tr>`).join('');
+    const risk=(d.riskCues||[]).slice(0,6).map(x=>`<li><span class="mono faint">${esc(x.date)}</span><span class="collect-item-title">${x.link?`<a class="detail-source" href="${esc(x.link)}" target="_blank" rel="noreferrer">${esc(x.title)}</a>`:esc(x.title)}</span><span class="faint">${esc(x.source)} · cue: ${esc(x.cue)}</span></li>`).join('');
+    const comps=(d.competitors||[]).slice(0,8).map(c=>`<span><b>${c.count}</b> ${esc(c.name)}</span>`).join('');
+    const open=(d.openQuestions||[]).map(q=>`<li><span class="collect-item-title">${esc(q.area)}</span><span class="faint">${esc(q.detail)}</span></li>`).join('');
+    document.querySelector('#memo-body').innerHTML=
+      `<p class="chart-caption">${esc(d.labels.fundamentals)}</p>
+      <table class="memo-table"><thead><tr><th>Filed figure</th>${fyHead}</tr></thead><tbody>${fyRows}</tbody></table>
+      <p class="overline memo-sub">RISK-CUED COVERAGE</p><p class="chart-caption">${esc(d.labels.risk)}</p>
+      <ul class="collect-list">${risk||'<li class="faint">No risk-cued items this run.</li>'}</ul>
+      <p class="overline memo-sub">COMPETITIVE CO-MENTIONS</p><p class="chart-caption">${esc(d.labels.competitors)}</p>
+      <p class="type-strip">${comps||'<span class="faint">None this run.</span>'}</p>
+      <p class="overline memo-sub">OPEN QUESTIONS (MISSING EVIDENCE)</p><p class="chart-caption">${esc(d.labels.open)}</p>
+      <ul class="collect-list">${open||'<li class="faint">None identified this run.</li>'}</ul>`;
+  }
   // Evidence stream: latest items across all live sources, dense.
   const stream=[];
   for(const s of r.sources)for(const it of (s.relevantItems||s.allItems||s.items))stream.push({src:s.name,title:it.form?('Form '+it.form+(it.description?' · '+it.description:'')):(it.title||''),link:it.link||'',date:it.date||'',relevance:it.relevance||''});
