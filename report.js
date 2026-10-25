@@ -1,14 +1,116 @@
-// Company report dashboard: dense metrics, evidence stream, per-source
-// volume with drilldown, demo-ledger candidate matches. Live data only;
-// the claim ledger stays labeled as demo fixtures.
+// Evidence-led company report: claims and risks first, source records below.
+// Assessments use collected facts; wording matches stay separate from support.
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function itemLine(i){
   const title=i.form?('Form '+i.form+(i.description?' · '+i.description:'')):(i.title||'(untitled)');
   const meta=i.outlet||(i.rating?i.rating+'/5':(i.points!=null?i.points+' pts':(i.date||'')));
   return `<li><span class="collect-item-title">${i.link?`<a class="detail-source" href="${esc(i.link)}" target="_blank" rel="noreferrer">${esc(title)}</a>`:esc(title)}</span>${meta?`<span class="faint">${esc(meta)}</span>`:''}</li>`;
 }
-function failAll(msg){for(const sel of ['#run-summary','#memo-body','#evidence-stream','#run-graph','#claim-checks','#trend-chart']){const el=document.querySelector(sel);if(el)el.innerHTML=sel==='#evidence-stream'?`<li class="state-note state-error">${msg}</li>`:`<p class="state-note state-error">${msg}</p>`}}
+function renderEvidenceStream(stream){
+  const list=document.querySelector('#evidence-stream');
+  const more=document.querySelector('#evidence-stream-more');
+  let shown=0;
+  list.innerHTML=stream.length?'':'<li class="state-note">No collected items this run.</li>';
+  const loadMore=()=>{
+    const page=stream.slice(shown,shown+12);
+    list.insertAdjacentHTML('beforeend',page.map(it=>`<li><span class="stream-src">${esc(it.src)}</span><span class="collect-item-title">${it.link?`<a class="detail-source" href="${esc(it.link)}" target="_blank" rel="noreferrer">${esc(it.title)}</a>`:esc(it.title)}</span><span class="mono faint">${esc(Date.parse(it.date)?new Date(Date.parse(it.date)).toISOString().slice(0,10):(it.date||'').slice(0,10))}</span>${it.relevance?`<span class="rel-note">${esc(it.relevance)}</span>`:''}</li>`).join(''));
+    shown+=page.length;
+    more.hidden=shown>=stream.length;
+  };
+  more.querySelector('button').onclick=loadMore;
+  loadMore();
+}
+function failAll(msg){for(const sel of ['#key-takeaways','#risk-findings','#run-summary','#memo-body','#evidence-stream','#run-graph','#claim-checks','#trend-chart']){const el=document.querySelector(sel);if(el)el.innerHTML=['#evidence-stream','#key-takeaways'].includes(sel)?`<li class="state-note state-error">${msg}</li>`:`<p class="state-note state-error">${msg}</p>`}}
 function enableDownloads(){for(const id of ['download-memo','export-citations']){const a=document.getElementById(id);if(a){a.classList.remove('is-disabled');a.removeAttribute('aria-disabled')}}}
+function evidenceLink(title,link){
+  return link?`<a class="detail-source" href="${esc(link)}" target="_blank" rel="noreferrer">${esc(title)}</a>`:esc(title);
+}
+function evidencePassage(p){
+  return `<li><div>${evidenceLink(p.title,p.link)}</div><p class="finding-meta">${esc(p.source||'')} · ${esc(p.date||'')}${p.wording==='echo'?' · Repeated wording; same origin possible':p.wording==='separate'?' · Related reporting; distinct wording':''}</p>${p.excerpt?`<blockquote>${esc(p.excerpt)}</blockquote>`:''}</li>`;
+}
+function evidenceColumn(title,body){
+  return `<div class="finding-evidence"><h4>${esc(title)}</h4>${body}</div>`;
+}
+function renderClaimCards(v={}){
+  const cards=[
+    ...(v.figureChecks||[]).map(c=>({c,kind:'Filed figure'})),
+    ...(v.headlineChecks||[]).map(c=>({c,kind:'Company statement'})),
+    ...(v.contradictions||[]).map(c=>({c,kind:'Figure comparison'}))
+  ];
+  return cards.map(({c,kind},i)=>{
+    const filed=kind==='Filed figure',mismatch=kind==='Figure comparison';
+    const passages=c.passages||[];
+    const related=mismatch?[]:passages.filter(p=>!p.tension);
+    const conflicting=mismatch?passages:passages.filter(p=>p.tension);
+    const assessment=mismatch?'Compare period & metric':filed?'On the SEC record':conflicting.length?'Potential tension':related.some(p=>p.wording==='separate')?'Related reporting':related.length?'Repeated company wording':'Company statement';
+    const primary=filed?`<ul class="finding-sources"><li>${evidenceLink(c.claim,c.link)}<p class="finding-meta">${esc(c.basis)} · ${esc(c.date||'')}</p></li></ul>`:'';
+    const next=mismatch?'Compare the cited period, metric, and units with the SEC filing before treating the figures as conflicting.'
+      :filed?'Check that any press comparison uses the same fiscal period, accounting concept, and units.'
+      :conflicting.length?'Read the flagged passages against the original statement; check whether timing or scope explains the tension.'
+      :related.some(p=>p.wording==='separate')?'Trace the reporting to its original sources before counting it as independent corroboration.'
+      :related.length?'Find reporting based on an independent source, rather than another version of the company announcement.'
+      :'Check independent reporting and subsequent disclosures for this specific statement.';
+    return `<article class="finding-card">
+      <header class="finding-heading"><p class="overline">${esc(kind)} · ${String(i+1).padStart(2,'0')}</p><span class="badge-dim">${assessment}</span></header>
+      <h3>${esc(c.claim)}</h3>
+      <p class="finding-meta">${evidenceLink(c.basis||'Original source',c.link)}${c.date?' · '+esc(c.date):''}</p>
+      <div class="finding-columns">
+        ${evidenceColumn('Supporting evidence',primary||'<p class="finding-copy">The original company statement establishes what was announced. Related reporting is shown separately below.</p>')}
+        ${evidenceColumn('Conflicting evidence',conflicting.length?`<ul class="finding-sources">${conflicting.map(evidencePassage).join('')}</ul><p class="finding-copy">Flagged for comparison, not a confirmed contradiction.</p>`:'<p class="finding-copy">No direct contradiction identified in this run. Check scope and timing when comparing sources.</p>')}
+      </div>
+      ${related.length?`<details class="finding-related"><summary>Related coverage · ${related.length} matched passage${related.length===1?'':'s'}</summary><p class="finding-copy">${filed?'These passages contain the same figure string; compare the metric and period.':'Wording matches show relevance, not independent verification. Repeated versions of one story do not count as separate corroboration.'}</p><ul class="finding-sources">${related.map(evidencePassage).join('')}</ul></details>`:''}
+      <p class="finding-next"><strong>What to verify next</strong> ${next}</p>
+    </article>`;
+  }).join('')||'<p class="state-note">Next check: collect a company statement or filed figure to start a claim card.</p>';
+}
+const riskImplications={
+  'legal and regulatory proceedings':'Legal outcomes or changes in regulation can affect operating costs, distribution, and business practices.',
+  'data security and confidentiality':'Security incidents can disrupt services, expose confidential information, and affect customer trust.',
+  'carrier and channel performance':'Carrier and reseller performance can affect product availability and sales execution.',
+  'supply chain and manufacturing':'Component constraints or manufacturing disruption can affect availability, costs, and delivery timing.',
+  'workforce and talent':'Changes in staffing and retention can affect execution and product development.'
+};
+function renderRiskCards(d={}){
+  const cues=d.riskCues||[],cross=d.riskCross||[];
+  const covered=new Set(cross.map(x=>x.risk.link+'\n'+x.risk.title));
+  const cards=cues.map(cue=>{
+    const matches=cross.filter(x=>x.cue.title===cue.title&&x.cue.link===cue.link);
+    return {title:cue.title,source:cue.source,date:cue.date,link:cue.link,
+      label:matches.length?'Coverage + disclosed risk':'Risk mention',
+      meaning:matches.length?(riskImplications[matches[0].group]||`This coverage touches the disclosed risk area: ${matches[0].group}.`):`The mention contains the cue “${cue.cue||'risk'}”. Check the event, exposure, and timing before drawing a business conclusion.`,
+      evidence:matches.map(x=>({title:x.risk.title,link:x.risk.link,source:`10-K · ${x.risk.category||x.group}`,date:x.risk.date})),
+      context:matches.length?'The filing establishes that the company disclosed this exposure; the topic match does not establish that the reported event occurred.':'Trace this report to its original source and check subsequent company disclosures.',
+      next:'Verify the underlying event, company response, and measurable impact. Check whether other coverage relies on the same original source.'};
+  });
+  for(const rf of (d.riskFactors||[]).filter(rf=>!covered.has(rf.link+'\n'+rf.title)).slice(0,8)){
+    cards.push({title:rf.title,source:'10-K · '+(rf.category||'Item 1A'),date:rf.date,link:rf.link,
+      label:'Company-disclosed exposure',meaning:'This is an exposure the company names in its filing, not a finding that the risk has occurred.',
+      evidence:[],context:'Use the cited filing as the primary record of the disclosure.',
+      next:'Look for a dated event, changes in later filings, and quantified financial or operating effects.'});
+  }
+  return cards.map(c=>`<article class="finding-card">
+    <header class="finding-heading"><p class="overline">RISK / MENTION</p><span class="badge-dim">${c.label}</span></header>
+    <h3>${evidenceLink(c.title,c.link)}</h3><p class="finding-meta">${esc(c.source)} · ${esc(c.date||'')}</p>
+    <div class="finding-columns">
+      ${evidenceColumn('Why it matters',`<p class="finding-copy">${esc(c.meaning)}</p><p class="finding-meta">Interpretation / business context</p>`)}
+      ${evidenceColumn('What other evidence says',`${c.evidence.length?`<ul class="finding-sources">${c.evidence.map(evidencePassage).join('')}</ul>`:''}<p class="finding-copy">${esc(c.context)}</p>`)}
+    </div>
+    <p class="finding-next"><strong>What to verify next</strong> ${esc(c.next)}</p>
+  </article>`).join('')||'<p class="state-note">Next check: review the latest 10-K risk disclosures and dated coverage for specific exposures.</p>';
+}
+function renderTakeaways(d={},v={}){
+  const points=[];
+  for(const delta of (d.deltas||[]).slice(0,3)){
+    const row=(d.fundamentals||[])[0]?.rows?.[delta.metric];
+    points.push({text:`${delta.metric}: ${Number(delta.pct)>0?'+':''}${delta.pct}% year over year`,detail:`${delta.prev} → ${delta.cur} · computed from filed figures`,link:row?.link});
+  }
+  const tensions=(v.headlineChecks||[]).filter(c=>(c.passages||[]).some(p=>p.tension));
+  if(tensions.length)points.push({text:`${tensions.length} company statement${tensions.length===1?'':'s'} to compare with flagged coverage`,detail:'Review the passages for differences in timing, scope, or wording.',link:'#questions'});
+  const risk=(d.riskCross||[])[0];
+  if(risk)points.push({text:`Coverage touches ${risk.group}`,detail:'Compare the reported event with the company’s own disclosed exposure.',link:'#risks'});
+  else if(d.riskCues?.length)points.push({text:`${d.riskCues.length} risk mentions to investigate`,detail:'Each mention includes context and a concrete follow-up.',link:'#risks'});
+  return points.map(p=>`<li><h3>${p.link?.startsWith('#')?`<a class="detail-source" href="${p.link}">${esc(p.text)}</a>`:evidenceLink(p.text,p.link)}</h3><p class="finding-copy">${esc(p.detail)}</p></li>`).join('')||'<li><h3>Start with the source record</h3><p class="finding-copy">Review the questions and cited statements below, then follow the verification steps.</p></li>';
+}
 function renderAspectSentiment(aspects){
   return aspects.map(a=>{
     const share=n=>a.count?n/a.count*100:0;
@@ -51,40 +153,31 @@ async function boot(){
   const TYPE={edgar:'Filings',newsroom:'Press',news:'Press',macrumors:'Press',ninetofive:'Press',verge:'Press',hackernews:'Forum stories',hncomments:'Comments',reviews:'Reviews',mastodon:'Social posts',lemmy:'Forum posts',reddit:'Social posts',itunes:'App metadata',pageviews:'Time series',xbrl:'Filed figures',xbrl_ni:'Filed figures',xbrl_rd:'Filed figures',xbrl_eps:'Filed figures',riskfactors:'Filings',wikipedia:'Reference'};
   const byType={};for(const s of r.sources){const t=TYPE[s.key]||'Other';byType[t]=(byType[t]||0)+(s.relevantCount!=null?s.relevantCount:s.itemCount)}
   document.querySelector('#run-summary').insertAdjacentHTML('afterend',`<p class="type-strip">${Object.entries(byType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span><b>${v.toLocaleString('en-US')}</b> ${k}</span>`).join('')}</p>`);
-  // Diligence memo summary: fundamentals, risk cues, competitors, open questions.
   const d=r.diligence;
+  document.querySelector('#key-takeaways').innerHTML=renderTakeaways(d,r.validation);
+  document.querySelector('#risk-findings').innerHTML=renderRiskCards(d);
+  // Reference financials and collection context.
   if(d){
     const fyHead=d.fundamentals.map(f=>`<th>${esc(f.fy)}<div class="faint mono" style="font-weight:400">ended ${esc(f.date)}</div></th>`).join('');
     const metrics=['Revenue','Net income','R&D expense','Diluted EPS'];
     const fyRows=metrics.map(m=>`<tr><td>${m}</td>${d.fundamentals.map(f=>{const row=f.rows[m];return row?`<td><a class="detail-source" href="${esc(row.link)}" target="_blank" rel="noreferrer">${esc(row.value.split(' - ')[0])}</a><div class="faint mono" style="font-weight:400">us-gaap:${esc(row.concept)}${row.accession?' · accession '+esc(row.accession)+', filed '+esc(row.filed):''}</div></td>`:'<td class="faint">not collected</td>'}).join('')}</tr>`).join('');
     const deltaRow=`<tr><td>YoY change (computed)</td>${d.fundamentals.map((f,fi)=>{const cells=metrics.map(m=>{const x=(d.deltas||[]).find(q=>q.metric===m);return x?x.pct+'%':'-'}).join(' / ');return fi===0?`<td>${cells}</td>`:'<td class="faint">-</td>'}).join('')}</tr>`;
-    const risk=(d.riskCues||[]).slice(0,6).map(x=>`<li><span class="mono faint">${esc(x.date)}</span><span class="collect-item-title">${x.link?`<a class="detail-source" href="${esc(x.link)}" target="_blank" rel="noreferrer">${esc(x.title)}</a>`:esc(x.title)}</span><span class="faint">${esc(x.source)} · cue: ${esc(x.cue)}</span></li>`).join('');
     const comps=(d.competitors||[]).slice(0,8).map(c=>`<span><b>${c.count}</b> ${esc(c.name)}</span>`).join('');
     const open=(d.openQuestions||[]).map(q=>`<li><span class="collect-item-title">${esc(q.area)}</span><span class="faint">${esc(q.detail)}</span></li>`).join('');
     document.querySelector('#memo-body').innerHTML=
       `<p class="chart-caption">${esc(d.labels.fundamentals)}</p>
       <table class="memo-table"><thead><tr><th>Filed figure</th>${fyHead}</tr></thead><tbody>${fyRows}${deltaRow}</tbody></table>
       <p class="chart-caption">${esc(d.labels.deltas||'')}</p>
-      <p class="overline memo-sub">EVIDENCE BALANCE (BUSINESS FACTS)</p><p class="chart-caption">${esc(d.labels.balance||'')}</p>
-      <ul class="collect-list">${(d.toward||[]).map(t=>`<li><span class="collect-item-title">Toward:</span><span class="faint">${esc(t.text||t)}${t.link?` <a class="detail-source" href="${esc(t.link)}" target="_blank" rel="noreferrer">source</a>`:''}</span></li>`).join('')}${(d.against||[]).map(t=>`<li><span class="collect-item-title">Against / unresolved:</span><span class="faint">${esc(t.text||t)}${t.link?` <a class="detail-source" href="${esc(t.link)}" target="_blank" rel="noreferrer">source</a>`:''}</span></li>`).join('')}</ul>
-      <p class="overline memo-sub">FILING-DISCLOSED RISK FACTORS (10-K ITEM 1A)</p><p class="chart-caption">${esc(d.labels.riskFactors||'')}${d.rfMeta?' 10-K accession '+esc(d.rfMeta.accession)+', filed '+esc(d.rfMeta.filed)+'.':''}</p>
-      <ul class="collect-list">${(d.riskFactors||[]).slice(0,8).map(rf=>`<li><span class="collect-item-title">${rf.link?`<a class="detail-source" href="${esc(rf.link)}" target="_blank" rel="noreferrer">${esc(rf.title)}</a>`:esc(rf.title)}</span><span class="faint">${esc(rf.category)}</span></li>`).join('')||'<li class="faint">Not collected this run.</li>'}${(d.riskFactors||[]).length>8?`<li class="faint">+${d.riskFactors.length-8} more disclosed risks in the downloaded memo.</li>`:''}</ul>
-      <p class="overline memo-sub">COVERAGE VS DISCLOSED RISKS</p><p class="chart-caption">${esc(d.labels.riskCross||'')}</p>
-      <ul class="collect-list">${(d.riskCross||[]).map(x=>`<li><span class="collect-item-title">${x.cue.link?`<a class="detail-source" href="${esc(x.cue.link)}" target="_blank" rel="noreferrer">${esc(x.cue.title)}</a>`:esc(x.cue.title)}</span><span class="faint">${esc(x.cue.source)} - disclosed risk area: ${esc(x.group)}</span></li>`).join('')||'<li class="faint">No collected coverage item matches a disclosed risk factor this run.</li>'}</ul>
-      <p class="overline memo-sub">RISK-CUED COVERAGE</p><p class="chart-caption">${esc(d.labels.risk)}</p>
-      <ul class="collect-list">${risk||'<li class="faint">No risk-cued items this run.</li>'}</ul>
-      <p class="overline memo-sub">RESEARCH QUESTIONS</p>
-      <ul class="collect-list">${(d.researchQuestions||[]).map(q=>`<li><span class="collect-item-title">[${esc(q.status)}] ${esc(q.q)}</span><span class="faint">${esc(q.detail)}${q.link?` <a class="detail-source" href="${esc(q.link)}" target="_blank" rel="noreferrer">source</a>`:''}</span></li>`).join('')}</ul>
       <p class="overline memo-sub">APPENDIX: CO-MENTION EXPLORATION</p><p class="chart-caption">${esc(d.labels.competitors)}${d.competitorsOldest?' Oldest collected item dates to '+esc(d.competitorsOldest)+'.':''}</p>
       <p class="type-strip">${comps||'<span class="faint">None this run.</span>'}</p>
-      <p class="overline memo-sub">OPEN QUESTIONS (KNOWN GAPS AND MISSING EVIDENCE)</p><p class="chart-caption">${esc(d.labels.open)}</p>
+      <p class="overline memo-sub">SOURCE COVERAGE & NEXT CHECKS</p>
       <ul class="collect-list">${open||'<li class="faint">None identified this run.</li>'}</ul>`;
-  }
+  }else document.querySelector('#memo-body').innerHTML='<p class="state-note">Next check: collect SEC financials for a period-by-period comparison.</p>';
   // Evidence stream: latest items across all live sources, dense.
   const stream=[];
   for(const s of r.sources)for(const it of (s.relevantItems||s.allItems||s.items))stream.push({src:s.name,title:it.form?('Form '+it.form+(it.description?' · '+it.description:'')):(it.title||''),link:it.link||'',date:it.date||'',relevance:it.relevance||''});
   stream.sort((a,b)=>(Date.parse(b.date)||0)-(Date.parse(a.date)||0));
-  document.querySelector('#evidence-stream').innerHTML=stream.slice(0,40).map(it=>`<li><span class="stream-src">${esc(it.src)}</span><span class="collect-item-title">${it.link?`<a class="detail-source" href="${esc(it.link)}" target="_blank" rel="noreferrer">${esc(it.title)}</a>`:esc(it.title)}</span><span class="mono faint">${esc(Date.parse(it.date)?new Date(Date.parse(it.date)).toISOString().slice(0,10):(it.date||'').slice(0,10))}</span>${it.relevance?`<span class="rel-note">${esc(it.relevance)}</span>`:''}</li>`).join('');
+  renderEvidenceStream(stream);
   if(window.matchMedia&&matchMedia('(max-width:760px)').matches){document.querySelector('#evidence-stream').addEventListener('click',e=>{const t=e.target.closest('.collect-item-title');if(!t||t.classList.contains('expanded'))return;e.preventDefault();t.classList.add('expanded')})}
   const a=r.analysis;
   const srcRel=Object.fromEntries(r.sources.map(s=>[s.key,s.relevantCount]));const maxC=Math.max(1,...a.perSource.map(q=>q.collected));
@@ -92,14 +185,10 @@ async function boot(){
   document.querySelectorAll('.util-row').forEach(row=>{const open=()=>{const d=document.getElementById('util-detail-'+row.dataset.idx);const show=d.hidden;d.hidden=!show;row.setAttribute('aria-expanded',String(show))};row.addEventListener('click',open);row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}})});
   if(r.history&&r.history.length)document.querySelector('#run-history').textContent=`${r.history.length} runs on record · ${(p.uniqueItems||0).toLocaleString('en-US')} unique items · ${r.storeMode==='attached-volume'?'store on attached volume, survives redeploys':'store resets on redeploy'}`;
   if(r.validation){
-    const badge={'cited-in-press':'FIGURE STRING IN COLLECTED ITEMS','no-additional-press-match-in-run':'SEC CITED; NO ADDITIONAL PRESS MATCH','related-separate-wording':'RELATED - DISTINCT WORDING','separate-wording-coverage':'RELATED - DISTINCT WORDING','echoed-only':'SIMILAR WORDING (ECHO)','no-outside-coverage-in-run':'NONE IN COLLECTED ITEMS','possible-tension-review':'REVIEW - POSSIBLE TENSION','different-figure-found':'REVIEW - DIFFERENT FIGURE'};
-    const pass=p=>`<li><a class="detail-source" href="${esc(p.link)}" target="_blank" rel="noreferrer">${esc(p.title)}</a><span class="faint">${esc(p.source)} · ${esc(p.date)}${p.wording?' · '+p.wording+' wording':''}${p.tension?' · possible tension':''}</span>${p.excerpt?`<span class="rel-note">"...${esc(p.excerpt)}..."</span>`:''}</li>`;
-    const card=(c,kind)=>`<details class="check-card"><summary><span class="check-claim">${esc(c.claim)}</span><span class="check-meta"><span class="mono faint">${esc(kind)} · ${esc(c.basis)}${c.date&&!c.basis.includes(c.date)?' · '+esc(c.date):''}</span><span class="badge-dim">${badge[c.status]||esc(c.status)}</span></span></summary>${c.passages&&c.passages.length?`<ul class="collect-list">${c.passages.map(pass).join('')}</ul>`:'<p class="faint">No matching items collected in this run.</p>'}</details>`;
     const v=r.validation;
-    document.querySelector('#claim-checks').innerHTML=v.figureChecks.map(c=>card(c,'Filed figure')).join('')+v.headlineChecks.map(c=>card(c,'Company statement')).join('')+(v.contradictions||[]).map(c=>card(c,'Figure mismatch')).join('');
+    document.querySelector('#claim-checks').innerHTML=renderClaimCards(v);
     document.querySelector('#check-method').textContent=v.method;
-    if(v.coverageScore){document.querySelector('#coverage-score').innerHTML=`<div class="metric"><div class="metric-number">${v.coverageScore.score}</div><div class="metric-label">${esc(v.coverageScore.label||'Coverage score')}</div><div class="metric-note">${esc(v.coverageScore.drivers)}</div></div><p class="faint">${esc(v.coverageScore.scope)}</p>`}
-  }
+  }else document.querySelector('#claim-checks').innerHTML=renderClaimCards();
   // Signalor historical mention analytics: static sanitized snapshot, never live-labeled.
   fetch('data/signalor-apple-mentions.json').then(x=>x.ok?x.json():null).then(sg=>{if(!sg)return;
     document.querySelector('#signalor-freshness').textContent=sg.freshnessLabel.toUpperCase().replace(/\.$/,'');

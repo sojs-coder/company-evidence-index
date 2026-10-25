@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f5f4f4" />
   <title>Apple Inc. · Company Evidence Index</title>
   <link rel="stylesheet" href="cal-hacks-tokens.css?v=11" />
-  <link rel="stylesheet" href="styles.css?v=30" />
+  <link rel="stylesheet" href="styles.css?v=31" />
 </head>
 <body>
   <header class="topbar"></header>
@@ -19,26 +19,37 @@
       </div>
       <div class="dash-badges" id="run-badges"></div>
     </div>
-    <section id="run-summary" class="metric-row" aria-label="Run summary"><p class="state-note">Collecting sources; this may take up to 80 seconds.</p></section>
-    <section class="bottom-section" aria-label="Diligence memo">
-      <div class="section-heading"><div><p class="overline">DILIGENCE MEMO</p><h2>Findings from this run</h2></div><a class="text-button is-disabled" aria-disabled="true" id="download-memo" href="/api/companies/apple/memo">Download memo <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M3 13h10" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></a></div>
-      <div id="memo-body"><p class="state-note">Building the memo once the run lands.</p></div>
+    <nav class="report-nav" aria-label="Report sections"><a href="#takeaways">Key takeaways</a><a href="#questions">Questions & claims</a><a href="#risks">Risks & mentions</a><a href="#reference">Reference</a></nav>
+    <section id="takeaways" class="bottom-section" aria-labelledby="takeaways-title">
+      <div class="section-heading"><div><p class="overline">THE READOUT</p><h2 id="takeaways-title">Key takeaways</h2></div><a class="text-button is-disabled" aria-disabled="true" id="download-memo" href="/api/companies/apple/memo">Download memo</a></div>
+      <ul id="key-takeaways" class="takeaway-list"><li class="state-note">Collecting sources; this may take up to 80 seconds.</li></ul>
+    </section>
+    <section id="questions" class="bottom-section" aria-labelledby="questions-title">
+      <div class="section-heading"><div><p class="overline">01 / ESTABLISH THE FACTS</p><h2 id="questions-title">Questions & claims</h2></div><a class="text-button is-disabled" aria-disabled="true" id="export-citations" href="/api/companies/apple/export">Export citations</a></div>
+      <p class="chart-caption">The claim, its source, supporting and conflicting evidence, and the next thing to verify.</p>
+      <div id="claim-checks" class="finding-list"><p class="state-note">Connecting statements with collected evidence.</p></div>
+    </section>
+    <section id="risks" class="bottom-section" aria-labelledby="risks-title">
+      <div class="section-heading"><div><p class="overline">02 / UNDERSTAND THE EXPOSURE</p><h2 id="risks-title">Risks & mentions</h2></div></div>
+      <p class="chart-caption">What surfaced, why it matters, and how it connects to the source record.</p>
+      <div id="risk-findings" class="finding-list"><p class="state-note">Connecting risk mentions with company disclosures.</p></div>
+    </section>
+    <section id="reference" class="bottom-section" aria-labelledby="reference-title">
+      <div class="section-heading"><div><p class="overline">03 / SOURCE RECORD</p><h2 id="reference-title">Financials & reference</h2></div></div>
+      <details class="reference-detail"><summary>Financial fundamentals & collection context</summary><div id="memo-body"><p class="state-note">Loading filed financials.</p></div></details>
+      <details class="reference-detail"><summary>How evidence is matched</summary><p class="chart-caption" id="check-method"></p></details>
+      <div id="run-summary" class="metric-row" aria-label="Run summary"><p class="state-note">Waiting for collection totals.</p></div>
     </section>
     <section class="bottom-section" aria-label="Latest collected evidence">
       <div class="section-heading"><div><p class="overline">EVIDENCE STREAM</p><h2>Latest collected items</h2></div><a class="text-button" href="/collection.html">By source <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h10M9 3.5 13 8l-4 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></a></div>
       <div class="table-head stream-head"><span>SOURCE</span><span>ITEM</span><span>DATE</span></div>
       <ul id="evidence-stream" class="stream-list"><li class="state-note">Waiting for collected items.</li></ul>
+      <div id="evidence-stream-more" hidden><button type="button" class="text-button" aria-controls="evidence-stream">Load more</button></div>
     </section>
     <section class="bottom-section" aria-label="Volume by source">
       <div class="section-heading"><div><p class="overline">BY SOURCE</p><h2>Collected volume</h2></div></div>
       <div id="run-graph" class="util-graph"><p class="state-note">Waiting for per-source counts.</p></div>
       <p id="run-history" class="chart-caption"></p>
-    </section>
-    <section class="bottom-section" aria-label="Claim checks">
-      <div class="section-heading"><div><p class="overline">CLAIM CHECKS</p><h2>Statements and citations</h2></div><a class="text-button is-disabled" aria-disabled="true" id="export-citations" href="/api/companies/apple/export">Export citations <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M3 13h10" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></a></div>
-      <div id="claim-checks" class="check-list"><p class="state-note">Waiting for claim checks.</p></div>
-      <div id="coverage-score" class="coverage-score"></div>
-      <p class="chart-caption" id="check-method"></p>
     </section>
     <section class="bottom-section" aria-label="Signalor mention analytics">
       <div class="section-heading"><div><p class="overline">WEB MENTION ANALYTICS</p><h2>Public web mentions</h2></div><span class="badge-dim" id="signalor-freshness"></span></div>
@@ -50,6 +61,6 @@
     </section>
     <p class="chart-caption foot-note" id="foot-note"></p>
   </main>
-  <script src="report.js?v=28"></script>
+  <script src="report.js?v=30"></script>
 </body>
 </html>
