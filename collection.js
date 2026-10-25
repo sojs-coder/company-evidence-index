@@ -43,5 +43,4 @@ async function boot(){
   wrap.innerHTML=[...entries,...gaps,...REST.sources.map(s=>({source:s.name,title:s.note,extra:'NOT LIVE',status:'empty'}))].map(row).join('');
   wrap.setAttribute('aria-busy','false');
 }
-document.querySelector('.theme-toggle').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name="theme-color"]').content=dark?'#02205e':'#f5f4f4'});
 boot();
