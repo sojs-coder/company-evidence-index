@@ -10,6 +10,7 @@ import { readFile, writeFile, rename } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 import { maybeWrapWithX402, x402Status } from './x402-gate.mjs';
+import { buildPaidGate } from './paid-gate.mjs';
 import { crsSandboxStatus, fetchSandboxDemoReport } from './crs-sandbox.mjs';
 import { runtimeConfigStatus, extractBrokeredSecret } from './runtime-config.mjs';
 import { healthProjection } from './health-projection.mjs';
@@ -255,6 +256,15 @@ async function handleApi(req, res, url, ip) {
   }
   // Ingest an authorized historical export (e.g. Signalor public-mention
   // extract handed off by the ops owner). Same admin gate; no spend involved.
+  // x402 paid API namespace: isolated additive paid surface (testnet
+  // prices per owner exchange 2026-10-25 00:38-00:40). Existing demo routes
+  // are NEVER gated by this; when disabled or broken, only /api/paid/*
+  // answers honestly closed. See paid-gate.mjs.
+  if (p.startsWith('/api/paid/')) {
+    const pg = await paidGate();
+    return pg(req, res, url);
+  }
+
   if (p === '/api/packs/ingest' && req.method === 'POST') {
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
       return send(res, 403, { error: 'forbidden', detail: 'Pack ingest requires the admin token (PACK_ADMIN_TOKEN).' });
@@ -821,6 +831,13 @@ async function collect(kind) {
 const STORE_PATH = join(process.env.DATA_DIR || join(ROOT, 'data'), 'run-store.json');
 let store = { runs: [], items: {} };
 try { store = JSON.parse(await readFile(STORE_PATH, 'utf8')); } catch { /* first boot */ }
+let _paidGate = null;
+async function paidGate() {
+  if (!_paidGate) _paidGate = buildPaidGate({ buildVetIdentify, buildVetReport, env: process.env }).catch(e => { console.error('paid gate init failed:', e && e.message || e); return null; });
+  const g = await _paidGate;
+  if (!g) return (req, res) => send(res, 503, { error: 'paid_access_unavailable', detail: 'The x402 paid API failed to initialize. The free demo routes are unaffected.' });
+  return g;
+}
 async function saveStore() { try { const tmp = STORE_PATH + '.tmp'; await writeFile(tmp, JSON.stringify(store)); await rename(tmp, STORE_PATH); } catch { /* read-only fs */ } }
 const itemTitle = it => it.form ? (`Form ${it.form}` + (it.description ? ` · ${it.description}` : '')) : (it.title || '');
 const itemKey = (sourceKey, it) => createHash('sha1').update(sourceKey + '|' + (it.link || (itemTitle(it) + '|' + (it.date || '')))).digest('hex').slice(0, 12);
