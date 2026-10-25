@@ -400,7 +400,7 @@ export async function buildVetReport(name, question, categoryKey, identity) {
     try {
       const j = await ctxCall('/web/answers', {
         mode: 'fast',
-        task: 'Research the company ' + identity.name + ' for this buyer question: ' + question + '. Answer only from public sources you can cite.',
+        task: 'Research the company ' + identity.name + ' for this buyer question: ' + question + '. Answer only from public sources you can cite. Preserve exact money semantics: a contract ceiling or maximum value must be stated as a maximum ("a maximum $X contract"), never as obligated spend, received funds, or revenue. If the sources do not establish which, say so.',
         json_format: { summary: 'string', evidence_points: ['string'], open_questions: ['string'] }
       }, key);
       const content = j.json_content || null;
@@ -415,11 +415,31 @@ export async function buildVetReport(name, question, categoryKey, identity) {
         content.evidence_points = kept;
         for (const u of urlPts) j.sources = (Array.isArray(j.sources) ? j.sources : []).concat([u]);
       }
+      // Deterministic claim check: sentences carrying a $ figure but no
+      // amount-semantics qualifier (maximum/ceiling/obligated/revenue...) are
+      // flagged and rendered with the finding. Generation is not trusted to
+      // keep ceiling-vs-obligated straight; this check does not resolve the
+      // figure, it marks what needs source verification.
+      const QUALIFIER = /maximum|ceiling|up to|obligat|outlay|revenue|appropriat|totaling|award of|valued at/i;
+      const FIGURE = /\$[\d.,]+\s*(?:billion|million|thousand|trillion)?/i;
+      const flagged = [];
+      if (content) {
+        const scan = [content.summary || '', ...(Array.isArray(content.evidence_points) ? content.evidence_points : [])];
+        for (const t of scan) {
+          for (const s of String(t).split(/(?<=[.!?])\s+/)) {
+            if (FIGURE.test(s) && !QUALIFIER.test(s)) flagged.push(s.trim());
+          }
+        }
+      }
       pack.synthesis = {
         provider: 'Context.dev Web Answers',
         method: 'third-party LLM synthesis over cited public sources; generated, not extractive, not deterministic',
         mode: 'fast',
         content,
+        amountCheck: {
+          method: 'deterministic sentence scan: $ figure without a ceiling/obligated/revenue qualifier; flags for source verification, does not resolve',
+          flagged
+        },
         sources: (Array.isArray(j.sources) ? j.sources : []).map(s => {
           if (typeof s === 'string') return s.startsWith('http') ? { title: null, url: s } : null;
           const url = s && (s.url || s.link || s.href || s.source_url);
@@ -429,6 +449,7 @@ export async function buildVetReport(name, question, categoryKey, identity) {
       };
       sources.push({ key: 'ctx_answers', name: 'Context.dev Web Answers (third-party LLM synthesis)', url: 'https://www.context.dev/', fetched: pack.synthesis.sources.length, mode: 'live', creditsCounted: 10, detail: pack.synthesis.partial ? 'partial synthesis' : 'synthesis generated from cited sources' });
     } catch (e) {
+      pack.synthesis = { unavailable: 'The third-party synthesis call failed (' + String(e.message || e) + '). The extractive evidence and deterministic checks above are unaffected.' };
       sources.push({ key: 'ctx_answers', name: 'Context.dev Web Answers (third-party LLM synthesis)', url: 'https://www.context.dev/', fetched: 0, mode: 'error', detail: String(e.message || e) });
     }
   } else {
