@@ -345,7 +345,13 @@ function validateClaims(report) {
       status: !passages.length ? 'no-outside-coverage-in-run' : (separate.length ? 'separate-wording-coverage' : 'echoed-only'),
       passages: passages.map(p => ({ title: p.title, link: p.link || '', date: (p.date || '').slice(0, 10), source: p.source, excerpt: (p.context || '').slice(0, 180), wording: p.echo ? 'echo' : 'separate' })) };
   });
-  return { figureChecks, headlineChecks, method: 'Extractive matching over titles and feed summaries collected in this run: identical figures (word-boundary matched), and shared distinctive terms for coverage. Full article bodies are not fetched. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.' };
+  // Deterministic coverage score: filed figures count double (verified class).
+  const figCited = figureChecks.filter(c => c.status === 'cited-in-press').length;
+  const headCov = headlineChecks.filter(c => c.status !== 'no-outside-coverage-in-run').length;
+  const denom = figureChecks.length * 2 + headlineChecks.length;
+  const score = denom ? Math.round(((figCited * 2 + headCov) / denom) * 100) : 0;
+  const coverageScore = { score, drivers: `${figCited} of ${figureChecks.length} filed figures cited (weight 2x), ${headCov} of ${headlineChecks.length} company statements covered`, scope: 'Coverage within items collected this run only. A low score means the collected set lacks corroboration, not that claims are false.' };
+  return { figureChecks, headlineChecks, coverageScore, method: 'Extractive matching over titles and feed summaries collected in this run: identical figures (word-boundary matched), and shared distinctive terms for coverage. Full article bodies are not fetched. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.' };
 }
 async function runReport() {
   const runAt = new Date().toISOString();
@@ -356,8 +362,13 @@ async function runReport() {
     const relevant = d.items.filter(it => isRelevant(SOURCES[i].key, itemTitle(it) + ' ' + (it.outlet || '') + ' ' + (it.context || '') + ' ' + (it.matched || '')));
     return { key: SOURCES[i].key, name: d.name, source: d.source, mode: d.mode, fetchedAt: d.fetchedAt, cached: !!d.cached, itemCount: d.items.length, relevantCount: relevant.length, items: d.items.slice(0, 3), allItems: d.items, relevantItems: relevant, detail: d.detail };
   });
+  const TREND_KEYS = new Set(['hackernews', 'hncomments', 'reviews', 'mastodon', 'lemmy', 'news', 'verge', 'ninetofive', 'macrumors']);
+  const byDay = {};
+  for (const s of sources) { if (!TREND_KEYS.has(s.key)) continue; for (const it of (s.relevantItems || [])) { const d = (it.date || '').slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue; byDay[d] = (byDay[d] || 0) + 1; } }
+  const trendDays = Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0])).slice(-14).map(([day, count]) => ({ day, count }));
   const report = {
     company: 'Apple Inc. (AAPL)', generatedAt: runAt,
+    trends: { days: trendDays, scope: 'Collected press/forum/social/review items per UTC day. Collection windows differ per source; this is collected volume, not total internet volume.' },
     liveCount: sources.filter(s => s.mode === 'live').length, downCount: sources.filter(s => s.mode !== 'live').length,
     relevantTotal: sources.reduce((n, s) => n + (s.relevantCount || 0), 0),
     sources
