@@ -484,3 +484,45 @@ li.state-note{list-style:none}
 .role-change{background:none;border:none;text-decoration:underline;cursor:pointer;font:inherit;color:inherit}
 .lens-details{margin-top:.6rem}
 .lens-details summary{cursor:pointer;font:11px var(--font-mono,monospace);letter-spacing:.08em;color:var(--text-faint,#666)}
+
+/* Vetting is a considered reading flow, not a dense dashboard.
+   Keep these rules scoped so reports and collection views retain their rhythm. */
+.vet-page main{max-width:1120px;padding-block:clamp(48px,7vw,96px) 96px}
+.vet-page .dash-head{margin-bottom:32px}
+.vet-page .page-kicker{flex-wrap:wrap;gap:10px;line-height:1.8;margin-bottom:18px}
+.vet-page .dash-title{font-size:clamp(36px,5vw,60px);line-height:1.12}
+.vet-intro{max-width:42ch;font-size:clamp(21px,2.5vw,27px);line-height:1.55;color:var(--text-muted);text-wrap:pretty}
+.vet-page .state-note{max-width:75ch;font-size:15px;line-height:1.75;letter-spacing:0;padding:16px 0}
+.vet-page .vet-form{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);align-items:start;gap:28px 24px;margin-top:32px}
+.vet-page .vet-field{min-width:0;gap:10px}
+.vet-page .vet-field label{font-size:12px;line-height:1.5;margin:0}
+.vet-page .vet-field:first-child,.vet-page .vet-field--q{grid-column:1/-1}
+.vet-page .vet-form input,.vet-page .vet-form textarea,.vet-page .vet-form select{width:100%;min-width:0;min-height:52px;border:1px solid var(--color-brand-border);padding:14px 16px;font:400 17px/1.5 var(--font-body);color:var(--text);background:transparent;border-radius:0}
+.vet-page .vet-form textarea{min-height:112px;resize:vertical}
+.vet-page .vet-form .outline-button{align-self:end;justify-content:center;min-height:52px;padding:14px 24px;font-size:16px}
+.vet-page :where(input,textarea,select):focus-visible{outline:2px solid var(--color-brand);outline-offset:3px}
+.vet-page .panel:not([hidden])~.panel:not([hidden]){margin-top:56px;padding-top:36px;border-top:1px solid var(--border)}
+.vet-page .section-heading{align-items:flex-start;flex-wrap:wrap;gap:16px 24px;margin-bottom:24px}
+.vet-page .section-heading h2{font-size:clamp(26px,3vw,34px);overflow-wrap:anywhere}
+.vet-page .section-heading .badge-dim{max-width:100%;white-space:normal}
+.vet-page .badge-dim:empty{display:none}
+.vet-page .id-card{padding:20px;margin:12px 0;border-color:var(--border);border-radius:0}
+.vet-page .id-card:hover{border-color:var(--color-brand)}
+.vet-page .id-card .faint{margin-top:8px}
+.vet-page #report-go{min-height:48px;margin-top:16px;padding:12px 24px;font-size:16px}
+.vet-page .collect-list li{padding-block:18px;font-size:15px;line-height:1.7}
+.vet-page .quote-block{margin:24px 0;padding:8px 24px;font-size:17px;line-height:1.8}
+.vet-page .panel{overflow-wrap:anywhere}
+@media(max-width:1100px){
+  .vet-page .topbar{height:auto;min-height:68px;flex-wrap:wrap;gap:12px 24px;padding-block:16px}
+  .vet-page .main-nav{order:3;width:100%;height:auto;overflow-x:auto;justify-content:flex-start;gap:24px;padding-block:8px}
+  .vet-page .nav-link{flex:none;white-space:nowrap}
+}
+@media(max-width:620px){
+  .vet-page main{padding-top:40px}
+  .vet-page .dash-head{margin-bottom:24px}
+  .vet-page .vet-form{grid-template-columns:minmax(0,1fr);gap:24px;margin-top:24px}
+  .vet-page .vet-form .outline-button{width:100%;margin-top:4px}
+  .vet-page .panel:not([hidden])~.panel:not([hidden]){margin-top:40px;padding-top:28px}
+  .vet-page .quote-block{padding-inline:16px}
+}
