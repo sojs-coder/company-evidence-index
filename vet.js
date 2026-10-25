@@ -25,6 +25,7 @@ async function identify(name){
     ?ids.map(card).join('')
     :'<p class="state-note">No registry candidates matched. You can still run the name as typed; the report will say it is buyer-asserted, not registry-verified.</p>')
     +`<label class="id-card"><input type="radio" name="identity" value="custom" /><span class="collect-item-title">${esc(name)} (as typed)</span><span class="faint">Buyer-asserted name, not registry-verified</span></label>`
+    +(r.hiddenWeakBrandMatches?`<p class="state-note">${r.hiddenWeakBrandMatches} weak brand-registry match${r.hiddenWeakBrandMatches===1?'':'es'} hidden: name overlap only on generic words (e.g. 'robotics'), so not plausible identity candidates.</p>`:'')
     +'<button type="button" id="report-go" class="outline-button">Build cited report</button>';
   document.getElementById('report-go').addEventListener('click',()=>{
     const sel=document.querySelector('input[name="identity"]:checked');
@@ -54,18 +55,18 @@ async function report(identity){
   document.getElementById('limitations').innerHTML=r.answer.limitations.length
     ?'<ul class="collect-list collect-list--plain">'+r.answer.limitations.map(l=>`<li><span class="collect-item-title">${esc(l)}</span></li>`).join('')+'</ul>':'';
   const awards=r.awards||[];
-  document.getElementById('award-count').textContent=awards.length+' RECORDS';
+  document.getElementById('award-count').textContent=awards.length+' RECORDS'+(r.awardCoverage==='first_page_sample'?' · FIRST-PAGE SAMPLE':r.awardCoverage==='complete_result_set'?' · COMPLETE RESULT SET OF THAT SEARCH':'');
   const awardItem=a=>`<li><span class="collect-item-title">${a.sourceUrl?`<a class="detail-source" href="${esc(a.sourceUrl)}" target="_blank" rel="noreferrer">${esc(a.description||a.awardId||'(untitled award)')}</a>`:esc(a.description||'(untitled award)')}</span><span class="faint">${esc([a.agency,a.startDate,money(a.obligatedAmountUsd)].filter(Boolean).join(' · '))}</span></li>`;
   document.getElementById('awards').innerHTML=awards.length
     ?'<ul class="collect-list collect-list--plain">'+awards.map(awardItem).join('')+'</ul>'
     :'<p class="state-note">No federal contract awards under this exact legal name. That is not evidence of absence - try name variants.</p>';
   const cites=r.citations||[];
-  const verified=cites.filter(c=>c.association&&c.association.state==='affiliation_verified');
+  const verified=cites.filter(c=>c.association&&c.association.state==='author_affiliation_orgname_match');
   const matches=cites.filter(c=>!c.association||c.association.state!=='affiliation_verified');
-  document.getElementById('citation-count').textContent=cites.length+' CITATIONS · '+verified.length+' AFFILIATION-VERIFIED';
-  const citeItem=c=>`<li><span class="collect-item-title">${c.sourceUrl?`<a class="detail-source" href="${esc(c.sourceUrl)}" target="_blank" rel="noreferrer">${esc(c.title)}</a>`:esc(c.title)}</span><span class="faint">${esc((c.association.organizations&&c.association.organizations.length?c.association.organizations.join(' · '):'affiliation not recorded'))}</span></li>`;
+  document.getElementById('citation-count').textContent=cites.length+' CITATIONS · '+verified.length+' AUTHOR-AFFILIATION NAME MATCHES';
+  const citeItem=c=>`<li><span class="collect-item-title">${c.sourceUrl?`<a class="detail-source" href="${esc(c.sourceUrl)}" target="_blank" rel="noreferrer">${esc(c.title)}</a>`:esc(c.title)}</span><span class="faint">${esc((c.association.organizations&&c.association.organizations.length?c.association.organizations.join(' · '):'affiliation not recorded')+(c.association.state==='author_affiliation_orgname_match'?' · author-reported affiliation string, token match':' · affiliation does not match this name'))}</span></li>`;
   document.getElementById('citations').innerHTML=cites.length
-    ?(verified.length?'<p class="overline">AUTHOR-AFFILIATION MATCHES THE LEGAL NAME</p><ul class="collect-list collect-list--plain">'+verified.map(citeItem).join('')+'</ul>':'')
+    ?(verified.length?'<p class="overline">AUTHOR-AFFILIATION ORG-NAME MATCHES - AUTHOR-REPORTED, NOT LEGAL-ENTITY VERIFICATION</p><ul class="collect-list collect-list--plain">'+verified.map(citeItem).join('')+'</ul>':'')
       +(matches.length?'<p class="overline pack-group">SEARCH MATCHES - COMPANY ASSOCIATION NOT VERIFIED</p><ul class="collect-list collect-list--plain">'+matches.map(citeItem).join('')+'</ul>':'')
       +'<p class="state-note">Search matches are keyword hits in the NASA archive, not this company\'s research or technical record.</p>'
     :'<p class="state-note">No NASA technical reports cite this legal name.</p>';
