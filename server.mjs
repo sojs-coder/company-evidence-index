@@ -345,13 +345,31 @@ function validateClaims(report) {
       status: !passages.length ? 'no-outside-coverage-in-run' : (separate.length ? 'separate-wording-coverage' : 'echoed-only'),
       passages: passages.map(p => ({ title: p.title, link: p.link || '', date: (p.date || '').slice(0, 10), source: p.source, excerpt: (p.context || '').slice(0, 180), wording: p.echo ? 'echo' : 'separate' })) };
   });
+  // Contradiction candidates: collected items citing a different revenue-scale
+  // figure than the filed XBRL values. A mismatch can be a different period or
+  // metric - flagged for review, never asserted as an error.
+  const filedFigs = new Set(figureChecks.map(c => c.figure).filter(Boolean));
+  const figMention = /\$([\d]{2,3}(?:\.\d)?)\s*(?:B|billion)/g;
+  const contradictions = [];
+  for (const it of pressItems) {
+    const hay = (it.title || '') + ' ' + (it.context || '');
+    if (!/revenue|sales|quarter|fiscal|annual/i.test(hay)) continue;
+    for (const m of hay.matchAll(figMention)) {
+      if (!filedFigs.has(m[1])) {
+        contradictions.push({ claim: `Collected item cites $${m[1]}B, which matches no filed annual revenue figure (${[...filedFigs].map(f => '$' + f + 'B').join(', ')})`, basis: 'Collected items vs SEC XBRL facts', status: 'different-figure-found',
+          passages: [{ title: it.title, link: it.link || '', date: (it.date || '').slice(0, 10), source: it.source, excerpt: hay.slice(Math.max(0, m.index - 60), m.index + m[0].length + 80).trim() }] });
+        break;
+      }
+    }
+    if (contradictions.length >= 3) break;
+  }
   // Deterministic coverage score: filed figures count double (verified class).
   const figCited = figureChecks.filter(c => c.status === 'cited-in-press').length;
   const headCov = headlineChecks.filter(c => c.status !== 'no-outside-coverage-in-run').length;
   const denom = figureChecks.length * 2 + headlineChecks.length;
   const score = denom ? Math.round(((figCited * 2 + headCov) / denom) * 100) : 0;
   const coverageScore = { score, drivers: `${figCited} of ${figureChecks.length} filed figures cited (weight 2x), ${headCov} of ${headlineChecks.length} company statements covered`, scope: 'Coverage within items collected this run only. A low score means the collected set lacks corroboration, not that claims are false.' };
-  return { figureChecks, headlineChecks, coverageScore, method: 'Extractive matching over titles and feed summaries collected in this run: identical figures (word-boundary matched), and shared distinctive terms for coverage. Full article bodies are not fetched. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.' };
+  return { figureChecks, headlineChecks, contradictions, coverageScore, method: 'Extractive matching over titles and feed summaries collected in this run: identical figures (word-boundary matched), and shared distinctive terms for coverage. Full article bodies are not fetched. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.' };
 }
 async function runReport() {
   const runAt = new Date().toISOString();
