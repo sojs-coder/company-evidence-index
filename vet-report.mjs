@@ -447,6 +447,22 @@ export async function buildVetReport(name, question, categoryKey, identity) {
         }).filter(Boolean),
         partial: !!j.partial
       };
+      // Source validation, labeled exactly: can the cited URLs be fetched at
+      // run time? Reachability says the citation resolves; it does NOT verify
+      // the synthesis's claims about the page. Content verification stays on
+      // the reader and the deterministic amountCheck above.
+      pack.synthesis.sourcesChecked = [];
+      for (const s of pack.synthesis.sources.slice(0, 3)) {
+        try {
+          const ctrl = new AbortController();
+          const to = setTimeout(() => ctrl.abort(), 6000);
+          const hr = await fetch(s.url, { method: 'HEAD', redirect: 'follow', signal: ctrl.signal, headers: { 'user-agent': 'company-evidence-index/1.0 (student hackathon research project)' } });
+          clearTimeout(to);
+          pack.synthesis.sourcesChecked.push({ url: s.url, reachable: hr.ok });
+        } catch {
+          pack.synthesis.sourcesChecked.push({ url: s.url, reachable: null });
+        }
+      }
       sources.push({ key: 'ctx_answers', name: 'Context.dev Web Answers (third-party LLM synthesis)', url: 'https://www.context.dev/', fetched: pack.synthesis.sources.length, mode: 'live', creditsCounted: 10, detail: pack.synthesis.partial ? 'partial synthesis' : 'synthesis generated from cited sources' });
     } catch (e) {
       pack.synthesis = { unavailable: 'The third-party synthesis call failed (' + String(e.message || e) + '). The extractive evidence and deterministic checks above are unaffected.' };
