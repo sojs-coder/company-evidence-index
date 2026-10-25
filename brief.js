@@ -97,7 +97,7 @@ async function renderSupplier(name){
   <p class="overline" style="margin-top:20px">NASA LITERATURE · ${num(cites.length)} FOUND, ${num(ver.length)} AFFILIATION-VERIFIED</p><ul class="stream-list brief-list">${ci||'<li class="state-note">No NASA technical reports cite this name.</li>'}</ul>
   <details><summary>Limits of these records</summary><ul class="brief-checks">${(r.caveats||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul></details>${credit}`;
 }
-function postLinks(list){return (list||[]).map(c=>typeof c==='string'?{link:c}:c).filter(c=>safeLink(c.link)).map((c,i)=>`<blockquote>${c.text?esc(String(c.text).slice(0,260))+' ':''}<a href="${esc(c.link)}" rel="noopener noreferrer" target="_blank">source post ${i+1}</a></blockquote>`).join('')}
+function postLinks(list){return (list||[]).map(c=>typeof c==='string'?{link:c}:c).filter(c=>safeLink(c.link)).map((c,i)=>`<blockquote>${c.text?esc(String(c.text).slice(0,600))+' ':''}<a href="${esc(c.link)}" rel="noopener noreferrer" target="_blank">source post ${i+1}</a></blockquote>`).join('')}
 function renderAnswer(qa){
   const el=$('#b-answer');
   if(!qa||!(qa.findings||[]).length){el.innerHTML='<p class="state-note">No question-specific analysis has been generated for this question yet. The sections below show what the stored posts say, with sources. Nothing here is an answer to your question until it appears in this section.</p>';return}
