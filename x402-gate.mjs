@@ -22,7 +22,7 @@ export function x402Status(env = process.env) {
   }
   const missing = ['CDP_API_KEY_ID', 'CDP_API_KEY_SECRET', 'X402_PAY_TO'].filter(k => !env[k] || !env[k].trim());
   if (missing.length) {
-    return { state: 'closed', detail: 'Paid access is enabled but its configuration is incomplete; data routes fail closed (503) with no data.' };
+    return { state: 'closed', detail: 'Paid access is enabled but its configuration is incomplete (missing: ' + missing.join(', ') + '); data routes fail closed (503) with no data.' };
   }
   return { state: 'enabling', detail: 'Paid access activates at startup.' };
 }
