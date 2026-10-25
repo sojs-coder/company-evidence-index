@@ -64,6 +64,73 @@ async function handleApi(req, res, url, ip) {
     const r = await fetchSandboxDemoReport();
     return send(res, r.ok ? 200 : (r.error === 'not_configured' ? 200 : 502), r);
   }
+
+  // Per-company public-mention data packs (X/Twitter via Apify actor).
+  // Admin-gated (PACK_ADMIN_TOKEN), hard spend guard against the nightly
+  // $10 total Apify cap (user approval 2026-10-25 00:36, incl. $0.008 prior).
+  // Public posts only; no login/private data.
+  if (p === '/api/packs/collect' && req.method === 'POST') {
+    if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
+      return send(res, 403, { error: 'forbidden', detail: 'Pack collection requires the admin token (PACK_ADMIN_TOKEN).' });
+    }
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { return send(res, 400, { error: 'bad_json' }); }
+    const ticker = String(body.ticker || '').toUpperCase().replace(/[^A-Z0-9.-]/g, '');
+    const company = String(body.name || '').slice(0, 120);
+    const terms = Array.isArray(body.terms) ? body.terms.map(t => String(t).slice(0, 120)).filter(Boolean).slice(0, 5) : [];
+    const maxItems = Math.min(Math.max(parseInt(body.maxItems, 10) || 2000, 1), 3000);
+    if (!ticker || !terms.length) return send(res, 400, { error: 'invalid_request', detail: 'ticker and non-empty terms[] are required.' });
+    const PER_ITEM_USD = 0.0004; // apidojo/tweet-scraper: "$0.40 per 1000 tweets" (actor description, verified 2026-10-25) and corroborated by a measured $0.008/20-item run
+    const estUsd = maxItems * PER_ITEM_USD;
+    store.apifySpend = store.apifySpend || { confirmedUsd: 0.008, estimatedUsd: 0, runs: [] };
+    if (store.apifySpend.confirmedUsd + store.apifySpend.estimatedUsd + estUsd > 9.5) {
+      return send(res, 429, { error: 'spend_guard', detail: 'Refusing run: projected Apify spend would exceed the nightly $10 total cap.', projectedUsd: +(store.apifySpend.confirmedUsd + store.apifySpend.estimatedUsd + estUsd).toFixed(3) });
+    }
+    let token = (process.env.APIFY_API_TOKEN || '').trim();
+    if (!token) {
+      const r = await extractBrokeredSecret('APIFY_API_TOKEN').catch(() => ({ ok: false }));
+      if (r.ok) token = r.value;
+    }
+    if (!token) return send(res, 200, { ok: false, error: 'not_configured', detail: 'No Apify token in env or brokered runtime config.' });
+    const actorId = process.env.APIFY_PACK_ACTOR || 'apidojo~tweet-scraper';
+    const input = { searchTerms: terms, maxItems, sort: 'Latest', tweetLanguage: 'en', start: new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10) };
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 300_000);
+    let rows;
+    try {
+      const r = await fetch(`https://api.apify.com/v2/acts/${encodeURIComponent(actorId)}/run-sync-get-dataset-items`, {
+        method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(input), signal: ac.signal
+      });
+      clearTimeout(t);
+      if (!r.ok) return send(res, 502, { ok: false, error: 'apify_http_' + r.status });
+      rows = await r.json();
+    } catch (e) { clearTimeout(t); return send(res, 502, { ok: false, error: 'apify_fetch_failed', detail: String(e && e.message || e) }); }
+    const items = (Array.isArray(rows) ? rows : []).map(x => ({
+      text: String(x.text || x.full_text || x.title || '').slice(0, 500),
+      date: x.createdAt || x.created_at || '',
+      link: x.url || x.twitterUrl || '',
+      author: (x.author && (x.author.userName || x.author.username)) || x.author || '',
+      likes: x.likeCount ?? x.favoriteCount ?? null,
+      retweets: x.retweetCount ?? null,
+      replies: x.replyCount ?? null
+    })).filter(x => x.text);
+    store.packs = store.packs || {};
+    store.packs[ticker] = { company, ticker, terms, collectedAt: new Date().toISOString(), itemCount: items.length, estUsd: +(items.length * PER_ITEM_USD).toFixed(4), items };
+    store.apifySpend.estimatedUsd = +(store.apifySpend.estimatedUsd + items.length * PER_ITEM_USD).toFixed(4);
+    store.apifySpend.runs.push({ ticker, at: store.packs[ticker].collectedAt, items: items.length });
+    await saveStore();
+    return send(res, 200, { ok: true, ticker, itemCount: items.length, estCostUsd: store.packs[ticker].estUsd, cumulativeEstUsd: store.apifySpend.estimatedUsd, sample: items.slice(0, 3).map(i => i.text.slice(0, 120)) });
+  }
+  if (p.startsWith('/api/packs/') && req.method === 'GET') {
+    const ticker = p.slice('/api/packs/'.length).toUpperCase();
+    const pack = store.packs && store.packs[ticker];
+    if (!pack) return send(res, 404, { error: 'no_pack', detail: 'No data pack collected for ' + ticker + ' yet.' });
+    return send(res, 200, pack);
+  }
+  if (p === '/api/packs' && req.method === 'GET') {
+    const packs = Object.values(store.packs || {}).map(({ items, ...meta }) => meta);
+    return send(res, 200, { packs, apifySpend: store.apifySpend || null });
+  }
   if (p === '/api/vet/identify') {
     const name = (url.searchParams.get('name') || '').trim().slice(0, 120);
     if (!name) return send(res, 400, { error: 'missing_name', detail: 'Pass ?name=<company>.' });
