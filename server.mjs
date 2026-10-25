@@ -596,7 +596,7 @@ async function runReport() {
   store.runs.push({ generatedAt: runAt, live: report.liveCount, down: report.downCount, items: sources.reduce((n, s) => n + s.itemCount, 0), newItems });
   if (store.runs.length > 50) store.runs.shift();
   await saveStore();
-  report.persistence = { runs: store.runs.length, uniqueItems: Object.keys(store.items).length, newThisRun: newItems, seenBeforeThisRun: seenBefore, storage: 'on-disk JSON within this deployment', resetsOn: 'redeploy or container replacement' };
+  report.persistence = { runs: store.runs.length, uniqueItems: Object.keys(store.items).length, newThisRun: newItems, seenBeforeThisRun: seenBefore, storage: process.env.DATA_DIR ? 'attached Railway volume (' + process.env.DATA_DIR + ')' : 'on-disk JSON within this deployment', resetsOn: process.env.DATA_DIR ? 'volume deletion or service rebuild without the volume' : 'redeploy or container replacement' };
   return report;
 }
 
@@ -615,13 +615,13 @@ function buildDiligence(report, v) {
     for (const it of (src && src.allItems) || []) {
       const fy = (it.title || '').slice(0, 6);
       if (!/^FY\d{4}$/.test(fy)) continue;
-      (fyMap[fy] = fyMap[fy] || { fy, date: fmtDate(it.date), rows: {} }).rows[label] = { value: (it.title || '').replace(/^FY\d{4}\s*/, ''), concept: it.concept || '', link: it.link || '' };
+      (fyMap[fy] = fyMap[fy] || { fy, date: fmtDate(it.date), rows: {} }).rows[label] = { value: (it.title || '').replace(/^FY\d{4}\s*(revenue|net income|R&D expense|diluted EPS)\s*/i, ''), concept: it.concept || '', link: it.link || '' };
     }
   }
   const fundamentals = Object.values(fyMap).sort((a, b) => b.fy.localeCompare(a.fy)).slice(0, 2);
   const riskCues = all.filter(it => RISK_RE.test((it.title || '') + ' ' + (it.context || '')))
     .sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)).slice(0, 12)
-    .map(it => ({ title: (it.title || '').slice(0, 200), source: it.source, date: fmtDate(it.date), link: it.link || '', cue: (((it.title || '') + ' ' + (it.context || '')).match(RISK_RE) || [])[0] || '' }));
+    .map(it => ({ title: (it.title || '').slice(0, 200), source: it.source, date: fmtDate(it.date), link: it.link || '', cue: (((it.title || '') + ' ' + (it.context || '')).match(RISK_RE) || [])[0] || '', candidate: /^candidate/.test(it.relevance || '') }));
   const compCounts = {}, compExamples = {};
   for (const it of all) {
     const t = (it.title || '') + ' ' + (it.context || '');
@@ -678,7 +678,7 @@ function buildMemo(report, v, d) {
   L.push('');
   L.push('## 5. Risk-cued coverage');
   L.push(d.labels.risk); L.push('');
-  if (d.riskCues.length) for (const r of d.riskCues) L.push(`- ${r.date} · ${r.source}: "${r.title}" (cue: ${r.cue}) ${r.link}`);
+  if (d.riskCues.length) for (const r of d.riskCues) L.push(`- ${r.date} · ${r.source}: "${r.title}" (cue: ${r.cue}${r.candidate ? ', candidate query-match only' : ''}) ${r.link}`);
   else L.push('- No risk-cued items in this run\'s collected coverage.');
   L.push('');
   L.push('## 6. Competitive co-mentions');
