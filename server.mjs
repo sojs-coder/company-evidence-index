@@ -12,6 +12,7 @@ import { extname, join, normalize } from 'node:path';
 import { maybeWrapWithX402, x402Status } from './x402-gate.mjs';
 import { crsStatus, submitSbssDecision, validateSbssRequest } from './crs-sbss.mjs';
 import { runtimeConfigStatus, extractBrokeredSecret } from './runtime-config.mjs';
+import { healthProjection } from './health-projection.mjs';
 
 const PORT = process.env.PORT || 3000;
 const ROOT = new URL('.', import.meta.url).pathname;
@@ -82,7 +83,7 @@ async function handleApi(req, res, url, ip) {
     if (!name) return send(res, 400, { error: 'missing_name', detail: 'Pass ?name=<supplier> to build a vetting evidence pack.' });
     return send(res, 200, await buildSupplierPack(name));
   }
-  if (p === '/api/health') return send(res, 200, { status: 'ok', service: 'company-evidence-index', seeded: true, x402: gateStatus, crs: crsStatus(), runtimeConfig: runtimeConfigStatus() });
+  if (p === '/api/health') return send(res, 200, healthProjection({ gateStatus, crs: crsStatus(), runtimeConfig: runtimeConfigStatus(), seeded: true }));
 
   const claims = () => {
     const q = (url.searchParams.get('q') || '').slice(0, 120).toLowerCase();
