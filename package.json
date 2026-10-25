@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test test/crs-sbss.test.mjs test/x402-gate.test.mjs test/x402-integration.test.mjs test/runtime-config.test.mjs test/clean-passage.test.mjs test/ground-claims.test.mjs test/paid-gate.test.mjs test/vet-autocomplete.test.mjs test/vet-brief.test.mjs test/navigation.test.mjs test/results.test.mjs test/packs.test.mjs test/report.test.mjs test/phone-capture.test.mjs test/signals.test.mjs test/server-integration.test.mjs test/phone-capture.integration.test.mjs test/vet-cache.test.mjs test/context-credits.test.mjs test/vet-allowlist.test.mjs test/demo-concentration.integration.test.mjs"
+    "test": "node --test test/crs-sbss.test.mjs test/x402-gate.test.mjs test/x402-integration.test.mjs test/runtime-config.test.mjs test/clean-passage.test.mjs test/ground-claims.test.mjs test/paid-gate.test.mjs test/vet-autocomplete.test.mjs test/vet-brief.test.mjs test/navigation.test.mjs test/results.test.mjs test/packs.test.mjs test/report.test.mjs test/phone-capture.test.mjs test/signals.test.mjs test/server-integration.test.mjs test/phone-capture.integration.test.mjs test/vet-cache.test.mjs test/context-credits.test.mjs test/vet-allowlist.test.mjs test/demo-concentration.integration.test.mjs test/brief.test.mjs"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.60.0",
