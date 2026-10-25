@@ -71,5 +71,29 @@
     </section>
   </main>
   <script src="vet.js?v=2"></script>
+    <script>
+    // Role retention into the vet flow: the role changes the evaluation
+    // question asked, not the evidence or standards behind the report.
+    document.addEventListener('DOMContentLoaded', () => {
+      const map = {
+        customer: 'What should I check before buying from them?',
+        vendor: 'Is this company worth pursuing, and what is the opening?',
+        investor: 'What deserves diligence, and what challenges their story?',
+        scout: 'How does this company compare to peers?'
+      };
+      const apply = () => {
+        const r = window.CEI_ROLE && window.CEI_ROLE.get();
+        if (!r || !map[r]) return;
+        const ta = document.querySelector('#vet-question');
+        const lab = document.querySelector('label[for="vet-question"]');
+        if (lab) lab.textContent = 'Evaluation question (' + r + ' lens)';
+        if (ta && !ta.dataset.touched) ta.value = map[r];
+        if (ta) ta.addEventListener('input', () => { ta.dataset.touched = '1'; }, { once: true });
+      };
+      apply();
+      document.addEventListener('cei-role', apply);
+    });
+  </script>
+  <script src="/role.js?v=1"></script>
 </body>
 </html>
