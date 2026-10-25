@@ -409,3 +409,6 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 #memo-body,#memo-body *{overflow-wrap:anywhere}
 .memo-table{table-layout:fixed}
 .memo-table td,.memo-table th{overflow-wrap:anywhere;word-break:break-word}
+/* Stream/detail links: long no-space headlines (CJK, slugs) must wrap and flex children must shrink */
+.collect-item-title,.collect-item-title a,.detail-source,.stream-src,.rel-note,.type-strip span{overflow-wrap:anywhere;min-width:0}
+.collect-list li,.collect-list li>*,.util-row,.util-row>*,.util-detail{min-width:0}
