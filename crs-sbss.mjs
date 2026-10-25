@@ -16,9 +16,12 @@ export const PRODUCT_CATEGORIES = ['COMMERCIAL_CARD', 'LINE_OF_CREDIT', 'TERM_LO
 
 export function crsStatus(env = process.env) {
   const configured = Boolean(env.CRS_API_KEY && env.CRS_API_KEY.trim());
+  const baseUrl = (env.CRS_BASE_URL && env.CRS_BASE_URL.trim()) || CRS_SANDBOX_BASE;
   return {
     configured,
     state: configured ? 'configured' : 'not_configured',
+    baseUrl,
+    sandbox: baseUrl.includes('sandbox'),
     detail: configured ? 'Credit evidence source connected.' : 'Credit evidence source not connected.'
   };
 }
