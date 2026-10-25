@@ -28,3 +28,8 @@ test('picker keeps the evaluation question and the old paid vet flow is not load
   const idx = await read('index.html');
   assert.match(idx, /name="question"/); assert.doesNotMatch(idx, /vet\.js/);
 });
+test('credit demo is labelled synthetic, not company credit, and never says it is about the company as data', async () => {
+  const js = await read('brief.js');
+  assert.match(js, /SYNTHETIC CONSUMER DEMONSTRATION · NOT COMPANY CREDIT · NOT ABOUT/);
+  assert.match(js, /c\.state!=='demonstration'/);
+});
