@@ -10,6 +10,7 @@ import { readFile, writeFile, rename } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 import { maybeWrapWithX402, x402Status } from './x402-gate.mjs';
+import { SIGNALS_MODEL, BATCH_SIZE, prepareItems, estimateCost, buildBatchPrompt, normalizeBatchSignals, rollupSignals } from './signals.mjs';
 import { buildPaidGate } from './paid-gate.mjs';
 import { crsSandboxStatus, fetchSandboxDemoReport } from './crs-sandbox.mjs';
 import { runtimeConfigStatus, extractBrokeredSecret } from './runtime-config.mjs';
@@ -247,6 +248,15 @@ async function handleApi(req, res, url, ip) {
     return send(res, 200, { ok: true, runs });
   }
 
+  // Public full-pack signals rollup (aggregates + example posts only; no
+  // spend, no run metadata). 404 until the admin job has run for the ticker.
+  // Must precede the generic /api/packs/:ticker catch-all below.
+  if (req.method === 'GET' && p.endsWith('/signals') && p.startsWith('/api/packs/')) {
+    const st = p.slice('/api/packs/'.length, -'/signals'.length).toUpperCase();
+    const sig = (store.signals || {})[st];
+    if (!sig) return send(res, 404, { error: 'no_signals', detail: 'Full-pack signals have not been generated for ' + (st || 'this ticker') + ' yet.' });
+    return send(res, 200, sig);
+  }
   if (p.startsWith('/api/packs/') && req.method === 'GET') {
     const ticker = p.slice('/api/packs/'.length).toUpperCase();
     const pack = store.packs && store.packs[ticker];
@@ -313,7 +323,11 @@ async function handleApi(req, res, url, ip) {
     }
     return { key: k || null, err };
   }
-  const OPENAI_CAP_USD = 0.50;
+  // OpenAI spend for owner-requested analysis is UNCAPPED (user iMessage
+  // 2026-10-25 05:21: 'openai calls uncapped', outside the $10 aggregate,
+  // Signalor prod key via the broker binding). 50.00 is a runaway-bug guard
+  // only, not a budget; every call's real token cost is still recorded.
+  const OPENAI_CAP_USD = 50.00;
   if (p === '/api/analysis/run' && req.method === 'POST') {
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
       return send(res, 403, { error: 'forbidden', detail: 'Analysis runs require the admin token.' });
@@ -361,6 +375,90 @@ async function handleApi(req, res, url, ip) {
     store.openaiSpend.runs.push({ ticker, at, promptTokens: usage.prompt_tokens || 0, completionTokens: usage.completion_tokens || 0, costUsd: cost });
     await saveStore();
     return send(res, 200, { ok: true, ticker, inputItems: posts.length, claims: store.analysis[ticker].claims.length, counterclaims: store.analysis[ticker].counterclaims.length, costUsd: cost });
+  }
+  // Full-pack per-post signals ("analyze everything, Signalor style", owner
+  // 2026-10-25 05:20): every unique post with text gets sentiment + aspects +
+  // main claim from gpt-4o-mini in batches; rollup is deterministic. Additive:
+  // existing claims analysis and demo routes unchanged. OpenAI via the
+  // brokered Signalor production key (owner 05:21), uncapped, cost tracked.
+  if (p === '/api/analysis/signals/run' && req.method === 'POST') {
+    if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
+      return send(res, 403, { error: 'forbidden', detail: 'Signal runs require the admin token.' });
+    }
+    let body;
+    try { body = await readBody(req, 64_000).then(b => JSON.parse(b)); } catch { return send(res, 400, { error: 'bad_json' }); }
+    const ticker = String(body.ticker || '').toUpperCase().replace(/[^A-Z0-9.-]/g, '');
+    const pack = (store.packs || {})[ticker];
+    if (!ticker || !pack || !pack.items || !pack.items.length) return send(res, 404, { error: 'no_pack', detail: 'No collected pack for this ticker.' });
+    const prep = prepareItems(pack.items);
+    const est = estimateCost(prep);
+    if (body.dryRun) {
+      return send(res, 200, { ok: true, dryRun: true, ticker, collected: prep.collected, withText: prep.withText, noText: prep.noText, dupes: prep.dupes, unique: prep.unique.length, estCalls: est.calls, estInputTokens: est.estInputTokens, estOutputTokens: est.estOutputTokens, estCostUsd: est.estCostUsd });
+    }
+    store.signalJobs = store.signalJobs || {};
+    const cur = store.signalJobs[ticker];
+    if (cur && cur.status === 'running') return send(res, 409, { error: 'already_running', detail: 'A signals job is already running for ' + ticker + '.' });
+    const kres = await openaiKey();
+    if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: String(kres.err).slice(0, 80) });
+    const key = kres.key;
+    const job = { status: 'running', ticker, total: prep.unique.length, done: 0, calls: est.calls, costUsd: 0, startedAt: new Date().toISOString() };
+    store.signalJobs[ticker] = job;
+    await saveStore();
+    (async () => {
+      const allSignals = [];
+      let callsDone = 0;
+      try {
+        for (let off = 0; off < prep.unique.length; off += BATCH_SIZE) {
+          store.openaiSpend = store.openaiSpend || { confirmedUsd: 0, runs: [] };
+          if (store.openaiSpend.confirmedUsd >= OPENAI_CAP_USD) throw new Error('runaway_guard:' + store.openaiSpend.confirmedUsd);
+          const batchTexts = prep.texts.slice(off, off + BATCH_SIZE);
+          const cr = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
+            body: JSON.stringify({ model: SIGNALS_MODEL, messages: [{ role: 'user', content: buildBatchPrompt(pack.company || ticker, ticker, batchTexts, off) }], response_format: { type: 'json_object' }, temperature: 0 })
+          });
+          if (!cr.ok) throw new Error('openai_http_' + cr.status);
+          const cj = await cr.json();
+          const usage = cj.usage || {};
+          const cost = +(((usage.prompt_tokens || 0) * 0.15 / 1e6) + ((usage.completion_tokens || 0) * 0.60 / 1e6)).toFixed(6);
+          store.openaiSpend.confirmedUsd = +(store.openaiSpend.confirmedUsd + cost).toFixed(6);
+          store.openaiSpend.runs.push({ ticker, kind: 'signals', at: new Date().toISOString(), promptTokens: usage.prompt_tokens || 0, completionTokens: usage.completion_tokens || 0, costUsd: cost });
+          let parsed = null;
+          try { parsed = JSON.parse(cj.choices[0].message.content); } catch { parsed = null; }
+          allSignals.push(...normalizeBatchSignals(parsed, off, batchTexts.length));
+          callsDone++;
+          job.done = Math.min(off + BATCH_SIZE, prep.unique.length);
+          job.costUsd = +(job.costUsd + cost).toFixed(6);
+          if (callsDone % 25 === 0) await saveStore();
+          await new Promise(r => setTimeout(r, 120));
+        }
+        const roll = rollupSignals(prep.unique, allSignals);
+        store.signals = store.signals || {};
+        store.signals[ticker] = {
+          ticker, company: pack.company || ticker, generatedAt: new Date().toISOString(), model: SIGNALS_MODEL,
+          coverage: { collected: prep.collected, withText: prep.withText, noText: prep.noText, dupes: prep.dupes, analyzed: prep.unique.length, textSliceChars: 400 },
+          ...roll,
+          basis: 'Per-post AI signals (OpenAI ' + SIGNALS_MODEL + ', third party) over all ' + prep.unique.length + ' unique collected public posts with text (deduplicated from ' + prep.collected + ' collected; ' + prep.dupes + ' duplicates and ' + prep.noText + ' without text skipped; post text truncated to 400 characters). Sentiment, aspects and claims are model readings of what posts say - not verified facts.'
+        };
+        job.status = 'done';
+        job.finishedAt = new Date().toISOString();
+        await saveStore();
+      } catch (e) {
+        job.status = 'failed';
+        job.error = String(e && e.message || e).slice(0, 120);
+        await saveStore();
+      }
+    })();
+    return send(res, 202, { ok: true, started: true, ticker, unique: prep.unique.length, estCalls: est.calls, estCostUsd: est.estCostUsd });
+  }
+  if (p === '/api/analysis/signals/status' && req.method === 'GET') {
+    if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
+      return send(res, 403, { error: 'forbidden', detail: 'Signal status requires the admin token.' });
+    }
+    const ticker = (u.searchParams.get('ticker') || '').toUpperCase();
+    const job = (store.signalJobs || {})[ticker];
+    if (!job) return send(res, 404, { error: 'no_job' });
+    return send(res, 200, { ok: true, job });
   }
   // Admin-only broker shape diagnostic: key NAMES only, never values.
   if (p === '/api/analysis/broker-diag' && req.method === 'GET') {
