@@ -10,6 +10,7 @@ const LENS={
   scout:{line:'Evaluating as a scout: compare the five on coverage first.',first:'claim',checks:['Is the evidence volume comparable across companies?','Do the claims and counterclaims cover the same themes?','Which company has the thinnest or oldest evidence?']}
 };
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const trimSentence=t=>{t=String(t||'').trim();if(!t||/[.!?]['")]?$/.test(t))return t;const m=t.match(/^[\s\S]*[.!?](?=\s|$)/);return m?m[0]:''};
 const num=n=>Number(n||0).toLocaleString('en-US');
 const day=s=>{const d=new Date(s);return isNaN(d)?(s?esc(String(s).slice(0,10)):'unknown'):d.toISOString().slice(0,10)};
 const $=s=>document.querySelector(s);
@@ -101,7 +102,8 @@ function renderAnswer(qa){
   const el=$('#b-answer');
   if(!qa||!(qa.findings||[]).length){el.innerHTML='<p class="state-note">No question-specific analysis has been generated for this question yet. The sections below show what the stored posts say, with sources. Nothing here is an answer to your question until it appears in this section.</p>';return}
   const lab={supports:'SUPPORTS',contradicts:'CONTRADICTS',context:'CONTEXT'};
-  el.innerHTML=(qa.bottomLine?`<p class="b-claim"><strong>${esc(qa.bottomLine)}</strong></p>`:'')+`<p class="state-note">Model inference from stored posts (${esc(qa.model||'a model')}${qa.generatedAt?', '+esc(day(qa.generatedAt)):''}${qa.coverage?', '+num(qa.coverage.analyzed||qa.coverage.read||0)+' posts read':''}). It is not independent verification, and quoted text is the model's excerpt, so open the source post to check it.</p><ul class="stream-list brief-list">`+qa.findings.map(f=>`<li><p class="b-claim">${esc(f.text)}</p><p class="b-meta">${esc(lab[f.stance]||'FINDING')}</p>${f.cite&&f.cite.length?`<details open><summary>Cited posts</summary>${postLinks(f.cite)}</details>`:''}</li>`).join('')+'</ul>';
+  const bl=trimSentence(qa.bottomLine);
+  el.innerHTML=(bl?`<p class="b-claim"><strong>${esc(bl)}</strong></p>`:'')+`<p class="state-note">Model inference from stored posts (${esc(qa.model||'a model')}${qa.generatedAt?', '+esc(day(qa.generatedAt)):''}${qa.coverage?', '+num(qa.coverage.analyzed||qa.coverage.read||0)+' posts read':''}). It is not independent verification, and quoted text is an excerpt from the stored post, so open the source post to check it.</p><ul class="stream-list brief-list">`+qa.findings.map(f=>`<li><p class="b-claim">${esc(f.text)}</p><p class="b-meta">${esc(lab[f.stance]||'FINDING')}</p>${f.cite&&f.cite.length?`<details open><summary>Cited posts</summary>${postLinks(f.cite)}</details>`:''}</li>`).join('')+'</ul>';
 }
 function renderStands(sig,terms){
   const el=$('#b-stands');
@@ -114,7 +116,25 @@ function renderStands(sig,terms){
   el.innerHTML=`<p class="overline">${esc(head).toUpperCase()}</p><ul class="stream-list brief-list">`+by.map(a=>`<li><p class="b-claim">${esc(a.aspect)}: ${num(a.negative)} negative and ${num(a.positive)} positive of ${num(a.count)} mentions (${Math.round(100*neg(a))}% negative)</p><p class="b-meta">COUNTS OF MODEL READINGS OF POSTS, NOT VERIFIED FACTS</p><details><summary>Example posts</summary>${postLinks(a.examples)}</details></li>`).join('')+'</ul>';
 }
 const getJSON=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
+function fold(label,open){
+  const sec=document.querySelector(`section[aria-label="${label}"]`);if(!sec||sec.querySelector(':scope>details.fold'))return;
+  const head=sec.querySelector('.section-heading');if(!head)return;
+  const d=document.createElement('details');d.className='fold';if(open)d.open=true;
+  const sm=document.createElement('summary');sm.textContent=open?'Hide details':'Show details';
+  d.addEventListener('toggle',()=>{sm.textContent=d.open?'Hide details':'Show details'});
+  d.appendChild(sm);while(head.nextSibling)d.appendChild(head.nextSibling);sec.appendChild(d);
+}
+function pager(ul){
+  if(!ul)return;const lis=[...ul.children];if(lis.length<=6)return;
+  let shown=6;lis.forEach((li,i)=>{if(i>=6)li.hidden=true});
+  const b=document.createElement('button');b.type='button';b.className='see-more';
+  const upd=()=>{const left=lis.length-shown;if(left<=0){b.remove();return}b.textContent='See '+Math.min(6,left)+' more'};
+  b.addEventListener('click',()=>{lis.slice(shown,shown+6).forEach(li=>{li.hidden=false});shown+=6;upd()});
+  upd();ul.after(b);
+}
 async function load(){
+  ['Post analysis','Closest stored claims','Second list','Compare','Evidence freshness','Related views'].forEach(l=>fold(l,false));
+  fold('Public records',role==='vendor'||location.hash==='#public-records');
   $('#b-company').value=ticker;$('#b-role').value=role;
   $('#b-title').textContent=NAMES[ticker]+' brief';
   document.title=NAMES[ticker]+' brief · Company Evidence Index';
@@ -130,11 +150,13 @@ async function load(){
   renderStands(sig,p&&p.terms);
   renderQuestions(ans);
   renderSignals(sig,p);
+  pager(document.querySelector('#b-iq ul'));
   const claims=rank(a&&a.claims),counter=rank(a&&a.counterclaims);
   const order=L.first==='counter'?[['counter','Counterclaims in the posts','COUNTERCLAIMS',counter],['claim','Claims in the posts','CLAIMS',claims]]:[['claim','Claims in the posts','CLAIMS',claims],['counter','Counterclaims','COUNTERCLAIMS',counter]];
   [['first',order[0]],['second',order[1]]].forEach(([id,[kind,title,label,list]])=>{
     $('#b-'+id+'-label').textContent=label;$('#b-'+id+'-title').textContent=title;$('#b-'+id).innerHTML=items(list,kind,true);
   });
+  pager($('#b-first'));pager($('#b-second'));
   $('#b-first-note').textContent=a?`Extracted by ${a.model} from ${num(a.inputItems)} sampled posts. Ordered by overlap with your question, then original order.`:'';
   $('#b-basis').textContent=a?a.basis:'No analysis has been stored for this company yet.';
   const srcs=(p&&p.sources)||[];
