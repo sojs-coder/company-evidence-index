@@ -175,3 +175,22 @@ test('buildQuestionsPrompt omits nothing from the aspect brief', () => {
   const p = buildQuestionsPrompt('Tesla', 'TSLA', brief);
   assert.ok(p.includes(JSON.stringify(brief)));
 });
+
+test('reconcileParts: missing chunks never vote sentiment', () => {
+  const r = reconcileParts([{ sentiment: 'positive', aspects: ['x'], claim: null }, { sentiment: 'neutral', aspects: [], claim: null, missing: true }]);
+  assert.equal(r.sentiment, 'positive'); // real reading wins; missing is not a neutral vote
+  assert.equal(r.missing, false);
+});
+
+test('rollupSignals: failed readings are unclassified, never neutral sentiment', () => {
+  const unique = [{ text: 'a', link: 'l1' }, { text: 'b', link: 'l2' }, { text: 'c', link: 'l3' }];
+  const roll = rollupSignals(unique, [
+    { n: 1, sentiment: 'positive', aspects: ['x'], claim: null },
+    { n: 2, sentiment: 'neutral', aspects: [], claim: null, missing: true },
+    { n: 3, sentiment: 'negative', aspects: ['y'], claim: 'c' },
+  ]);
+  assert.equal(roll.sentiment.neutral, 0); // missing post did not become neutral
+  assert.equal(roll.sentiment.positive, 1);
+  assert.equal(roll.sentiment.negative, 1);
+  assert.equal(roll.unclassified, 1);
+});
