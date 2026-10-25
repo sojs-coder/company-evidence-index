@@ -125,7 +125,9 @@ const SOURCES = [
   { key: 'itunes', name: 'Apple on the App Store', url: 'https://itunes.apple.com/search?term=Apple&entity=software&limit=50', label: 'iTunes Search API' },
   { key: 'reviews', name: 'App Store reviews', url: 'https://itunes.apple.com/us/rss/customerreviews/id=408709785/sortBy=mostRecent/json', label: 'App Store customer reviews RSS (GarageBand, an Apple app)' },
   { key: 'xbrl', name: 'SEC XBRL facts', url: 'https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax.json', label: 'SEC EDGAR XBRL company concept API' },
-  { key: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', label: 'The Verge RSS' }
+  { key: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', label: 'The Verge RSS' },
+  { key: 'mastodon', name: 'Mastodon #apple', url: 'https://mastodon.social/api/v1/timelines/tag/apple?limit=40', label: 'Mastodon public tag timeline API' },
+  { key: 'lemmy', name: 'Lemmy', url: 'https://lemmy.world/api/v3/search?q=apple&type_=Posts&limit=50&sort=New', label: 'Lemmy public search API' }
 ];
 const ALLOWED = Object.fromEntries(SOURCES.map(s => [s.key, s.url]));
 // Paginated collectors: several pages per source, fetched sequentially with
@@ -207,6 +209,14 @@ function parse(kind, raw) {
     const j = JSON.parse(raw);
     const entries = ((j.feed && j.feed.entry) || []).filter(e => e['im:rating']);
     return entries.map(e => ({ title: e.title && e.title.label, date: e.updated && e.updated.label && e.updated.label.slice(0, 10), rating: e['im:rating'] && e['im:rating'].label, link: e.link && e.link.attributes ? e.link.attributes.href : '' }));
+  }
+  if (kind === 'mastodon') {
+    const j = JSON.parse(raw);
+    return (Array.isArray(j) ? j : []).map(p => { const clean = decodeEntities((p.content || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim(); return { title: clean.slice(0, 200), context: clean.slice(0, 500), date: (p.created_at || '').slice(0, 10), outlet: `@${(p.account && p.account.acct) || 'unknown'}`, link: p.url || '' }; });
+  }
+  if (kind === 'lemmy') {
+    const j = JSON.parse(raw);
+    return (j.posts || []).map(p => ({ title: (p.post.name || '').slice(0, 200), context: (p.post.body || '').slice(0, 500), date: (p.post.published || '').slice(0, 10), outlet: `${p.community ? '!' + p.community.name + ' by ' : ''}${(p.creator && p.creator.name) || 'unknown'}`, link: p.post.ap_id || '' }));
   }
   if (kind === 'stooq') {
     const lines = raw.trim().split('\n').filter(l => /^\d{4}-/.test(l));
@@ -290,13 +300,13 @@ function matchClaims(report) {
 const FEED_FILTERED = new Set(['verge', 'ninetofive', 'macrumors']);
 const APPLE_RE = /\bapple\b|iphone|ipad|\bios\b|ipados|macos|macbook|airpods|homepod|airtag|icloud|\bsiri\b|vision pro|apple tv|apple music|apple pay|apple watch|app store|tim cook|\baapl\b|imac|mac mini|mac studio|mac pro|watchos|xcode|swiftui|itunes|airtag|keynote|wwdc|cupertino|apple park|apple store|final cut|logic pro|garageband|airplay|carplay|touch id|face id|apple intelligence|apple care|apple one|apple card|apple news|apple fitness|apple arcade|\bbeats\b|magsafe|genius bar/i;
 function isRelevant(key, text) { return (FEED_FILTERED.has(key) || QUERY_MATCHED.has(key)) ? APPLE_RE.test(text) : true; }
-const QUERY_MATCHED = new Set(['hackernews', 'hncomments', 'news']);
+const QUERY_MATCHED = new Set(['hackernews', 'hncomments', 'news', 'mastodon', 'lemmy']);
 function relevanceNote(key, it) {
   const text = itemTitle(it) + ' ' + (it.outlet || '') + ' ' + (it.context || '');
   if (QUERY_MATCHED.has(key)) {
     if (it.matched) return `matched passage: "...${it.matched}..."`;
     const m = (it.context || text).match(/.{0,60}(apple|iphone|ipad|ios|macbook|airpods|vision pro|apple tv|apple watch|app store|tim cook|aapl|imac|siri).{0,80}/i);
-    return m ? `matched passage: "...${m[0].trim()}..."` : 'returned by source query "Apple"; term not in collected excerpt';
+    return m ? `matched passage: "...${m[0].trim()}..."` : 'returned by source query/tag "Apple"; term not in collected excerpt';
   }
   if (FEED_FILTERED.has(key)) { const m = text.match(APPLE_RE); return m ? `keyword: ${m[0]}` : 'no Apple keyword in title'; }
   return 'Apple-specific endpoint';
