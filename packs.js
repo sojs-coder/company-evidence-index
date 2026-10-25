@@ -1,7 +1,8 @@
 // Mentions page: deterministic pack counts/provenance per company, then the
 // AI claim/counterclaim synthesis as a clearly labeled, separate panel.
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));// " intentional
-const srclist=s=>`<li><span class="mono">${esc((s.at||'').slice(0,10))}</span><span class="collect-item-title">${esc(s.source)}</span><span class="faint">${esc(String(s.added))} added</span></li>`;
+const SRC_LABEL={'signalor-historical-export':s=>`Signalor mention archive - historical posts through Oct 20, imported ${esc((s.at||'').slice(0,10))}`,'apify-x':s=>`Fresh X/Twitter collection on ${esc((s.at||'').slice(0,10))} - posts from the prior 7 days`};
+const srclist=s=>{const f=SRC_LABEL[s.source];return `<li><span class="collect-item-title">${f?f(s):esc(s.source)}</span><span class="faint">${esc(String(s.added))} added</span></li>`};
 const postLinks=c=>(c.posts||[]).map(p=>`<li><span class="collect-item-title">${p.link?`<a class="detail-source" href="${esc(p.link)}" target="_blank" rel="noreferrer">${esc(p.text.slice(0,140))}${p.text.length>140?'…':''}</a>`:esc(p.text.slice(0,140))}</span></li>`).join('');
 const claimList=(arr,empty)=>arr&&arr.length?arr.map(c=>`<li><span class="collect-item-title">${esc(c.text)}</span><span class="mono faint">${esc(String(c.support??''))} cited post${c.support===1?'':'s'}</span></li>${postLinks(c)}`).join(''):`<li><span class="faint">${esc(empty)}</span></li>`;
 async function boot(){
