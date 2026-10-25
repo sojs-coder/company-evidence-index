@@ -107,9 +107,8 @@ async function handleApi(req, res, url, ip) {
     for (const s of report.sources) L.push(`- ${s.name}: ${s.itemCount} collected${s.relevantCount != null ? `, ${s.relevantCount} Apple-relevant` : ''} (${s.mode})`);
     L.push('');
     L.push('Signalor mention analytics: historical aggregate through 2026-10-20, not live; see dashboard panel for sentiment/platform/aspect breakdown.');
-    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="apple-evidence-export.md"');
-    return send(res, 200, L.join('\n'));
+    res.writeHead(200, { 'content-type': 'text/markdown; charset=utf-8', 'cache-control': 'no-store', 'content-disposition': 'attachment; filename="apple-evidence-export.md"' });
+    return res.end(L.join('\n'));
   }
   if (p === '/api/companies/apple/analysis') {
     const report = await runReport();
