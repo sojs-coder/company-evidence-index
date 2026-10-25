@@ -287,8 +287,8 @@ const QUERY_MATCHED = new Set(['hackernews', 'hncomments', 'news']);
 function relevanceNote(key, it) {
   const text = itemTitle(it) + ' ' + (it.outlet || '') + ' ' + (it.context || '');
   if (QUERY_MATCHED.has(key)) {
-    const m = (it.context || text).match(/.{0,60}apple.{0,80}/i);
-    return m ? `query-matched: "...${m[0].trim()}..."` : 'matched source query on full text';
+    const m = (it.context || text).match(/.{0,60}(apple|iphone|ipad|ios|macbook|airpods|vision pro|apple tv|apple watch|app store|tim cook|aapl|imac|siri).{0,80}/i);
+    return m ? `matched passage: "...${m[0].trim()}..."` : 'returned by source query "Apple"; term not in collected excerpt';
   }
   if (FEED_FILTERED.has(key)) { const m = text.match(APPLE_RE); return m ? `keyword: ${m[0]}` : 'no Apple keyword in title'; }
   return 'Apple-specific endpoint';
@@ -326,7 +326,7 @@ function validateClaims(report) {
       status: !passages.length ? 'no-outside-coverage-in-run' : (separate.length ? 'separate-wording-coverage' : 'echoed-only'),
       passages: passages.map(p => ({ title: p.title, link: p.link || '', date: (p.date || '').slice(0, 10), source: p.source, wording: p.echo ? 'echo' : 'separate' })) };
   });
-  return { figureChecks, headlineChecks, method: 'Extractive matching only: identical figures in press titles, and shared distinctive terms for coverage. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording. Absence of a citation is not disproval.' };
+  return { figureChecks, headlineChecks, method: 'Extractive matching over the titles collected in this run: identical figures in press titles, and shared distinctive terms for coverage. Article bodies are not fetched. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected titles" means exactly that - it is not evidence that coverage or a citation does not exist.' };
 }
 async function runReport() {
   const runAt = new Date().toISOString();
