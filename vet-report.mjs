@@ -175,7 +175,16 @@ export async function buildVetReport(name, question, categoryKey, identity) {
     });
     if (r.ok) {
       const j = await r.json();
-      const awards = (j.results || []).filter(a => nameMatches(a['Recipient Name'], idToks)).map(a => ({
+      // Selected legal recipient: exact recorded-name match only - token
+      // matching would silently pool distinct legal entities (LLC vs LTD.).
+      // Buyer-asserted (custom) names fall back to token matching, and the
+      // pack already labels those as not registry-verified.
+      const exact = (identity.kind === 'legal_recipient');
+      const keep = (a) => {
+        const rn = String(a['Recipient Name'] || '');
+        return exact ? rn.trim().toUpperCase() === identity.name.trim().toUpperCase() : nameMatches(rn, idToks);
+      };
+      const awards = (j.results || []).filter(keep).map(a => ({
         awardId: a['Award ID'] || null,
         recipient: a['Recipient Name'] || null,
         startDate: a['Start Date'] || null,
