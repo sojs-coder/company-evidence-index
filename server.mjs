@@ -160,6 +160,7 @@ ${d.trace?`<div class="h">3 · Raw response (excerpt)</div><pre>${escH(d.trace.e
 // --- Live collectors (public sources only; allowlisted hosts, size/timeout caps) ---
 const SOURCES = [
   { key: 'edgar', name: 'SEC EDGAR filings', url: 'https://data.sec.gov/submissions/CIK0000320193.json', label: 'SEC EDGAR submissions API' },
+  { key: 'riskfactors', name: 'SEC 10-K risk factors', url: 'https://data.sec.gov/submissions/CIK0000320193.json', label: 'SEC EDGAR submissions API + latest 10-K Item 1A' },
   { key: 'newsroom', name: 'Apple Newsroom', url: 'https://www.apple.com/newsroom/rss-feed.rss', label: 'Apple Newsroom feed' },
   { key: 'news', name: 'Google News', url: 'https://news.google.com/rss/search?q=Apple%20Inc&hl=en-US&gl=US&ceid=US:en', label: 'Google News RSS (query: Apple Inc)' },
   { key: 'wikipedia', name: 'Wikipedia', url: 'https://en.wikipedia.org/api/rest_v1/page/summary/Apple_Inc.', label: 'Wikipedia REST summary API' },
@@ -218,6 +219,30 @@ const items = xml => [...xml.matchAll(/<item[ >][\s\S]*?<\/item>/g)].map(m => m[
 const decodeEntities = t => t.replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16))).replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;|&nbsp;/g, ' ');
 const field = (item, name) => { const m = item.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`)); return m ? decodeEntities(m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '')).trim() : ''; };
 const linkOf = it => { const m = it.match(/<link[^>]*href="([^"]+)"/) || it.match(/<link[^>]*>([^<]+)</); return m ? m[1].trim() : ''; };
+// Latest 10-K Item 1A: category headers are bold spans, risk statements are
+// bold-italic spans in the filed HTML. Extractive only - the filed wording is
+// quoted, never paraphrased.
+function parseRiskFactors(html) {
+  const aHits = [...html.matchAll(/Item\s*1A/g)].map(m => m.index);
+  const bHits = [...html.matchAll(/Item\s*1B/g)].map(m => m.index);
+  if (!aHits.length || !bHits.length) throw new Error('Item 1A/1B markers not found in 10-K');
+  const end = Math.max(...bHits);
+  const start = Math.max(...aHits.filter(x => x < end));
+  const sec = html.slice(start, end);
+  const re = /<span[^>]*style="([^"]*font-weight:700[^"]*)"[^>]*>([\s\S]*?)<\/span>/g;
+  const out = [];
+  let cat = 'Uncategorized';
+  let m;
+  while ((m = re.exec(sec))) {
+    const t = decodeEntities(m[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+    if (!t) continue;
+    if (m[1].includes('italic')) {
+      if (t.length >= 60 && t.length <= 500 && !out.some(x => x.title === t)) out.push({ title: t, category: cat });
+    } else if (t.length >= 8 && t.length <= 90 && /risks?$/i.test(t)) cat = t;
+  }
+  if (!out.length) throw new Error('no bold-italic risk statements extracted from Item 1A');
+  return out.slice(0, 30);
+}
 function parse(kind, raw) {
   if (kind === 'edgar') {
     const r = JSON.parse(raw).filings.recent;
@@ -326,6 +351,22 @@ async function collect(kind) {
   const meta = SOURCES.find(s => s.key === kind);
   const fetchedAt = new Date().toISOString();
   try {
+    if (kind === 'riskfactors') {
+      try {
+        const { body: subsRaw } = await cappedFetch(meta.url);
+        const r = JSON.parse(subsRaw).filings.recent;
+        const i = r.form.indexOf('10-K');
+        if (i < 0) throw new Error('no 10-K in recent filings');
+        const doc = 'https://www.sec.gov/Archives/edgar/data/320193/' + r.accessionNumber[i].replace(/-/g, '') + '/' + r.primaryDocument[i];
+        const { body: tenk, trace } = await cappedFetch(doc);
+        const items = parseRiskFactors(tenk).map(x => ({ ...x, date: r.filingDate[i], link: doc, form: '10-K', accession: r.accessionNumber[i] }));
+        const data = { mode: 'live', source: meta.label, name: meta.name, fetchedAt, runId: fetchedAt, items, trace: { ...trace, url: 'submissions API, then ' + doc } };
+        collectCache.set(kind, { at: Date.now(), data });
+        return data;
+      } catch (e) {
+        return { mode: 'unavailable', source: meta.label, name: meta.name, fetchedAt, detail: String(e.message || e), items: [] };
+      }
+    }
     if (kind === 'reddit') {
       const data = await collectReddit();
       collectCache.set(kind, { at: Date.now(), data });
@@ -610,8 +651,7 @@ async function runReport() {
 // co-mentions, open questions, cited memo. Extractive over this run's collected
 // records only; no LLM, no invented judgments. Missing evidence is listed, not filled.
 const RISK_RE = /\b(lawsuit|sued|antitrust|fined|regulatory fine|penalt\w+|recall|layoffs?|laid off|outage|data breach|security breach|vulnerabilit\w+|exploit\w*|investigation|probe|downgrades?|banned|tariffs?|settlement|complaint|delayed|delays|misses|missed|declin\w+|doj|ftc)\b/i;
-const COMPETITORS = ['Samsung', 'Google', 'Microsoft', 'Meta', 'Huawei', 'Xiaomi', 'OpenAI', 'Amazon', 'Nvidia'];
-function buildDiligence(report, v) {
+const COMPETITORS = ['Samsung', 'Google', 'Microsoft', 'Meta', 'Huawei', 'Xiaomi', 'OpenAI', 'Amazon', 'Nvidia'];function buildDiligence(report, v) {
   const all = [];
   for (const s of report.sources) for (const it of (s.relevantItems || [])) all.push({ ...it, source: s.name, key: s.key });
   const concepts = [['xbrl', 'Revenue'], ['xbrl_ni', 'Net income'], ['xbrl_rd', 'R&D expense'], ['xbrl_eps', 'Diluted EPS']];
@@ -625,7 +665,6 @@ function buildDiligence(report, v) {
     }
   }
   const fundamentals = Object.values(fyMap).sort((a, b) => b.fy.localeCompare(a.fy)).slice(0, 2);
-  // Computed year-over-year interpretation over the cited filed figures.
   const deltas = [];
   if (fundamentals.length >= 2) {
     const [cur, prev] = fundamentals;
@@ -634,11 +673,28 @@ function buildDiligence(report, v) {
       if (a != null && b != null && b !== 0) deltas.push({ metric: m, cur: cur.rows[m].value, prev: prev.rows[m].value, pct: ((a - b) / Math.abs(b) * 100).toFixed(1), unit: cur.rows[m].unit });
     }
   }
+  // Filing-disclosed risk factors (latest 10-K, Item 1A).
+  const rfSrc = report.sources.find(x => x.key === 'riskfactors');
+  const riskFactors = rfSrc && rfSrc.mode === 'live' ? (rfSrc.allItems || []) : [];
+  const rfMeta = riskFactors.length ? { filed: fmtDate(riskFactors[0].date), accession: riskFactors[0].accession, link: riskFactors[0].link } : null;
   // Risk-cued coverage: confirmed-relevant items only (candidates excluded).
   const confirmed = all.filter(it => !/^candidate/.test(it.relevance || ''));
   const riskCues = confirmed.filter(it => RISK_RE.test((it.title || '') + ' ' + (it.context || '')))
     .sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)).slice(0, 10)
     .map(it => ({ title: (it.title || '').slice(0, 200), source: it.source, date: fmtDate(it.date), link: it.link || '', cue: (((it.title || '') + ' ' + (it.context || '')).match(RISK_RE) || [])[0] || '' }));
+  // Cross-reference: collected risk-cued coverage vs the company's own disclosed
+  // risk factors. Shared significant terms only; a match means the coverage
+  // touches a risk the company itself disclosed, not that the risk is realized.
+  const STOP = new Set(['company', 'companys', 'business', 'products', 'services', 'operations', 'financial', 'results', 'conditions', 'customers', 'ability', 'future', 'affect', 'adversely', 'materially', 'significant']);
+  const sigTokens = t => new Set(tokens(t).filter(w => w.length >= 6 && !STOP.has(w)));
+  const riskCross = [];
+  for (const cue of riskCues) {
+    const ct = sigTokens(cue.title);
+    for (const rf of riskFactors) {
+      const shared = [...ct].filter(w => sigTokens(rf.title).has(w));
+      if (shared.length) { riskCross.push({ cue, risk: rf, shared }); break; }
+    }
+  }
   // Co-mention exploration appendix (all collected items incl. candidates and old stories).
   const compCounts = {}, compExamples = {};
   let oldest = null;
@@ -649,38 +705,36 @@ function buildDiligence(report, v) {
     for (const c of COMPETITORS) if (new RegExp('\\b' + c + '\\b', 'i').test(t)) { compCounts[c] = (compCounts[c] || 0) + 1; if (!compExamples[c]) compExamples[c] = { title: (it.title || '').slice(0, 160), source: it.source, date: dte, link: it.link || '' }; }
   }
   const competitors = Object.entries(compCounts).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count, example: compExamples[name] }));
-  // Evidence balance: what collected evidence leans toward vs against, each cited.
+  // Evidence balance: business facts only - filed figures, dated coverage events,
+  // disclosed risks matched by coverage. Wording-coverage metrics never enter here.
   const toward = [], against = [];
   const growing = deltas.filter(d => parseFloat(d.pct) > 0).map(d => d.metric);
   const shrinking = deltas.filter(d => parseFloat(d.pct) < 0).map(d => d.metric);
-  if (growing.length) toward.push(`Filed figures up year over year: ${growing.join(', ')} (computed from SEC XBRL citations in Fundamentals)`);
-  if (shrinking.length) against.push(`Filed figures down year over year: ${shrinking.join(', ')} (computed from SEC XBRL citations in Fundamentals)`);
-  const covered = (v.headlineChecks || []).filter(c => c.status === 'related-separate-wording' || c.status === 'echoed-only');
-  for (const c of covered.slice(0, 3)) toward.push(`Company statement has related outside coverage: "${c.claim}" (${c.status})`);
+  if (growing.length) toward.push({ text: `Filed figures up year over year: ${growing.join(', ')} (computed from the SEC XBRL citations in Fundamentals)`, link: '' });
+  if (shrinking.length) against.push({ text: `Filed figures down year over year: ${shrinking.join(', ')} (computed from the SEC XBRL citations in Fundamentals)`, link: '' });
   const tensions = [];
   for (const c of v.headlineChecks) for (const p of (c.passages || [])) if (p.tension) tensions.push({ claim: c.claim, p });
-  for (const t of tensions) against.push(`Possible tension on "${t.claim}": ${t.p.source}, ${t.p.date}: "${t.p.title}" ${t.p.link}`);
-  for (const r of riskCues.slice(0, 3)) against.push(`Risk-cued coverage: ${r.date} · ${r.source}: "${r.title}" (cue: ${r.cue}) ${r.link}`);
-  const uncovered = (v.headlineChecks || []).filter(c => c.status === 'no-outside-coverage-in-run');
-  for (const c of uncovered.slice(0, 3)) against.push(`Company statement with no outside coverage collected: "${c.claim}"`);
-  // Research questions with resolution status.
+  for (const t of tensions) against.push({ text: `Possible tension on "${t.claim}": ${t.p.source}, ${t.p.date}: "${t.p.title}"`, link: t.p.link });
+  for (const r of riskCues.slice(0, 3)) against.push({ text: `Risk-cued coverage: ${r.date} · ${r.source}: "${r.title}" (cue: ${r.cue})`, link: r.link });
+  for (const x of riskCross.slice(0, 3)) against.push({ text: `Coverage touches a risk the company itself discloses in its 10-K: "${x.cue.title}" (${x.cue.source}) - shared terms with Item 1A risk: ${x.shared.join(', ')}`, link: x.cue.link });
+  // Research questions with resolution status (coverage findings live here, not in the balance).
   const researchQuestions = [];
-  for (const f of (v.figureChecks || [])) researchQuestions.push({ q: `What is the filed ${(/FY\d{4} [a-z& ]+/i.exec(f.claim) || [f.claim])[0].replace(' (filed to the SEC, XBRL)', '')}?`, status: 'resolved-primary-source', detail: `${f.basis} - ${f.link}` });
-  for (const c of (v.headlineChecks || [])) researchQuestions.push({ q: `Is there coverage beyond company channels of: ${c.claim}?`, status: c.status === 'no-outside-coverage-in-run' ? 'open-no-coverage-collected' : 'resolved-' + c.status, detail: (c.passages && c.passages[0]) ? `${c.passages[0].source}: "${c.passages[0].title}" ${c.passages[0].link}` : 'no collected passage' });
+  for (const f of (v.figureChecks || [])) researchQuestions.push({ q: `What is the filed ${(/FY\d{4} [a-z& ]+/i.exec(f.claim) || [f.claim])[0].trim()}?`, status: 'resolved-primary-source', detail: f.basis, link: f.link || '' });
+  for (const c of (v.headlineChecks || [])) researchQuestions.push({ q: `Is there coverage beyond company channels of: ${c.claim}?`, status: c.status === 'no-outside-coverage-in-run' ? 'open-no-coverage-collected' : 'resolved-' + c.status, detail: (c.passages && c.passages[0]) ? `${c.passages[0].source}: "${c.passages[0].title}"` : 'no collected passage', link: (c.passages && c.passages[0] && c.passages[0].link) || c.link || '' });
   const knownGaps = [
-    { area: 'X/Twitter coverage', detail: 'User-requested in the product vision. Official pay-per-use API documented at https://docs.x.com/x-api/getting-started/pricing, but no X account access is configured; sign-in, Developer Agreement acceptance and credit purchase are the user\'s decisions.' },
-    { area: 'Employee commentary', detail: 'No compliant public source with verified employee self-attribution is integrated; Blind/Glassdoor are login-walled (out of scope). HN/Mastodon/Reddit are unknown-speaker commentary, not employee sources.' },
-    { area: 'Fresh Signalor mention analytics', detail: 'Dashboard panel is a historical aggregate through 2026-10-20, not live; refresh depends on Signalor pipeline work outside this project.' },
-    { area: 'Cal Hacks provided API layer', detail: 'Named in the product vision; no API details have been provided.' },
-    { area: 'Filing-level risk-factor review', detail: 'This run reads filed XBRL figures only; 10-K risk-factor text is not yet collected or reviewed.' }
+    { area: 'X/Twitter coverage', detail: 'Not part of the collected source set in this run.' },
+    { area: 'Employee commentary', detail: 'No collected source verifies employee self-attribution; forum and social items are unknown-speaker commentary.' },
+    { area: 'Public mention analytics', detail: 'Historical aggregate as of 2026-10-20, not a live feed.' }
   ];
   const openQuestions = [...knownGaps];
   for (const s of report.sources) if (s.mode !== 'live') openQuestions.push({ area: s.name + ' unavailable this run', detail: (s.detail || 'fetch failed').slice(0, 220) });
-  return { fundamentals, deltas, riskCues, competitors, competitorsOldest: oldest, toward, against, researchQuestions, openQuestions,
+  return { fundamentals, deltas, riskCues, riskFactors, rfMeta, riskCross, competitors, competitorsOldest: oldest, toward, against, researchQuestions, openQuestions,
     labels: { fundamentals: 'Filed SEC XBRL facts (exact us-gaap concept, USD unit, 10-K form, annual period), deduped by period end preferring the latest-filed accession.',
       deltas: 'Year-over-year arithmetic on the cited filed figures above - computed values, not independent estimates.',
       risk: 'Keyword-cued coverage in confirmed-relevant items (query-match candidates excluded) - cues for review, not a risk assessment.',
-      balance: 'What the collected evidence leans toward and against - wording-level collected evidence, not an investment recommendation.',
+      riskFactors: 'Extracted verbatim from Item 1A of the latest 10-K. The company\'s own disclosed risk wording - not this analysis\'s conclusions.',
+      riskCross: 'Collected coverage items sharing significant terms with the company\'s disclosed risk factors. A match means the coverage touches a disclosed risk area, not that the risk is realized.',
+      balance: 'Business facts collected this run, for and against - filed figures, dated coverage events, and disclosed-risk cross-references. Coverage/wording metrics are reported separately as research questions and never count as evidence here.',
       competitors: 'Exploration appendix: name co-occurrence across ALL collected items (any date, including older stories and candidate query-matches) - raw co-occurrence, not current competitive analysis.',
       open: 'Known missing coverage and unavailable sources. Absence here is not proof a fact or coverage does not exist.' } };
 }
@@ -704,36 +758,48 @@ function buildMemo(report, v, d) {
   if (d.deltas.length) for (const x of d.deltas) L.push(`- ${x.metric}: ${x.cur} vs ${x.prev} - ${x.pct}% YoY (${x.unit})`);
   else L.push('- Not enough annual periods collected to compute.');
   L.push('');
-  L.push('## 3. Evidence balance');
+  L.push('## 3. Evidence balance (business facts)');
   L.push(d.labels.balance); L.push('');
-  L.push('Leans toward:'); for (const t of d.toward) L.push(`- ${t}`);
-  L.push(''); L.push('Leans against / unresolved:'); for (const a of d.against) L.push(`- ${a}`);
+  L.push('Leans toward:'); for (const t of d.toward) L.push(`- ${t.text}${t.link ? ' - ' + t.link : ''}`);
+  L.push(''); L.push('Leans against / unresolved:'); for (const a of d.against) L.push(`- ${a.text}${a.link ? ' - ' + a.link : ''}`);
   L.push('');
-  L.push('## 4. Claim checks (related-evidence coverage, wording level)');
-  L.push(`${v.coverageScore.score}/100 - ${v.coverageScore.drivers}`);
-  L.push(v.coverageScore.scope); L.push('');
-  for (const c of v.figureChecks) L.push(`- [${c.status}] ${c.claim} - ${c.basis}${c.link ? ' - ' + c.link : ''}`);
+  L.push('## 4. Filing-disclosed risk factors (latest 10-K, Item 1A)');
+  L.push(d.labels.riskFactors);
+  if (d.rfMeta) L.push(`Source: 10-K for the annual period ended ${d.fundamentals[0] ? d.fundamentals[0].date : ''}, accession ${d.rfMeta.accession}, filed ${d.rfMeta.filed} - ${d.rfMeta.link}`);
   L.push('');
-  for (const c of v.headlineChecks) L.push(`- [${c.status}] ${c.claim}${c.date ? ' (' + c.date + ')' : ''}`);
+  if (d.riskFactors.length) {
+    let cat = null;
+    for (const rf of d.riskFactors) { if (rf.category !== cat) { cat = rf.category; L.push(`### ${cat}`); } L.push(`- ${rf.title}`); }
+  } else L.push('- Not collected this run.');
   L.push('');
-  const tensions2 = [];
-  for (const c of v.headlineChecks) for (const p of (c.passages || [])) if (p.tension) tensions2.push({ claim: c.claim, p });
-  L.push('## 5. Counter-evidence and unresolved checks');
-  L.push('Passages flagged possible tension (negation/failure wording near the matched span - related evidence for review, never counted as coverage), figure mismatches, and checks without additional press match (the primary SEC citation stands in Fundamentals).');
-  L.push('');
-  if (tensions2.length) for (const t of tensions2) L.push(`- TENSION on "${t.claim}": ${t.p.source}, ${t.p.date}: "${t.p.title}" ${t.p.link}${t.p.excerpt ? '\n  Passage: "...' + t.p.excerpt + '..."' : ''}`);
-  else L.push('- No tension-flagged passages this run.');
-  for (const c of (v.contradictions || [])) L.push(`- FIGURE MISMATCH CANDIDATE: ${c.claim} - ${c.basis}`);
+  L.push('## 5. Coverage vs disclosed risks');
+  L.push(d.labels.riskCross); L.push('');
+  if (d.riskCross.length) for (const x of d.riskCross) L.push(`- ${x.cue.date} · ${x.cue.source}: "${x.cue.title}" ${x.cue.link}\n  Disclosed risk (${x.risk.category}): "${x.risk.title}" - shared terms: ${x.shared.join(', ')}`);
+  else L.push('- No collected coverage item shares significant terms with a disclosed risk factor this run.');
   L.push('');
   L.push('## 6. Risk-cued coverage');
   L.push(d.labels.risk); L.push('');
   if (d.riskCues.length) for (const r of d.riskCues) L.push(`- ${r.date} · ${r.source}: "${r.title}" (cue: ${r.cue}) ${r.link}`);
   else L.push('- No risk-cued items in confirmed-relevant coverage this run.');
   L.push('');
-  L.push('## 7. Research questions and resolution status');
-  for (const q of d.researchQuestions) L.push(`- [${q.status}] ${q.q} - ${q.detail}`);
+  L.push('## 7. Claim checks (related-evidence coverage, wording level)');
+  L.push(`${v.coverageScore.score}/100 - ${v.coverageScore.drivers}`);
+  L.push(v.coverageScore.scope); L.push('');
+  for (const c of v.figureChecks) L.push(`- [${c.status}] ${c.claim} - ${c.basis}${c.link ? ' - ' + c.link : ''}`);
   L.push('');
-  L.push('## 8. Open questions (known gaps)');
+  for (const c of v.headlineChecks) L.push(`- [${c.status}] ${c.claim}${c.date ? ' (' + c.date + ')' : ''}`);
+  L.push('');
+  L.push('## 8. Counter-evidence and unresolved checks');
+  L.push('Passages flagged possible tension (negation/failure wording near the matched span - related evidence for review, never counted as coverage), figure mismatches, and checks without additional press match (the primary SEC citation stands in Fundamentals).');
+  L.push('');
+  if (tensionsFromV(v).length) for (const t of tensionsFromV(v)) L.push(`- TENSION on "${t.claim}": ${t.p.source}, ${t.p.date}: "${t.p.title}" ${t.p.link}${t.p.excerpt ? '\n  Passage: "...' + t.p.excerpt + '..."' : ''}`);
+  else L.push('- No tension-flagged passages this run.');
+  for (const c of (v.contradictions || [])) L.push(`- FIGURE MISMATCH CANDIDATE: ${c.claim} - ${c.basis}`);
+  L.push('');
+  L.push('## 9. Research questions and resolution status');
+  for (const q of d.researchQuestions) L.push(`- [${q.status}] ${q.q} - ${q.detail}${q.link ? ' - ' + q.link : ''}`);
+  L.push('');
+  L.push('## 10. Open questions (known gaps)');
   L.push(d.labels.open); L.push('');
   for (const q of d.openQuestions) L.push(`- ${q.area}: ${q.detail}`);
   L.push('');
@@ -747,6 +813,12 @@ function buildMemo(report, v, d) {
   L.push('Public sources only; no login-walled or paywalled collection; no LLM in the backend; matching is extractive and quoted. Query/tag-matched items are candidates, counted separately and excluded from risk cues. Collection cadence and per-source windows differ; deduplicated records persist on an attached volume across runs.');
   return L.join('\n');
 }
+function tensionsFromV(v) {
+  const out = [];
+  for (const c of v.headlineChecks) for (const p of (c.passages || [])) if (p.tension) out.push({ claim: c.claim, p });
+  return out;
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
