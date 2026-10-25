@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="cal-hacks-tokens.css?v=12" />
   <link rel="stylesheet" href="styles.css?v=28" />
 </head>
-<body>
+<body class="vet-page">
   <header class="topbar"></header>
   <script src="/navigation.js?v=1"></script>
   <script src="/role.js?v=1" defer></script>
@@ -19,6 +19,7 @@
       </div>
     </div>
     <section class="panel" aria-label="Vetting request">
+      <p class="vet-intro">Name the company. Ask the question you’re deciding on. Get cited evidence, with its limits in plain sight.</p>
       <form id="vet-form" class="vet-form">
         <span class="vet-field"><label for="vet-name">Company name</label><input id="vet-name" name="name" type="text" value="Honeybee Robotics" autocomplete="off" list="vet-companies" placeholder="Search by company or ticker" /><datalist id="vet-companies"></datalist></span>
         <span class="vet-field vet-field--q"><label for="vet-question">Your evaluation question</label><textarea id="vet-question" name="question" rows="2">Do they have flight heritage for Mars rover mechanisms?</textarea></span>
