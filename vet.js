@@ -1,0 +1,75 @@
+// Vet flow: two phases, honest states. Identify (select exact legal entity)
+// then a cited report answering the buyer's question. Nothing is substituted.
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money=n=>n==null?'(not recorded)':'$'+Number(n).toLocaleString('en-US',{maximumFractionDigits:0});
+if(localStorage.getItem('cei-theme')==='dark'){document.documentElement.dataset.theme='dark';document.querySelector('meta[name="theme-color"]').content='#02205e'}
+const themeBtn=document.querySelector('.theme-toggle');
+themeBtn&&themeBtn.addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';localStorage.setItem('cei-theme',dark?'dark':'light');document.querySelector('meta[name="theme-color"]').content=dark?'#02205e':'#f5f4f4'});
+function state(el,msg,err){const n=document.querySelector(el);if(n)n.innerHTML=`<p class="state-note${err?' state-error':''}">${esc(msg)}</p>`}
+const KIND={public_company:'SEC company registry',brand_match:'Brand registry match',legal_recipient:'Recorded legal recipient (USASpending)',custom:'Name as typed'};
+let currentName='';
+async function identify(name){
+  currentName=name;
+  for(const p of ['identity-panel','answer-panel','awards-panel','citations-panel','sources-panel'])document.getElementById(p).hidden=true;
+  document.getElementById('identity-panel').hidden=false;
+  state('#identities','Resolving candidate legal entities from live registries. Nothing is assumed.');
+  document.getElementById('identity-count').textContent='';
+  let r;
+  try{r=await fetch('/api/vet/identify?name='+encodeURIComponent(name)).then(x=>{if(!x.ok)throw new Error('HTTP '+x.status);return x.json()})}
+  catch(e){state('#identities','Identity lookup failed ('+(e.message||e)+'). Nothing is substituted.',true);return}
+  document.getElementById('run-stamp').textContent='FETCHED '+new Date(r.fetchedAt).toUTCString().slice(17,25)+' UTC';
+  const ids=r.identities;
+  document.getElementById('identity-count').textContent=ids.length+' CANDIDATES';
+  const card=(c,i)=>`<label class="id-card"><input type="radio" name="identity" value="${i}" /><span class="collect-item-title">${esc(c.name)}</span><span class="faint">${esc(KIND[c.kind]||c.kind)}${c.domain?' · '+esc(c.domain):''}${c.ticker?' · '+esc(c.ticker):''}${c.awardCount!=null?' · '+c.awardCount+' awards':''}</span></label>`;
+  document.getElementById('identities').innerHTML=(ids.length
+    ?ids.map(card).join('')
+    :'<p class="state-note">No registry candidates matched. You can still run the name as typed; the report will say it is buyer-asserted, not registry-verified.</p>')
+    +`<label class="id-card"><input type="radio" name="identity" value="custom" /><span class="collect-item-title">${esc(name)} (as typed)</span><span class="faint">Buyer-asserted name, not registry-verified</span></label>`
+    +'<button type="button" id="report-go" class="outline-button">Build cited report</button>';
+  document.getElementById('report-go').addEventListener('click',()=>{
+    const sel=document.querySelector('input[name="identity"]:checked');
+    if(!sel){state('#identities','Select one candidate first - the report covers exactly one legal entity.',true);document.getElementById('identities').insertAdjacentHTML('beforeend',document.getElementById('report-go').outerHTML);return}
+    const id=sel.value==='custom'?{kind:'custom',name:currentName}:ids[Number(sel.value)];
+    report(id);
+  });
+}
+async function report(identity){
+  const question=document.getElementById('vet-question').value.trim();
+  const category=document.getElementById('vet-category').value;
+  for(const p of ['answer-panel','awards-panel','citations-panel','sources-panel'])document.getElementById(p).hidden=false;
+  document.getElementById('answer-title').textContent='“'+question+'”'+' · '+identity.name;
+  state('#quotes','Fetching cited evidence for this exact entity. Live sources only.');
+  state('#findings','');state('#limitations','');state('#awards','Fetching live USASpending records.');state('#citations','Fetching live NASA citations.');state('#sources','');
+  const qs='name='+encodeURIComponent(currentName)+'&question='+encodeURIComponent(question)+'&category='+encodeURIComponent(category)+'&identityKind='+encodeURIComponent(identity.kind)+'&identityName='+encodeURIComponent(identity.name);
+  let r;
+  try{r=await fetch('/api/vet/report?'+qs).then(x=>{if(!x.ok)throw new Error('HTTP '+x.status);return x.json()})}
+  catch(e){state('#quotes','The report failed ('+(e.message||e)+'). Nothing is substituted.',true);state('#awards','Not attempted after the failure.',true);state('#citations','Not attempted after the failure.',true);return}
+  document.getElementById('answer-count').textContent=(r.answer.quotedEvidence.length)+' QUOTES · '+(r.findings.length)+' FINDINGS';
+  document.getElementById('quotes').innerHTML=r.answer.quotedEvidence.length
+    ?r.answer.quotedEvidence.map(q=>`<blockquote class="quote-block"><p>${esc(q.passage)}</p><span class="faint"><a class="detail-source" href="${esc(q.source.url)}" target="_blank" rel="noreferrer">${esc(q.source.name||q.source.url)}</a></span></blockquote>`).join('')
+    :'<p class="state-note">No quoted passages answered the question directly from the searched public pages. The structured findings below still stand on their own sources.</p>';
+  document.getElementById('findings').innerHTML=r.findings.length
+    ?'<ul class="collect-list collect-list--plain">'+r.findings.map(f=>`<li><span class="collect-item-title">${esc(f.statement)} <span class="badge-dim">${esc(f.confidence)}</span></span><span class="faint">${f.source&&f.source.url?`<a class="detail-source" href="${esc(f.source.url)}" target="_blank" rel="noreferrer">${esc(f.source.name)}</a>`:esc(f.source?f.source.name:'')}</span></li>`).join('')+'</ul>'
+    :'';
+  document.getElementById('limitations').innerHTML=r.answer.limitations.length
+    ?'<ul class="collect-list collect-list--plain">'+r.answer.limitations.map(l=>`<li><span class="collect-item-title">${esc(l)}</span></li>`).join('')+'</ul>':'';
+  const awards=r.awards||[];
+  document.getElementById('award-count').textContent=awards.length+' RECORDS';
+  const awardItem=a=>`<li><span class="collect-item-title">${a.sourceUrl?`<a class="detail-source" href="${esc(a.sourceUrl)}" target="_blank" rel="noreferrer">${esc(a.description||a.awardId||'(untitled award)')}</a>`:esc(a.description||'(untitled award)')}</span><span class="faint">${esc([a.agency,a.startDate,money(a.obligatedAmountUsd)].filter(Boolean).join(' · '))}</span></li>`;
+  document.getElementById('awards').innerHTML=awards.length
+    ?'<ul class="collect-list collect-list--plain">'+awards.map(awardItem).join('')+'</ul>'
+    :'<p class="state-note">No federal contract awards under this exact legal name. That is not evidence of absence - try name variants.</p>';
+  const cites=r.citations||[];
+  const verified=cites.filter(c=>c.association&&c.association.state==='affiliation_verified');
+  const matches=cites.filter(c=>!c.association||c.association.state!=='affiliation_verified');
+  document.getElementById('citation-count').textContent=cites.length+' CITATIONS · '+verified.length+' AFFILIATION-VERIFIED';
+  const citeItem=c=>`<li><span class="collect-item-title">${c.sourceUrl?`<a class="detail-source" href="${esc(c.sourceUrl)}" target="_blank" rel="noreferrer">${esc(c.title)}</a>`:esc(c.title)}</span><span class="faint">${esc((c.association.organizations&&c.association.organizations.length?c.association.organizations.join(' · '):'affiliation not recorded'))}</span></li>`;
+  document.getElementById('citations').innerHTML=cites.length
+    ?(verified.length?'<p class="overline">AUTHOR-AFFILIATION MATCHES THE LEGAL NAME</p><ul class="collect-list collect-list--plain">'+verified.map(citeItem).join('')+'</ul>':'')
+      +(matches.length?'<p class="overline pack-group">SEARCH MATCHES - COMPANY ASSOCIATION NOT VERIFIED</p><ul class="collect-list collect-list--plain">'+matches.map(citeItem).join('')+'</ul>':'')
+      +'<p class="state-note">Search matches are keyword hits in the NASA archive, not this company\'s research or technical record.</p>'
+    :'<p class="state-note">No NASA technical reports cite this legal name.</p>';
+  document.getElementById('caveats').innerHTML='<ul class="collect-list collect-list--plain">'+r.caveats.map(c=>`<li><span class="collect-item-title">${esc(c)}</span></li>`).join('')+'</ul>';
+  document.getElementById('sources').innerHTML='<ul class="collect-list collect-list--plain">'+r.sources.map(s=>`<li><span class="collect-item-title"><a class="detail-source" href="${esc(s.url)}" target="_blank" rel="noreferrer">${esc(s.name)}</a> <span class="badge-dim">${esc(s.mode)}</span></span><span class="faint">${esc((s.fetched!=null?s.fetched+' records':'')+(s.detail?' · '+s.detail:''))}</span></li>`).join('')+'</ul>';
+}
+document.getElementById('vet-form').addEventListener('submit',e=>{e.preventDefault();const n=document.getElementById('vet-name').value.trim();if(n)identify(n)});
