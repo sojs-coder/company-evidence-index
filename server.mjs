@@ -59,6 +59,11 @@ async function handleApi(req, res, url, ip) {
     const r = await submitSbssDecision(body);
     return send(res, r.ok ? 200 : 502, r);
   }
+  if (p === '/api/vet/supplier') {
+    const name = (url.searchParams.get('name') || '').trim();
+    if (!name) return send(res, 400, { error: 'missing_name', detail: 'Pass ?name=<supplier> to build a vetting evidence pack.' });
+    return send(res, 200, await buildSupplierPack(name));
+  }
   if (p === '/api/health') return send(res, 200, { status: 'ok', service: 'company-evidence-index', seeded: true, x402: gateStatus, crs: crsStatus(), runtimeConfig: runtimeConfigStatus() });
 
   const claims = () => {
@@ -900,6 +905,77 @@ function tensionsFromV(v) {
   const out = [];
   for (const c of v.headlineChecks) for (const p of (c.passages || [])) if (p.tension) out.push({ claim: c.claim, p });
   return out;
+}
+
+
+// Supplier vetting vertical slice (Cal Hacks 13.0, SpaceXSI track direction):
+// broad company-vetting product; this pack is the space-supplier example built
+// on REAL space data (USASpending award records + NASA NTRS citations), both
+// keyless public APIs. Fetched live per request; nothing seeded, nothing
+// fabricated. Contract history shows agencies bought from the supplier - it
+// does NOT by itself establish reliability or qualification; the pack says so.
+async function buildSupplierPack(name) {
+  const fetchedAt = new Date().toISOString();
+  const pack = {
+    supplier: name, fetchedAt, provenance: 'fetched_live',
+    awards: [], citations: [], sources: [],
+    caveats: [
+      'Contract history shows an agency agreed to buy from this supplier; it does not by itself establish reliability, quality, or qualification.',
+      'Award amounts are obligations as recorded in USASpending at query time; always read them with their start date and description.',
+      'Absence of a record here is not evidence of absence - name variants and subaward relationships need deeper research (planned connectors below).'
+    ],
+    plannedConnectors: [
+      { key: 'context.dev', state: 'planned', detail: 'Deep web research, structured extraction and change monitors. Account claimed; key exchange pending email verification. Not used in this pack.' },
+      { key: 'crs_sbss', state: 'sandbox_documented', detail: 'Business credit evidence (SBSS) as a vetting signal. Sandbox spec integrated; no account, no live pull. Not used in this pack.' },
+      { key: 'x402', state: 'built_disabled', detail: 'Per-datapoint paid access (the marketplace rail). Built with the official CDP SDK, fail-closed; disabled until pricing/wallet decisions are made.' }
+    ]
+  };
+  // USASpending: federal award history for the recipient name (contracts only).
+  try {
+    const r = await fetch('https://api.usaspending.gov/api/v2/search/spending_by_award/', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        filters: { recipient_search_text: [name], award_type_codes: ['A', 'B', 'C', 'D'] },
+        fields: ['Award ID', 'Recipient Name', 'Start Date', 'Award Amount', 'Awarding Agency', 'Description'],
+        limit: 25, sort: 'Start Date', order: 'desc'
+      })
+    });
+    if (r.ok) {
+      const j = await r.json();
+      pack.awards = (j.results || []).map(a => ({
+        awardId: a['Award ID'] || null,
+        recipient: a['Recipient Name'] || null,
+        startDate: a['Start Date'] || null,
+        obligatedAmountUsd: (typeof a['Award Amount'] === 'number' ? a['Award Amount'] : null),
+        agency: a['Awarding Agency'] || null,
+        description: a['Description'] || null,
+        sourceUrl: a['Award ID'] ? ('https://www.usaspending.gov/award/' + encodeURIComponent(a['Award ID'])) : null
+      }));
+      pack.sources.push({ key: 'usaspending', name: 'USASpending award search', url: 'https://www.usaspending.gov/', fetched: pack.awards.length, mode: 'live' });
+    } else {
+      pack.sources.push({ key: 'usaspending', name: 'USASpending award search', url: 'https://www.usaspending.gov/', fetched: 0, mode: 'error', detail: 'HTTP ' + r.status });
+    }
+  } catch (e) {
+    pack.sources.push({ key: 'usaspending', name: 'USASpending award search', url: 'https://www.usaspending.gov/', fetched: 0, mode: 'error', detail: String(e.message || e) });
+  }
+  // NASA NTRS: technical reports citing the supplier.
+  try {
+    const r = await fetch('https://ntrs.nasa.gov/api/citations/search?q=' + encodeURIComponent(name) + '&size=5', { headers: { accept: 'application/json' } });
+    if (r.ok) {
+      const j = await r.json();
+      pack.citations = (j.results || []).map(c => ({
+        title: c.title || null,
+        id: c.id || null,
+        sourceUrl: c.id ? ('https://ntrs.nasa.gov/citations/' + c.id) : null
+      })).filter(c => c.title);
+      pack.sources.push({ key: 'ntrs', name: 'NASA Technical Reports Server', url: 'https://ntrs.nasa.gov/', fetched: pack.citations.length, mode: 'live' });
+    } else {
+      pack.sources.push({ key: 'ntrs', name: 'NASA Technical Reports Server', url: 'https://ntrs.nasa.gov/', fetched: 0, mode: 'error', detail: 'HTTP ' + r.status });
+    }
+  } catch (e) {
+    pack.sources.push({ key: 'ntrs', name: 'NASA Technical Reports Server', url: 'https://ntrs.nasa.gov/', fetched: 0, mode: 'error', detail: String(e.message || e) });
+  }
+  return pack;
 }
 
 const appHandler = async (req, res) => {
