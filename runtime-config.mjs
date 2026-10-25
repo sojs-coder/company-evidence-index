@@ -20,11 +20,8 @@ const DEFAULT_PATH_PREFIX = 'data.secrets';
 
 export function runtimeConfigStatus(env = process.env) {
   const configured = Boolean(env.RUNTIME_CONFIG_URL && env.RUNTIME_CONFIG_TOKEN);
-  let host = null;
-  if (env.RUNTIME_CONFIG_URL) { try { host = new URL(env.RUNTIME_CONFIG_URL).host; } catch { host = 'invalid-url'; } }
   return {
     configured,
-    host,
     state: configured ? 'configured' : 'not_configured',
     detail: configured
       ? 'Runtime-config snapshot credentials present; the requested secret is extracted at startup, held in memory, and never logged. The rest of the envelope is discarded unread-for.'
