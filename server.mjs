@@ -685,14 +685,24 @@ const COMPETITORS = ['Samsung', 'Google', 'Microsoft', 'Meta', 'Huawei', 'Xiaomi
   // Cross-reference: collected risk-cued coverage vs the company's own disclosed
   // risk factors. Shared significant terms only; a match means the coverage
   // touches a risk the company itself disclosed, not that the risk is realized.
-  const STOP = new Set(['company', 'companys', 'business', 'products', 'services', 'operations', 'financial', 'results', 'conditions', 'customers', 'ability', 'future', 'affect', 'adversely', 'materially', 'significant']);
-  const sigTokens = t => new Set(tokens(t).filter(w => w.length >= 6 && !STOP.has(w)));
+  // Fixed lexicon groups (disclosed in Method): the 10-K states risk areas in
+  // generic legal wording, so verbatim token overlap alone misses real topical
+  // matches (e.g. "DOJ" vs "legal proceedings"). Each group pairs a coverage
+  // pattern with the filed-wording pattern for the same risk area.
+  const RISK_LEXICON = [
+    { group: 'legal and regulatory proceedings', cue: /\b(antitrust|doj|ftc|lawsuit|sued|deposition|investigation|probe|settlement|regulatory|penalt\w+)\b/i, risk: /\b(legal|lawsuits?|investigations?|regulat\w+|penalt\w+|proceedings|legislation|scrutiny)\b/i },
+    { group: 'data security and confidentiality', cue: /\b(breach|vulnerabilit\w*|exploit\w*|hack\w*|scamm\w*)\b/i, risk: /\b(confidential|unauthorized|information technology|network disruptions|cyber)\b/i },
+    { group: 'carrier and channel performance', cue: /\b(verizon|at&t|t-mobile|carrier\w*|reseller\w*)\b/i, risk: /\b(carriers?|resellers?)\b/i },
+    { group: 'supply chain and manufacturing', cue: /\b(tariff\w*|supply|component\w*|manufactur\w*|shortage\w*)\b/i, risk: /\b(component\w*|manufactur\w*|supply|outsourcing|tariff\w*)\b/i },
+    { group: 'workforce and talent', cue: /\b(layoffs?|laid off|hiring|recruit\w*)\b/i, risk: /\b(team members|employees|personnel|culture|talents)\b/i }
+  ];
   const riskCross = [];
   for (const cue of riskCues) {
-    const ct = sigTokens(cue.title);
-    for (const rf of riskFactors) {
-      const shared = [...ct].filter(w => sigTokens(rf.title).has(w));
-      if (shared.length) { riskCross.push({ cue, risk: rf, shared }); break; }
+    const hay = cue.title;
+    for (const g of RISK_LEXICON) {
+      if (!g.cue.test(hay)) continue;
+      const rf = riskFactors.find(x => g.risk.test(x.title));
+      if (rf) { riskCross.push({ cue, risk: rf, group: g.group }); break; }
     }
   }
   // Co-mention exploration appendix (all collected items incl. candidates and old stories).
@@ -716,7 +726,7 @@ const COMPETITORS = ['Samsung', 'Google', 'Microsoft', 'Meta', 'Huawei', 'Xiaomi
   for (const c of v.headlineChecks) for (const p of (c.passages || [])) if (p.tension) tensions.push({ claim: c.claim, p });
   for (const t of tensions) against.push({ text: `Possible tension on "${t.claim}": ${t.p.source}, ${t.p.date}: "${t.p.title}"`, link: t.p.link });
   for (const r of riskCues.slice(0, 3)) against.push({ text: `Risk-cued coverage: ${r.date} · ${r.source}: "${r.title}" (cue: ${r.cue})`, link: r.link });
-  for (const x of riskCross.slice(0, 3)) against.push({ text: `Coverage touches a risk the company itself discloses in its 10-K: "${x.cue.title}" (${x.cue.source}) - shared terms with Item 1A risk: ${x.shared.join(', ')}`, link: x.cue.link });
+  for (const x of riskCross.slice(0, 3)) against.push({ text: `Coverage touches a risk area the company itself discloses in its 10-K (${x.group}): "${x.cue.title}" (${x.cue.source})`, link: x.cue.link });
   // Research questions with resolution status (coverage findings live here, not in the balance).
   const researchQuestions = [];
   for (const f of (v.figureChecks || [])) researchQuestions.push({ q: `What is the filed ${(/FY\d{4} [a-z& ]+/i.exec(f.claim) || [f.claim])[0].trim()}?`, status: 'resolved-primary-source', detail: f.basis, link: f.link || '' });
@@ -733,7 +743,7 @@ const COMPETITORS = ['Samsung', 'Google', 'Microsoft', 'Meta', 'Huawei', 'Xiaomi
       deltas: 'Year-over-year arithmetic on the cited filed figures above - computed values, not independent estimates.',
       risk: 'Keyword-cued coverage in confirmed-relevant items (query-match candidates excluded) - cues for review, not a risk assessment.',
       riskFactors: 'Extracted verbatim from Item 1A of the latest 10-K. The company\'s own disclosed risk wording - not this analysis\'s conclusions.',
-      riskCross: 'Collected coverage items sharing significant terms with the company\'s disclosed risk factors. A match means the coverage touches a disclosed risk area, not that the risk is realized.',
+      riskCross: 'Collected coverage items matched to the company\'s disclosed risk areas through a fixed, disclosed term lexicon (see Method). A match means the coverage touches a disclosed risk area, not that the risk is realized.',
       balance: 'Business facts collected this run, for and against - filed figures, dated coverage events, and disclosed-risk cross-references. Coverage/wording metrics are reported separately as research questions and never count as evidence here.',
       competitors: 'Exploration appendix: name co-occurrence across ALL collected items (any date, including older stories and candidate query-matches) - raw co-occurrence, not current competitive analysis.',
       open: 'Known missing coverage and unavailable sources. Absence here is not proof a fact or coverage does not exist.' } };
@@ -774,7 +784,7 @@ function buildMemo(report, v, d) {
   L.push('');
   L.push('## 5. Coverage vs disclosed risks');
   L.push(d.labels.riskCross); L.push('');
-  if (d.riskCross.length) for (const x of d.riskCross) L.push(`- ${x.cue.date} · ${x.cue.source}: "${x.cue.title}" ${x.cue.link}\n  Disclosed risk (${x.risk.category}): "${x.risk.title}" - shared terms: ${x.shared.join(', ')}`);
+  if (d.riskCross.length) for (const x of d.riskCross) L.push(`- ${x.cue.date} · ${x.cue.source}: "${x.cue.title}" ${x.cue.link}\n  Disclosed risk area: ${x.group} - filed wording (${x.risk.category}): "${x.risk.title}"`);
   else L.push('- No collected coverage item shares significant terms with a disclosed risk factor this run.');
   L.push('');
   L.push('## 6. Risk-cued coverage');
@@ -810,6 +820,7 @@ function buildMemo(report, v, d) {
   L.push('');
   L.push('## Method and limits');
   L.push(v.method);
+  L.push('Coverage-to-disclosed-risk matching uses a fixed lexicon of five term groups (legal and regulatory proceedings; data security and confidentiality; carrier and channel performance; supply chain and manufacturing; workforce and talent), each pairing a coverage pattern with the filed-wording pattern of the same risk area; the groups are fixed in the source, not generated per run.');
   L.push('Public sources only; no login-walled or paywalled collection; no LLM in the backend; matching is extractive and quoted. Query/tag-matched items are candidates, counted separately and excluded from risk cues. Collection cadence and per-source windows differ; deduplicated records persist on an attached volume across runs.');
   return L.join('\n');
 }
