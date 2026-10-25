@@ -54,3 +54,48 @@ test('synthesis stays absent and labeled when no key is configured', async () =>
   assert.ok(ca, 'ctx_answers source row present');
   assert.equal(ca.mode, 'not_configured');
 });
+
+test('synthesis claim check flags $ figures lacking ceiling/obligated/revenue qualifiers', async () => {
+  process.env.CONTEXT_DEV_API_KEY = 'test-key';
+  const prev = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes('context.dev/v1/web/answers')) return ok({
+      json_content: {
+        summary: 'Caterpillar Inc. was awarded a $1.284 billion contract in 2022.',
+        evidence_points: ['It holds a maximum $5 million ceiling contract.', 'Revenue grew last year.'],
+        open_questions: []
+      },
+      sources: [{ title: 'Issuer page', url: 'https://example.gov/src' }],
+      partial: false
+    });
+    return prev(url);
+  };
+  try {
+    const r = await buildVetReport('Caterpillar', 'federal contracts?', 'supplier', { kind: 'public_company', name: 'CATERPILLAR INC' });
+    assert.ok(r.synthesis && r.synthesis.amountCheck, 'amountCheck present');
+    assert.ok(r.synthesis.amountCheck.flagged.some(s => s.includes('$1.284 billion')), 'flattened figure flagged: ' + JSON.stringify(r.synthesis.amountCheck.flagged));
+    assert.ok(!r.synthesis.amountCheck.flagged.some(s => /maximum/.test(s)), 'qualified sentence not flagged');
+  } finally { globalThis.fetch = prev; delete process.env.CONTEXT_DEV_API_KEY; }
+});
+
+test('URL-only evidence points are moved to synthesis sources, not rendered as content', async () => {
+  process.env.CONTEXT_DEV_API_KEY = 'test-key';
+  const prev = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes('context.dev/v1/web/answers')) return ok({
+      json_content: { summary: 'Summary without figures.', evidence_points: ['https://example.gov/page', 'A real evidence point.'], open_questions: [] },
+      sources: [{ title: 'Issuer page', url: 'https://example.gov/src' }],
+      partial: false
+    });
+    return prev(url);
+  };
+  try {
+    const r = await buildVetReport('Caterpillar', 'federal contracts?', 'supplier', { kind: 'public_company', name: 'CATERPILLAR INC' });
+    assert.deepEqual(r.synthesis.content.evidence_points, ['A real evidence point.']);
+    const urls = r.synthesis.sources.map(s => s.url);
+    assert.ok(urls.includes('https://example.gov/page'), 'URL-only point became a source');
+    assert.ok(urls.includes('https://example.gov/src'), 'provider source kept');
+  } finally { globalThis.fetch = prev; delete process.env.CONTEXT_DEV_API_KEY; }
+});
