@@ -180,7 +180,14 @@ function parse(kind, raw) {
   }
   if (kind === 'hncomments') {
     const j = JSON.parse(raw);
-    return (j.hits || []).map(h => ({ title: decodeEntities((h.comment_text || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').replace(/^(>\s*)+/, '').trim().slice(0, 200), context: decodeEntities((h.comment_text || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim().slice(0, 600), date: (h.created_at || '').slice(0, 10), outlet: `comment by ${h.author}`, link: `https://news.ycombinator.com/item?id=${h.objectID}` }));
+    return (j.hits || []).map(h => {
+      const clean = decodeEntities((h.comment_text || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+      const hl = (h._highlightResult && h._highlightResult.comment_text && h._highlightResult.comment_text.value) || '';
+      const em = (hl.match(/<em>(.*?)<\/em>/i) || [])[1];
+      let matched = '';
+      if (em) { const pos = clean.toLowerCase().indexOf(decodeEntities(em.replace(/<[^>]+>/g, '')).toLowerCase()); if (pos >= 0) matched = clean.slice(Math.max(0, pos - 60), pos + em.length + 80).trim(); }
+      return { title: clean.replace(/^(>\s*)+/, '').slice(0, 200), context: clean.slice(0, 600), matched, date: (h.created_at || '').slice(0, 10), outlet: `comment by ${h.author}`, link: `https://news.ycombinator.com/item?id=${h.objectID}` };
+    });
   }
   if (kind === 'pageviews') {
     const j = JSON.parse(raw);
@@ -287,6 +294,7 @@ const QUERY_MATCHED = new Set(['hackernews', 'hncomments', 'news']);
 function relevanceNote(key, it) {
   const text = itemTitle(it) + ' ' + (it.outlet || '') + ' ' + (it.context || '');
   if (QUERY_MATCHED.has(key)) {
+    if (it.matched) return `matched passage: "...${it.matched}..."`;
     const m = (it.context || text).match(/.{0,60}(apple|iphone|ipad|ios|macbook|airpods|vision pro|apple tv|apple watch|app store|tim cook|aapl|imac|siri).{0,80}/i);
     return m ? `matched passage: "...${m[0].trim()}..."` : 'returned by source query "Apple"; term not in collected excerpt';
   }
