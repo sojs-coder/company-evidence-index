@@ -437,14 +437,15 @@ function validateClaims(report) {
       outlets: [...new Set(passages.map(p => p.source))],
       status: !passages.length ? 'no-outside-coverage-in-run' : (separate.length ? 'separate-wording-coverage' : 'echoed-only'),
       passages: passages.map(p => {
-        const hayFull = ((p.title || '') + ' ' + (p.context || '') + ' ' + cleanBody(p.body)).toLowerCase();
+        const hayOrig = (p.title || '') + ' ' + (p.context || '') + ' ' + cleanBody(p.body);
+        const hayFull = hayOrig.toLowerCase();
         let idx = (p._mi != null && p._mi >= 0) ? p._mi : -1;
         if (idx < 0) {
           const st2 = new Set(tokens(hayFull));
           const term = [...ht].find(w => st2.has(w) && w.length > 3 && !GEN.has(w) && !anchorTokens.has(w));
           idx = term ? hayFull.indexOf(term) : -1;
         }
-        const excerpt = idx >= 0 ? hayFull.slice(Math.max(0, idx - 60), idx + 200).trim() : (p.context || '').slice(0, 180);
+        const excerpt = idx >= 0 ? hayOrig.slice(Math.max(0, idx - 60), idx + 200).trim() : (p.context || '').slice(0, 180);
         return { title: p.title, link: p.link || '', date: fmtDate(p.date), source: p.source, excerpt, wording: p.echo ? 'echo' : 'separate' };
       }) };
   });
