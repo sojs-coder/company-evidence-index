@@ -416,6 +416,37 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .sig-n b{color:var(--text);font-weight:600}
 @media(max-width:760px){.signalor-cols{grid-template-columns:1fr;gap:8px}}
 
+/* Full-width aspect drivers: each half uses the same 0–100% share scale. */
+.aspect-sentiment{margin:28px 0;border-top:1px solid var(--border-muted);padding-top:24px;--aspect-negative:#b9756e;--aspect-positive:#679573}
+.aspect-search-label{display:block;font:10px var(--font-mono);color:var(--text-faint);margin-bottom:6px}
+.aspect-search{display:block;box-sizing:border-box;width:min(100%,320px);padding:10px 12px;border:1px solid var(--border-muted);background:transparent;color:var(--text);font:inherit}
+.aspect-search:focus-visible,.aspect-diverging:focus-visible{outline:2px solid var(--color-brand);outline-offset:4px}
+.aspect-legend{display:flex;justify-content:space-between;align-items:baseline;gap:8px 24px;flex-wrap:wrap;margin:12px 0}
+.aspect-negative-swatch{background:var(--aspect-negative)}
+.aspect-positive-swatch{background:var(--aspect-positive)}
+.aspect-sentiment-list{list-style:none;margin:0;padding:0}
+.aspect-sentiment-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(0,3fr) 72px;gap:24px;align-items:center;padding:16px 0;font-size:13px}
+.aspect-mentions{display:block;margin-top:5px;font:10px var(--font-mono);color:var(--text-faint)}
+.aspect-diverging{position:relative;display:flex;align-items:center;min-width:0;height:24px}
+.aspect-diverging::after{content:"";position:absolute;left:50%;top:2px;bottom:2px;width:1px;background:var(--text-faint)}
+.aspect-half{display:flex;width:50%;box-sizing:border-box}
+.aspect-negative{justify-content:flex-end;padding-right:3px}
+.aspect-positive{padding-left:3px}
+.aspect-half>span{height:12px}
+.aspect-negative>span{background:var(--aspect-negative)}
+.aspect-positive>span{background:var(--aspect-positive)}
+.aspect-counts{display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);width:max-content;max-width:100%;padding:6px 8px;background:var(--text);color:var(--bg,#f5f4f4);font:10px var(--font-mono);z-index:1}
+.aspect-diverging:hover .aspect-counts,.aspect-diverging:focus .aspect-counts{display:block}
+.aspect-net{text-align:right;font:12px var(--font-mono)}
+.aspect-net.positive{color:var(--color-success)}
+.aspect-net.negative{color:#a33f35}
+.aspect-net.neutral,.aspect-unit{color:var(--text-faint)}
+@media(max-width:760px){
+  .aspect-sentiment-row{grid-template-columns:minmax(0,1fr) 64px;gap:8px 12px}
+  .aspect-diverging{grid-row:2;grid-column:1/-1}
+  .aspect-net{grid-row:1;grid-column:2}
+}
+
 /* Phone: metric strips wrap instead of horizontal scroll */
 @media(max-width:760px){
   .metric-row{flex-wrap:wrap;overflow-x:visible}
