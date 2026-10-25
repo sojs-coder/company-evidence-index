@@ -26,7 +26,10 @@ export function prepareItems(items) {
     noText: (items || []).length - withText.length,
     dupes,
     unique,
-    texts: unique.map(i => String(i.text).slice(0, TEXT_SLICE).replace(/\s+/g, ' ').trim())
+    texts: unique.map(i => String(i.text).slice(0, TEXT_SLICE)
+      .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+      .replace(/\s+/g, ' ').trim())
   };
 }
 
