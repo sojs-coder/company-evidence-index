@@ -11,10 +11,10 @@ Status as of 2026-10-24. All three integrations are wired but OFF by default; ea
 - Gated routes: report, analysis, export, memo, collect (per-endpoint price). Static site and health stay free.
 - User decisions still needed before real activation: per-endpoint price, receiving wallet (none was invented), CDP facilitator account, mainnet go-ahead.
 
-## CRS SBSS credit layer
+## CRS credit layer (CalHacks sponsor sandbox)
 
-- Code: `crs-sbss.mjs`, a client for the CRS sandbox spec (sbss-sandbox.crscreditapi.com/openapi.yaml, read 2026-10-24): `POST /sbss`, Bearer auth, `SbssRequest` validation (product category enum, 1-2 principals, exactly one of experian/equifax, ssn-or-birthdate).
-- Route: `POST /api/credit/sbss`. Without `CRS_API_KEY` it returns an honest `not_configured` state and never makes a network call. `CRS_API_BASE` overrides the base URL; default is the sandbox.
+- Code: `crs-sandbox.mjs`, a client for the CalHacks CRS sandbox (api-sandbox.stitchcredit.com/api, NDA accepted 2026-10-25): login + demo report fetch against the spec's synthetic test persona only.
+- Route: `GET /api/credit/sandbox-demo` returns reachability, response sections and billable flag; credentials come from `CRS_SANDBOX_USERNAME`/`CRS_SANDBOX_PASSWORD` env. The earlier `POST /api/credit/sbss` route (sbss-sandbox.crscreditapi.com) is deprecated (410): that host is not part of the CalHacks sandbox and its token issuance is not documented for this account.
 - Fit gap (deliberate): SBSS scores small-business credit decisions from principal consumer files. It is not a credit layer for a large-cap public company like Apple, and it is not wired into the Apple report. It exists for private-company / counterparty targets with a defined permitted business purpose. Account creation and CRS-side risk-model provisioning are user decisions; no account was created from code. Tests use the spec's synthetic example payloads only - never real PII.
 
 ## Brokered secrets (runtime config)
