@@ -8,6 +8,8 @@
 // without it they report not_configured and the pack still builds from keyless
 // public sources.
 
+import { readFile } from 'node:fs/promises';
+
 const STOP_TOKENS = new Set(['inc','llc','ltd','corp','corporation','company','co','the','lp','llp','holdings','technologies','systems']);
 // Generic name tokens: overlap on these alone is not identity evidence
 // (every robotics company shares 'robotics'). Used to hide weak brand
@@ -36,27 +38,46 @@ async function ctxCall(path, body, key) {
   return r.json();
 }
 
-// Identity candidates: SEC public-company registry (keyless) + USASpending
-// legal recipient names + Context.dev company search when configured.
+// Identity candidates: SEC public-company listings (seeded snapshot first,
+// live fetch as fallback) + USASpending legal recipient names + Context.dev
+// brand search when configured.
+const SEED_PATH = new URL('./data/public-companies-seed.json', import.meta.url);
+async function loadSecSeed() {
+  try {
+    const j = JSON.parse(await readFile(SEED_PATH, 'utf8'));
+    return Array.isArray(j.companies) && j.companies.length ? j : null;
+  } catch { return null; }
+}
 async function resolveIdentities(name, queryToks, key, sources) {
   const identities = [];
   let hiddenWeak = 0;
-  // SEC company registry: public companies only, exact-ish ticker/name match.
-  try {
-    const r = await fetch('https://www.sec.gov/files/company_tickers.json', { headers: { 'user-agent': 'company-evidence-index/1.0 (student hackathon research project)', accept: 'application/json' } });
-    if (r.ok) {
-      const j = await r.json();
-      for (const row of Object.values(j)) {
-        if (nameMatches(row.title, queryToks)) {
-          identities.push({ kind: 'public_company', name: row.title, ticker: row.ticker, cik: row.cik_str, basis: 'SEC company registry name match', state: 'registry_match' });
-        }
+  // SEC public listings: seeded snapshot (name/ticker/exchange, incl. NYSE)
+  // first so identity never depends on a live fetch; live fetch is fallback.
+  const seed = await loadSecSeed();
+  if (seed) {
+    for (const row of seed.companies) {
+      if (nameMatches(row.name, queryToks)) {
+        identities.push({ kind: 'public_company', name: row.name, ticker: row.ticker, exchange: row.exchange || null, cik: row.cik, basis: 'SEC public-listing registry name match (seeded snapshot ' + seed.snapshot + ')', state: 'registry_match' });
       }
-      sources.push({ key: 'sec_registry', name: 'SEC company registry', url: 'https://www.sec.gov/files/company_tickers.json', fetched: identities.length, mode: 'live' });
-    } else {
-      sources.push({ key: 'sec_registry', name: 'SEC company registry', url: 'https://www.sec.gov/files/company_tickers.json', fetched: 0, mode: 'error', detail: 'HTTP ' + r.status });
     }
-  } catch (e) {
-    sources.push({ key: 'sec_registry', name: 'SEC company registry', url: 'https://www.sec.gov/files/company_tickers.json', fetched: 0, mode: 'error', detail: String(e.message || e) });
+    sources.push({ key: 'sec_registry', name: 'SEC public-listing registry (seeded snapshot ' + seed.snapshot + ')', url: seed.source, fetched: identities.length, mode: 'seeded_snapshot', detail: seed.count + ' listed companies in snapshot' });
+  } else {
+    try {
+      const r = await fetch('https://www.sec.gov/files/company_tickers.json', { headers: { 'user-agent': 'company-evidence-index/1.0 (student hackathon research project)', accept: 'application/json' } });
+      if (r.ok) {
+        const j = await r.json();
+        for (const row of Object.values(j)) {
+          if (nameMatches(row.title, queryToks)) {
+            identities.push({ kind: 'public_company', name: row.title, ticker: row.ticker, cik: row.cik_str, basis: 'SEC company registry name match', state: 'registry_match' });
+          }
+        }
+        sources.push({ key: 'sec_registry', name: 'SEC company registry', url: 'https://www.sec.gov/files/company_tickers.json', fetched: identities.length, mode: 'live', detail: 'Seed snapshot not deployed; fetched live.' });
+      } else {
+        sources.push({ key: 'sec_registry', name: 'SEC company registry', url: 'https://www.sec.gov/files/company_tickers.json', fetched: 0, mode: 'error', detail: 'HTTP ' + r.status });
+      }
+    } catch (e) {
+      sources.push({ key: 'sec_registry', name: 'SEC company registry', url: 'https://www.sec.gov/files/company_tickers.json', fetched: 0, mode: 'error', detail: String(e.message || e) });
+    }
   }
   // Context.dev brand auto-complete: broader registry incl. private companies,
   // returns candidates with official domains used later for cited page reads.
@@ -179,6 +200,54 @@ export async function buildVetReport(name, question, categoryKey, identity) {
     ]
   };
   if (identity.kind === 'custom') pack.caveats.push('The entity name was typed by the buyer and is not registry-verified; records below are name matches under it.');
+
+  // Deterministic extractive conflict checks. No LLM: only string/registry
+  // signals, each labeled with its method. Findings are surfaced, not resolved.
+  pack.conflictChecks = [];
+  // 1. Name variants inside quoted passages: sources may call the entity by
+  // other names. Variants are shown as written, never merged or equated.
+  try {
+    const baseToks = nameTokens(identity.name).filter(t => !GENERIC_TOKENS.has(t));
+    if (baseToks.length) {
+      const variants = new Set();
+      const rx = /\b([A-Z][A-Za-z0-9&]*(?: [A-Z][A-Za-z0-9&]*){0,5} (?:LLC|LLP|LP|Inc\.?|Ltd\.?|Corp\.?|Corporation|Company|Co\.))\b/g;
+      for (const q of (pack.quotes || [])) {
+        const text = String(q.passage || '');
+        let m;
+        while ((m = rx.exec(text))) {
+          const v = m[1].replace(/\s+/g, ' ').trim();
+          const vt = nameTokens(v);
+          if (baseToks.every(t => vt.includes(t)) && v.toUpperCase() !== identity.name.trim().toUpperCase()) variants.add(v);
+        }
+      }
+      if (variants.size) {
+        pack.conflictChecks.push({
+          check: 'name_variants_in_sources',
+          finding: 'Quoted sources also refer to: ' + [...variants].slice(0, 4).map(v => '"' + v + '"').join(', ') + '. Name variants are shown exactly as written; they are not verified to be the same legal entity as the selected one.',
+          method: 'capitalized-name + legal-suffix extraction over quoted passages; token overlap with the selected name'
+        });
+      }
+    }
+  } catch { /* a failed conflict check is omitted, never fabricated */ }
+  // 2. Brand-domain redirect: a selected brand identity whose domain redirects
+  // to a different host signals possible acquisition/rebrand drift.
+  try {
+    if (identity.kind === 'brand_match' && identity.domain) {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 8000);
+      const rr = await fetch('https://' + identity.domain, { redirect: 'follow', signal: ctrl.signal, headers: { 'user-agent': 'company-evidence-index/1.0 (student hackathon research project)' } });
+      clearTimeout(to);
+      const finalHost = new URL(rr.url).hostname.replace(/^www\./, '');
+      const origHost = String(identity.domain).replace(/^www\./, '');
+      if (finalHost && origHost && finalHost !== origHost) {
+        pack.conflictChecks.push({
+          check: 'domain_redirect',
+          finding: identity.domain + ' redirects to ' + finalHost + '. That can signal an acquisition, merger or rebrand; this report does not resolve identity drift automatically.',
+          method: 'HTTP redirect resolution of the registry-listed domain; final host compared to the recorded host'
+        });
+      }
+    }
+  } catch { /* unreachable domain: no claim either way */ }
 
   // USASpending scoped to the selected legal name.
   try {
