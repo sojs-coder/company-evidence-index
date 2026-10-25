@@ -111,6 +111,24 @@ async function resolveIdentities(name, queryToks, key, sources) {
   return { identities, hiddenWeak };
 }
 
+// Scraped highlights can bleed past the article boundary into the next
+// teaser (e.g. an unrelated ALL-CAPS headline). Cut a passage at the last
+// sentence end BEFORE the first headline-like ALL-CAPS run; the kept prefix
+// is still verbatim source text. If no clean sentence end exists, drop the
+// passage rather than show contaminated text.
+function cleanPassage(p) {
+  const m = p.search(/[.!?]\s+[A-Z][A-Z0-9 ,&'()\/-]{17,}[A-Z0-9)](?=\s|$)/);
+  if (m === -1) {
+    // also catch a passage that STARTS clean but ends mid-headline without prior punctuation
+    const tail = p.match(/\s([A-Z]{4,}(\s+[A-Z0-9,&'()-]+){3,})\s*$/);
+    if (!tail) return p.trim();
+    const cut = p.slice(0, tail.index);
+    const end = Math.max(cut.lastIndexOf('.'), cut.lastIndexOf('!'), cut.lastIndexOf('?'));
+    return end > 40 ? cut.slice(0, end + 1).trim() : '';
+  }
+  const end = Math.max(p.lastIndexOf('.', m), p.lastIndexOf('!', m), p.lastIndexOf('?', m));
+  return end > 40 ? p.slice(0, end + 1).trim() : '';
+}
 // Phase 1: identity candidates only. No company-specific synthesis happens
 // until the buyer explicitly selects one candidate (or refines the name).
 export async function buildVetIdentify(name) {
@@ -318,7 +336,8 @@ export async function buildVetReport(name, question, categoryKey, identity) {
           const h = await ctxCall('/web/scrape', { url: w.url, formats: { highlights: true }, highlightsParams: { query: question, maxCharacters: 900 } }, key);
           const passages = h && h.highlights && h.highlights.data ? (Array.isArray(h.highlights.data) ? h.highlights.data : [h.highlights.data]) : [];
           for (const p of passages.slice(0, 2)) {
-            pack.quotes.push({ passage: String(p).slice(0, 900), source: { name: w.title || w.url, url: w.url } });
+            const cleaned = cleanPassage(String(p).slice(0, 900));
+            if (cleaned) pack.quotes.push({ passage: cleaned, source: { name: w.title || w.url, url: w.url } });
           }
           sources.push({ key: 'ctx_highlights', name: 'Context.dev highlights', url: w.url, fetched: passages.length, mode: 'live', creditsCounted: 1 });
         } catch (e) {
