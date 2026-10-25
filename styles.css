@@ -434,3 +434,5 @@ li.state-note{list-style:none}
 .id-card input{margin-right:8px}
 .quote-block{border-left:3px solid var(--line,#d8d6d2);margin:10px 0;padding:6px 14px}
 .quote-block p{margin:0 0 6px}
+.id-card .collect-item-title{display:block}
+.id-card .faint{display:block;margin-top:2px}
