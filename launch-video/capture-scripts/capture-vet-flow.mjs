@@ -1,0 +1,35 @@
+import { chromium } from 'playwright';
+import fs from 'fs';
+const URL='https://company-evidence-index-production.up.railway.app/';
+const [,, name='Caterpillar', question='Does Caterpillar deliver on its government contracts, and what has the DoD actually awarded it?', out='rec1'] = process.argv;
+const W=1920,H=1080,Z=2.4;
+fs.rmSync(out,{recursive:true,force:true});
+const b = await chromium.launch();
+const ctx = await b.newContext({viewport:{width:W,height:H},deviceScaleFactor:1});
+const t0=Date.now(); const p = await ctx.newPage(); fs.mkdirSync(out,{recursive:true}); let grab=true,fi=0; const ft=[]; (async()=>{while(grab){const t=(Date.now()-t0)/1000; try{await p.screenshot({path:out+'/f'+String(fi).padStart(5,'0')+'.jpg',type:'jpeg',quality:94}); ft.push(t); fi++;}catch(e){}}})(); const marks={};
+const mark=k=>marks[k]=(Date.now()-t0)/1000;
+await p.addInitScript((Z)=>{ window.__Z=Z; document.addEventListener('DOMContentLoaded',()=>{document.documentElement.style.zoom=Z});
+  const mk=()=>{ if(document.getElementById('__cur'))return; const d=document.createElement('div'); d.id='__cur';
+   d.style.cssText='position:fixed;z-index:2147483647;width:22px;height:22px;border-radius:50%;background:rgba(20,60,220,.35);border:2px solid #1438dc;pointer-events:none;left:-50px;top:-50px;transform:translate(-50%,-50%);transition:transform .08s';
+   document.documentElement.appendChild(d);
+   addEventListener('mousemove',e=>{d.style.left=(e.clientX/window.__Z)+'px';d.style.top=(e.clientY/window.__Z)+'px'},true);
+   addEventListener('mousedown',()=>d.style.transform='translate(-50%,-50%) scale(.6)',true);
+   addEventListener('mouseup',()=>d.style.transform='translate(-50%,-50%) scale(1)',true);};
+  document.addEventListener('DOMContentLoaded',mk); setInterval(mk,300);},Z);
+let mx=W/2,my=H*0.7; await p.mouse.move(mx,my);
+async function moveTo(sel,dx=0.3){ const bb=await p.locator(sel).first().boundingBox(); const tx=bb.x+bb.width*dx, ty=bb.y+bb.height/2; await p.mouse.move(tx,ty,{steps:28}); }
+async function scrollBy(px,ms){ await p.evaluate(([px,ms])=>new Promise(res=>{const y0=window.scrollY,t0=performance.now();const f=t=>{const k=Math.min(1,(t-t0)/ms);const e=(1-Math.cos(Math.PI*k))/2;window.scrollTo(0,y0+px*e);k<1?requestAnimationFrame(f):res()};requestAnimationFrame(f)}),[px,ms]); }
+await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(1200); await p.screenshot({path:out+'/check.png'}); mark('open');
+await moveTo('#vet-name'); await p.click('#vet-name'); await p.keyboard.press('Control+A'); await p.keyboard.press('Delete'); await p.waitForTimeout(250); await p.keyboard.type(name,{delay:95}); await p.waitForTimeout(350);
+await moveTo('#vet-question'); await p.click('#vet-question'); await p.keyboard.press('Control+A'); await p.keyboard.press('Delete'); await p.keyboard.type(question,{delay:38}); await p.waitForTimeout(500);
+await moveTo('#vet-go'); await p.waitForTimeout(250); mark('click_find'); await p.click('#vet-go');
+await p.getByText('Which company exactly?').waitFor({timeout:30000}); mark('cands'); await p.waitForTimeout(900);
+const card=p.locator('label.id-card',{hasText:/SEC company registry/}).first(); await card.scrollIntoViewIfNeeded(); const bb=await card.boundingBox(); await p.mouse.move(bb.x+bb.width*.4,bb.y+bb.height/2,{steps:26}); await p.waitForTimeout(500); await card.click(); await p.waitForTimeout(700);
+mark('click_build'); await moveTo('#report-go'); await p.click('#report-go');
+await p.getByText('STEP 2 · CITED ANSWER').waitFor({timeout:60000}); mark('report_start');
+await p.waitForFunction(()=>/THIRD-PARTY SYNTHESIS/i.test(document.body.innerText)||/synthesis (is )?unavailable/i.test(document.body.innerText),null,{timeout:90000}).catch(()=>{}); mark('report_done');
+await p.evaluate(()=>{const e=[...document.querySelectorAll('*')].find(x=>/STEP 2 · CITED ANSWER/.test(x.textContent)&&x.children.length<3);e&&e.scrollIntoView({block:'start'})}); await p.waitForTimeout(2200); mark('report_view');
+for(let i=0;i<5;i++){ await scrollBy(560,2300); await p.waitForTimeout(1500);} mark('scroll_end');
+await p.waitForTimeout(800);
+marks.unreachable=await p.evaluate(()=>/NOT reachable/i.test(document.body.innerText)); grab=false; await p.waitForTimeout(400); marks.ft=ft; fs.writeFileSync(out+'/marks.json',JSON.stringify(marks));
+await ctx.close(); await b.close(); console.log(JSON.stringify(marks));
