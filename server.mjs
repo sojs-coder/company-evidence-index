@@ -6,7 +6,7 @@
 // not-provisioned state instead of a fake gate. Public GETs only.
 import { createServer } from 'node:http';
 import { buildVetIdentify, buildVetReport } from './vet-report.mjs';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, rename } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 import { maybeWrapWithX402, x402Status } from './x402-gate.mjs';
@@ -70,8 +70,8 @@ async function handleApi(req, res, url, ip) {
   function mergeIntoPack(ticker, company, terms, items, src, estUsdAdd) {
     store.packs = store.packs || {};
     const prev = store.packs[ticker];
-    const seen = new Set((prev ? prev.items : []).map(i => (i.link || '') + '|' + i.text.slice(0, 80)));
-    const fresh = items.filter(i => !seen.has((i.link || '') + '|' + i.text.slice(0, 80))).map(i => ({ ...i, src }));
+    const seen = new Set((prev ? prev.items : []).map(i => (i.link || '') + '|' + String(i.text || '').slice(0, 80)));
+    const fresh = items.filter(i => !seen.has((i.link || '') + '|' + String(i.text || '').slice(0, 80))).map(i => ({ ...i, src }));
     const merged = (prev ? prev.items : []).concat(fresh);
     const at = new Date().toISOString();
     store.packs[ticker] = { company: company || (prev && prev.company) || ticker, ticker, terms: (terms && terms.length ? terms : (prev ? prev.terms : [])), collectedAt: at, itemCount: merged.length, estUsd: +(((prev && prev.estUsd) || 0) + (estUsdAdd || 0)).toFixed(4), sources: (prev ? prev.sources : []).concat([{ source: src, at, collected: items.length, added: fresh.length }]), items: merged };
@@ -280,13 +280,80 @@ async function handleApi(req, res, url, ip) {
     }));
     store.packs = store.packs || {};
     const prev = store.packs[ticker];
-    const seen = new Set((prev ? prev.items : []).map(i => (i.link || '') + '|' + i.text.slice(0, 80)));
-    const fresh = items.filter(i => !seen.has((i.link || '') + '|' + i.text.slice(0, 80)));
+    const seen = new Set((prev ? prev.items : []).map(i => (i.link || '') + '|' + String(i.text || '').slice(0, 80)));
+    const fresh = items.filter(i => !seen.has((i.link || '') + '|' + String(i.text || '').slice(0, 80)));
     const merged = (prev ? prev.items : []).concat(fresh);
     const at = new Date().toISOString();
     store.packs[ticker] = { company: company || (prev && prev.company) || ticker, ticker, terms: prev ? prev.terms : [], collectedAt: at, itemCount: merged.length, estUsd: prev ? prev.estUsd : 0, sources: (prev ? prev.sources : []).concat([{ source: src, at, collected: items.length, added: fresh.length }]), items: merged };
     await saveStore();
     return send(res, 200, { ok: true, ticker, source: src, received: items.length, added: fresh.length, packTotal: merged.length, withText: merged.filter(i => i.hasText !== false && i.text).length });
+  }
+
+  // AI claim/counterclaim analysis over collected packs. OpenAI is a
+  // third-party synthesis provider: output is labeled generated, kept
+  // separate from deterministic checks. Hard spend cap $0.50 (shared $10
+  // budget ledger); actual token usage is recorded per run.
+  async function openaiKey() {
+    let k = (process.env.OPENAI_API_KEY || '').trim();
+    if (!k) {
+      const r = await extractBrokeredSecret('OPENAI_API_KEY').catch(() => ({ ok: false }));
+      if (r.ok) k = r.value;
+    }
+    return k || null;
+  }
+  const OPENAI_CAP_USD = 0.50;
+  if (p === '/api/analysis/run' && req.method === 'POST') {
+    if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
+      return send(res, 403, { error: 'forbidden', detail: 'Analysis runs require the admin token.' });
+    }
+    let body;
+    try { body = await readBody(req, 64_000).then(b => JSON.parse(b)); } catch { return send(res, 400, { error: 'bad_json' }); }
+    const ticker = String(body.ticker || '').toUpperCase().replace(/[^A-Z0-9.-]/g, '');
+    const pack = (store.packs || {})[ticker];
+    if (!ticker || !pack || !pack.items || !pack.items.length) return send(res, 404, { error: 'no_pack', detail: 'No collected pack for this ticker.' });
+    store.openaiSpend = store.openaiSpend || { confirmedUsd: 0, runs: [] };
+    if (store.openaiSpend.confirmedUsd >= OPENAI_CAP_USD) return send(res, 402, { error: 'budget_cap', detail: 'OpenAI analysis share exhausted.' });
+    const key = await openaiKey();
+    if (!key) return send(res, 503, { error: 'openai_unconfigured' });
+    const withText = pack.items.filter(i => i.text && String(i.text).trim());
+    const byDate = withText.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const byEng = withText.slice().sort((a, b) => ((b.likes || b.engagement || 0) - (a.likes || a.engagement || 0)));
+    const sample = [...new Map([...byDate.slice(0, 20), ...byEng.slice(0, 20)].map(i => [(i.link || '') + String(i.text).slice(0, 60), i])).values()];
+    const posts = sample.map(i => String(i.text).slice(0, 280).replace(/\s+/g, ' ').trim());
+    const prompt = 'You are analyzing public social-media posts that mention ' + (pack.company || ticker) + ' (' + ticker + '). From ONLY the ' + posts.length + ' posts below, extract up to 5 distinct CLAIMS people make about the company and up to 5 distinct COUNTERCLAIMS or criticisms. Return strict JSON: {"claims":[{"text":string,"support":number}],"counterclaims":[{"text":string,"support":number}]} where support counts how many of the given posts express it, each text under 140 characters. Do not add outside knowledge.\n\nPOSTS:\n' + posts.map((t, i) => (i + 1) + '. ' + t).join('\n');
+    const cr = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.2 })
+    });
+    if (!cr.ok) return send(res, 502, { error: 'openai_error', detail: 'HTTP ' + cr.status });
+    const cj = await cr.json();
+    const usage = cj.usage || {};
+    const cost = +(((usage.prompt_tokens || 0) * 0.15 / 1e6) + ((usage.completion_tokens || 0) * 0.60 / 1e6)).toFixed(6);
+    let parsed = { claims: [], counterclaims: [] };
+    try { parsed = JSON.parse(cj.choices[0].message.content); } catch { /* keep empty */ }
+    const at = new Date().toISOString();
+    store.analysis = store.analysis || {};
+    store.analysis[ticker] = {
+      ticker, company: pack.company || ticker, generatedAt: at, model: 'gpt-4o-mini',
+      inputItems: posts.length, packItems: pack.items.length,
+      claims: (parsed.claims || []).slice(0, 5), counterclaims: (parsed.counterclaims || []).slice(0, 5),
+      basis: 'Public social posts collected by this project; synthesis by OpenAI (third party), generated, not extractive.'
+    };
+    store.openaiSpend.confirmedUsd = +(store.openaiSpend.confirmedUsd + cost).toFixed(6);
+    store.openaiSpend.runs.push({ ticker, at, promptTokens: usage.prompt_tokens || 0, completionTokens: usage.completion_tokens || 0, costUsd: cost });
+    await saveStore();
+    return send(res, 200, { ok: true, ticker, inputItems: posts.length, claims: store.analysis[ticker].claims.length, counterclaims: store.analysis[ticker].counterclaims.length, costUsd: cost });
+  }
+  if (p === '/api/analysis' && req.method === 'GET') {
+    const list = Object.values(store.analysis || {}).map(a => ({ ticker: a.ticker, company: a.company, generatedAt: a.generatedAt, model: a.model, inputItems: a.inputItems, packItems: a.packItems, claims: a.claims.length, counterclaims: a.counterclaims.length }));
+    return send(res, 200, { analysis: list });
+  }
+  if (p.startsWith('/api/analysis/') && req.method === 'GET') {
+    const ticker = p.slice('/api/analysis/'.length).toUpperCase();
+    const a = (store.analysis || {})[ticker];
+    if (!a) return send(res, 404, { error: 'no_analysis' });
+    return send(res, 200, a);
   }
 
   if (p === '/api/packs' && req.method === 'GET') {
@@ -732,7 +799,7 @@ async function collect(kind) {
 const STORE_PATH = join(process.env.DATA_DIR || join(ROOT, 'data'), 'run-store.json');
 let store = { runs: [], items: {} };
 try { store = JSON.parse(await readFile(STORE_PATH, 'utf8')); } catch { /* first boot */ }
-async function saveStore() { try { await writeFile(STORE_PATH, JSON.stringify(store)); } catch { /* read-only fs */ } }
+async function saveStore() { try { const tmp = STORE_PATH + '.tmp'; await writeFile(tmp, JSON.stringify(store)); await rename(tmp, STORE_PATH); } catch { /* read-only fs */ } }
 const itemTitle = it => it.form ? (`Form ${it.form}` + (it.description ? ` · ${it.description}` : '')) : (it.title || '');
 const itemKey = (sourceKey, it) => createHash('sha1').update(sourceKey + '|' + (it.link || (itemTitle(it) + '|' + (it.date || '')))).digest('hex').slice(0, 12);
 const STOP = new Set('the a an and or of to in on for with from by at as is are was were be been it its this that these those apple inc company aapl says said new over after before into their they will has have more than'.split(' '));
