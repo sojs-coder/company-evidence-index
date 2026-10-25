@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f5f4f4" />
   <title>Collection · Company Evidence Index</title>
   <link rel="stylesheet" href="cal-hacks-tokens.css?v=10" />
-  <link rel="stylesheet" href="styles.css?v=28" />
+  <link rel="stylesheet" href="styles.css?v=29" />
 </head>
 <body>
   <header class="topbar">
@@ -25,15 +25,13 @@
     <section class="hero">
       <h1>Collection</h1>
     </section>
-    <p class="data-note" role="note">LIVE PUBLIC DATA · UNAVAILABLE SOURCES LABELED</p>
-    <section id="collect-live" class="collect-grid" aria-label="Live collection panels"></section>
-    <section class="bottom-section">
-      <div class="section-heading"><div><p class="overline">FIXED SOURCE SET</p><h2>Remaining sources and gaps</h2></div></div>
-      <p class="small-note">Sources not collected live in this demo.</p>
-      <div id="collect-rest" class="collect-grid"></div>
+    <p class="data-note" role="note">PUBLIC SOURCE DATA · NEWEST FIRST · SOURCE GAPS SHOWN AT THE END</p>
+    <section class="collection-stream" aria-label="Collection stream" tabindex="0">
+      <div class="collection-line collection-columns" aria-hidden="true"><span>DATE</span><span>SOURCE</span><span>TITLE</span><span>DETAIL / STATE</span></div>
+      <ul id="collect-live" aria-label="Collected items and source states" aria-busy="true"><li class="collection-loading">Fetching public sources…</li></ul>
     </section>
   </main>
   <footer><span>OPEN <span class="footer-dot">·</span> COMPANY EVIDENCE INDEX</span><span>LIVE COLLECTION FROM PUBLIC SOURCES ONLY</span><span>Public sources only <span class="footer-dot">·</span> No investment recommendation</span></footer>
-  <script src="collection.js?v=10"></script>
+  <script src="collection.js?v=11"></script>
 </body>
 </html>
