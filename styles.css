@@ -353,3 +353,5 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 /* stream rows: title is the wide column (base rule pins it to col 2 for collect-lists) */
 .stream-list .collect-item-title{grid-column:auto}
 .stream-list .mono.faint{grid-column:auto;text-align:right}
+
+.collect-list .rel-note{grid-column:2}
