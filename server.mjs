@@ -13,6 +13,7 @@ import { maybeWrapWithX402, x402Status } from './x402-gate.mjs';
 import { crsSandboxStatus, fetchSandboxDemoReport } from './crs-sandbox.mjs';
 import { runtimeConfigStatus, extractBrokeredSecret } from './runtime-config.mjs';
 import { healthProjection } from './health-projection.mjs';
+import { groundClaims } from './ground-claims.mjs';
 
 const PORT = process.env.PORT || 3000;
 const ROOT = new URL('.', import.meta.url).pathname;
@@ -337,11 +338,7 @@ async function handleApi(req, res, url, ip) {
     // Deterministic grounding: model cites post NUMBERS; the server maps them
     // back to the actual sampled posts (text+link) and derives the support
     // count from the mapping. Claims without a valid citation are dropped.
-    const ground = (arr) => (Array.isArray(arr) ? arr : []).map(c => {
-      const idx = [...new Set((Array.isArray(c.posts) ? c.posts : []).map(n => Math.trunc(Number(n))).filter(n => n >= 1 && n <= sample.length))];
-      const cited = idx.map(n => ({ text: String(sample[n - 1].text).slice(0, 280), link: sample[n - 1].link || null }));
-      return cited.length ? { text: String(c.text || '').slice(0, 200), support: cited.length, posts: cited } : null;
-    }).filter(Boolean).slice(0, 5);
+    const ground = (arr) => groundClaims(arr, sample);
     const at = new Date().toISOString();
     store.analysis = store.analysis || {};
     store.analysis[ticker] = {
