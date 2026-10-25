@@ -157,7 +157,7 @@ async function cappedFetch(url) {
   } finally { clearTimeout(t); }
 }
 const items = xml => [...xml.matchAll(/<item[ >][\s\S]*?<\/item>/g)].map(m => m[0]);
-const decodeEntities = t => t.replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;|&nbsp;/g, ' ');
+const decodeEntities = t => t.replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16))).replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;|&nbsp;/g, ' ');
 const field = (item, name) => { const m = item.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`)); return m ? decodeEntities(m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '')).trim() : ''; };
 const linkOf = it => { const m = it.match(/<link[^>]*href="([^"]+)"/) || it.match(/<link[^>]*>([^<]+)</); return m ? m[1].trim() : ''; };
 function parse(kind, raw) {
@@ -180,7 +180,7 @@ function parse(kind, raw) {
   }
   if (kind === 'hncomments') {
     const j = JSON.parse(raw);
-    return (j.hits || []).map(h => ({ title: decodeEntities((h.comment_text || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim().slice(0, 140), date: (h.created_at || '').slice(0, 10), outlet: `comment by ${h.author}`, link: `https://news.ycombinator.com/item?id=${h.objectID}` }));
+    return (j.hits || []).map(h => ({ title: decodeEntities((h.comment_text || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').replace(/^(>\s*)+/, '').trim().slice(0, 200), date: (h.created_at || '').slice(0, 10), outlet: `comment by ${h.author}`, link: `https://news.ycombinator.com/item?id=${h.objectID}` }));
   }
   if (kind === 'pageviews') {
     const j = JSON.parse(raw);
