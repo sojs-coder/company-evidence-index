@@ -201,53 +201,7 @@ export async function buildVetReport(name, question, categoryKey, identity) {
   };
   if (identity.kind === 'custom') pack.caveats.push('The entity name was typed by the buyer and is not registry-verified; records below are name matches under it.');
 
-  // Deterministic extractive conflict checks. No LLM: only string/registry
-  // signals, each labeled with its method. Findings are surfaced, not resolved.
-  pack.conflictChecks = [];
-  // 1. Name variants inside quoted passages: sources may call the entity by
-  // other names. Variants are shown as written, never merged or equated.
-  try {
-    const baseToks = nameTokens(identity.name).filter(t => !GENERIC_TOKENS.has(t));
-    if (baseToks.length) {
-      const variants = new Set();
-      const rx = /\b([A-Z][A-Za-z0-9&]*(?: [A-Z][A-Za-z0-9&]*){0,5} (?:LLC|LLP|LP|Inc\.?|Ltd\.?|Corp\.?|Corporation|Company|Co\.))\b/g;
-      for (const q of (pack.quotes || [])) {
-        const text = String(q.passage || '');
-        let m;
-        while ((m = rx.exec(text))) {
-          const v = m[1].replace(/\s+/g, ' ').trim();
-          const vt = nameTokens(v);
-          if (baseToks.every(t => vt.includes(t)) && v.toUpperCase() !== identity.name.trim().toUpperCase()) variants.add(v);
-        }
-      }
-      if (variants.size) {
-        pack.conflictChecks.push({
-          check: 'name_variants_in_sources',
-          finding: 'Quoted sources also refer to: ' + [...variants].slice(0, 4).map(v => '"' + v + '"').join(', ') + '. Name variants are shown exactly as written; they are not verified to be the same legal entity as the selected one.',
-          method: 'capitalized-name + legal-suffix extraction over quoted passages; token overlap with the selected name'
-        });
-      }
-    }
-  } catch { /* a failed conflict check is omitted, never fabricated */ }
-  // 2. Brand-domain redirect: a selected brand identity whose domain redirects
-  // to a different host signals possible acquisition/rebrand drift.
-  try {
-    if (identity.kind === 'brand_match' && identity.domain) {
-      const ctrl = new AbortController();
-      const to = setTimeout(() => ctrl.abort(), 8000);
-      const rr = await fetch('https://' + identity.domain, { redirect: 'follow', signal: ctrl.signal, headers: { 'user-agent': 'company-evidence-index/1.0 (student hackathon research project)' } });
-      clearTimeout(to);
-      const finalHost = new URL(rr.url).hostname.replace(/^www\./, '');
-      const origHost = String(identity.domain).replace(/^www\./, '');
-      if (finalHost && origHost && finalHost !== origHost) {
-        pack.conflictChecks.push({
-          check: 'domain_redirect',
-          finding: identity.domain + ' redirects to ' + finalHost + '. That can signal an acquisition, merger or rebrand; this report does not resolve identity drift automatically.',
-          method: 'HTTP redirect resolution of the registry-listed domain; final host compared to the recorded host'
-        });
-      }
-    }
-  } catch { /* unreachable domain: no claim either way */ }
+
 
   // USASpending scoped to the selected legal name.
   try {
@@ -386,5 +340,53 @@ export async function buildVetReport(name, question, categoryKey, identity) {
       'This report does not judge whether the company deserves trust; it shows cited evidence and its limits.'
     ].filter(Boolean)
   };
+  // Deterministic extractive conflict checks. No LLM: only string/registry
+  // signals, each labeled with its method. Findings are surfaced, not resolved.
+  pack.conflictChecks = [];
+  // 1. Name variants inside quoted passages: sources may call the entity by
+  // other names. Variants are shown as written, never merged or equated.
+  try {
+    const baseToks = nameTokens(identity.name).filter(t => !GENERIC_TOKENS.has(t));
+    if (baseToks.length) {
+      const variants = new Set();
+      const rx = /\b([A-Z][A-Za-z0-9&]*(?: [A-Z][A-Za-z0-9&]*){0,5} (?:LLC|LLP|LP|Inc\.?|Ltd\.?|Corp\.?|Corporation|Company|Co\.))\b/g;
+      for (const q of (pack.quotes || [])) {
+        const text = String(q.passage || '');
+        let m;
+        while ((m = rx.exec(text))) {
+          const v = m[1].replace(/\s+/g, ' ').trim();
+          const vt = nameTokens(v);
+          if (baseToks.every(t => vt.includes(t)) && v.toUpperCase() !== identity.name.trim().toUpperCase()) variants.add(v);
+        }
+      }
+      if (variants.size) {
+        pack.conflictChecks.push({
+          check: 'name_variants_in_sources',
+          finding: 'Quoted sources also refer to: ' + [...variants].slice(0, 4).map(v => '"' + v + '"').join(', ') + '. Name variants are shown exactly as written; they are not verified to be the same legal entity as the selected one.',
+          method: 'capitalized-name + legal-suffix extraction over quoted passages; token overlap with the selected name'
+        });
+      }
+    }
+  } catch { /* a failed conflict check is omitted, never fabricated */ }
+  // 2. Brand-domain redirect: a selected brand identity whose domain redirects
+  // to a different host signals possible acquisition/rebrand drift.
+  try {
+    if (identity.kind === 'brand_match' && identity.domain) {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 8000);
+      const rr = await fetch('https://' + identity.domain, { redirect: 'follow', signal: ctrl.signal, headers: { 'user-agent': 'company-evidence-index/1.0 (student hackathon research project)' } });
+      clearTimeout(to);
+      const finalHost = new URL(rr.url).hostname.replace(/^www\./, '');
+      const origHost = String(identity.domain).replace(/^www\./, '');
+      if (finalHost && origHost && finalHost !== origHost) {
+        pack.conflictChecks.push({
+          check: 'domain_redirect',
+          finding: identity.domain + ' redirects to ' + finalHost + '. That can signal an acquisition, merger or rebrand; this report does not resolve identity drift automatically.',
+          method: 'HTTP redirect resolution of the registry-listed domain; final host compared to the recorded host'
+        });
+      }
+    }
+  } catch { /* unreachable domain: no claim either way */ }
+
   return pack;
 }
