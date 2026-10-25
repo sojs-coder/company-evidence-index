@@ -391,3 +391,10 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .sig-n{font:11px var(--font-mono);color:var(--text-faint);text-align:right}
 .sig-n b{color:var(--text);font-weight:600}
 @media(max-width:760px){.signalor-cols{grid-template-columns:1fr;gap:8px}}
+
+/* Phone: metric strips wrap instead of horizontal scroll */
+@media(max-width:760px){
+  .metric-row{flex-wrap:wrap;overflow-x:visible}
+  .metric-row .metric{min-width:0;flex:1 1 42%;margin-right:0;padding-right:10px}
+  .metric-row .metric:nth-child(2n){border-right:0}
+}
