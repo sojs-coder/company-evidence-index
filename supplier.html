@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f5f4f4" />
+  <title>Supplier vetting · Company Evidence Index</title>
+  <link rel="stylesheet" href="cal-hacks-tokens.css?v=11" />
+  <link rel="stylesheet" href="styles.css?v=23" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="wordmark" href="/" aria-label="Open home"><span class="mark">O</span><span>open<span class="wordmark-period">.</span></span></a>
+    <nav class="main-nav" aria-label="Primary navigation">
+      <a class="nav-link" href="/">Companies</a>
+      <a class="nav-link" href="/collection.html">Collection</a>
+      <a class="nav-link" href="/results.html">Results</a>
+      <a class="nav-link" href="/report.html">Report</a>
+      <a class="nav-link active" href="/supplier.html">Supplier</a>
+    </nav>
+    <div class="top-actions"><span class="snapshot-state"><i></i> Live</span><button class="theme-toggle" aria-label="Switch color theme" title="Switch theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor"/></svg></button></div>
+  </header>
+  <main id="overview">
+    <div class="dash-head">
+      <div>
+        <p class="page-kicker"><span>SUPPLIER VETTING</span><span class="kicker-rule"></span><span id="run-stamp">EVIDENCE PACK</span></p>
+        <h1 class="dash-title">Vet any company</h1>
+      </div>
+    </div>
+    <section class="panel" aria-label="Supplier search">
+      <p class="state-note">For anyone who needs to vet a company before trusting it. This slice builds an evidence pack from real public records: US federal award history (USASpending) and NASA technical citations. Example: a Mars rover parts supplier.</p>
+      <form id="vet-form" class="vet-form">
+        <label for="vet-name">Supplier name</label>
+        <input id="vet-name" name="name" type="text" value="Honeybee Robotics" autocomplete="off" />
+        <button type="submit" id="vet-go">Build evidence pack</button>
+      </form>
+    </section>
+    <section class="panel" aria-label="Award history">
+      <div class="section-heading"><div><p class="overline">FEDERAL AWARD HISTORY</p><h2>USASpending records</h2></div><span class="badge-dim" id="award-count"></span></div>
+      <div id="awards"><p class="state-note">Enter a supplier to fetch live records.</p></div>
+    </section>
+    <section class="panel" aria-label="NASA citations">
+      <div class="section-heading"><div><p class="overline">TECHNICAL LITERATURE</p><h2>NASA technical reports</h2></div><span class="badge-dim" id="citation-count"></span></div>
+      <div id="citations"><p class="state-note">Fetched with the pack.</p></div>
+    </section>
+    <section class="panel" aria-label="Read this pack carefully">
+      <div class="section-heading"><div><p class="overline">HOW TO READ THIS</p><h2>Limits and planned connectors</h2></div></div>
+      <div id="caveats"></div>
+      <div id="connectors"></div>
+    </section>
+  </main>
+  <script src="supplier.js?v=1"></script>
+</body>
+</html>
