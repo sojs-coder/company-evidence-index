@@ -62,7 +62,7 @@ main{max-width:1220px;margin:0 auto;padding:56px var(--edge) 90px}
 .snapshot-state{font-size:12px;color:var(--text-muted)}
 .snapshot-state i,.source-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--color-success)}
 .snapshot-state i{margin-right:7px}
-.theme-toggle{font-size:15px}
+.theme-toggle{font-size:15px;min-width:44px;min-height:44px;justify-content:center;margin:-10px -14px -10px 0}
 .theme-toggle:hover,
 /* Hero */
 .hero{margin-top:40px}
@@ -261,7 +261,7 @@ dialog h2{font-size:28px;margin:10px 0 22px}
   .topbar{height:auto;min-height:56px;flex-wrap:wrap;gap:0 16px;padding-block:10px}
   .wordmark{margin-right:auto}
   .top-actions{margin-left:0}
-  .snapshot-state{display:none}
+  .snapshot-state{display:inline-flex;align-items:center;font-size:11px}
   .main-nav{order:3;width:100%;height:42px;justify-content:space-between;gap:8px}
   .nav-link{font-size:12px}
   main{padding-top:36px}
@@ -330,13 +330,13 @@ dialog h2{font-size:28px;margin:10px 0 22px}
   .dash-head{align-items:flex-start;gap:10px}
   .dash-title{font-size:24px;line-height:1.15}
   .dash-badges{padding-bottom:0;gap:6px}
-  .badge-live,.badge-dim{font-size:9px;padding:1px 6px}
+  .badge-live,.badge-dim{font-size:10px;padding:2px 7px}
   .metric-row{display:flex;gap:0;overflow-x:auto;margin-top:18px;-webkit-overflow-scrolling:touch}
   .metric-row .metric{min-width:118px;padding:10px 14px 10px 0;margin-right:14px;border-right:1px solid var(--border)}
   .metric-row .metric:last-child{border-right:0}
   .metric-row .metric-number{font-size:22px}
-  .metric-row .metric-label{font-size:9px}
-  .metric-row .metric-note{font-size:9px;line-height:1.4}
+  .metric-row .metric-label{font-size:10px}
+  .metric-row .metric-note{font-size:10px;line-height:1.4}
   .type-strip{margin-top:10px;gap:12px;font-size:10px}
   .bottom-section{margin-top:30px}
   .section-heading h2{font-size:19px}
@@ -412,3 +412,10 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 /* Stream/detail links: long no-space headlines (CJK, slugs) must wrap and flex children must shrink */
 .collect-item-title,.collect-item-title a,.detail-source,.stream-src,.rel-note,.type-strip span{overflow-wrap:anywhere;min-width:0}
 .collect-list li,.collect-list li>*,.util-row,.util-row>*,.util-detail{min-width:0}
+
+/* Run-state placeholders + disabled downloads + zero-day chart bars */
+.state-note{font-size:12px;color:var(--text-faint);padding:14px 0;margin:0;letter-spacing:.02em}
+li.state-note{list-style:none}
+.state-error{color:var(--color-danger,#b3261e)}
+.text-button.is-disabled{opacity:.45;pointer-events:none;cursor:default}
+.trend-bar.zero{background:transparent;border-bottom:2px dotted var(--text-faint)}
