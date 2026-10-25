@@ -165,7 +165,8 @@ const SOURCES = [
   { key: 'xbrl', name: 'SEC XBRL facts', url: 'https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax.json', label: 'SEC EDGAR XBRL company concept API' },
   { key: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', label: 'The Verge RSS' },
   { key: 'mastodon', name: 'Mastodon #apple', url: 'https://mastodon.social/api/v1/timelines/tag/apple?limit=40', label: 'Mastodon public tag timeline API' },
-  { key: 'lemmy', name: 'Lemmy', url: 'https://lemmy.world/api/v3/search?q=apple&type_=Posts&limit=50&sort=New', label: 'Lemmy public search API' }
+  { key: 'lemmy', name: 'Lemmy', url: 'https://lemmy.world/api/v3/search?q=apple&type_=Posts&limit=50&sort=New', label: 'Lemmy public search API' },
+  { key: 'reddit', name: 'Reddit r/apple', url: 'https://oauth.reddit.com/r/apple/new?limit=50&raw_json=1', label: 'Reddit OAuth API (script app, read-only)' }
 ];
 const ALLOWED = Object.fromEntries(SOURCES.map(s => [s.key, s.url]));
 // Paginated collectors: several pages per source, fetched sequentially with
@@ -272,12 +273,43 @@ function parse(kind, raw) {
   const entries = [...raw.matchAll(/<entry[ >][\s\S]*?<\/entry>/g)].map(m => m[0]);
   return entries.slice(0, 30).map(it => ({ title: field(it, 'title'), date: field(it, 'published') || field(it, 'updated'), link: linkOf(it), context: (field(it, 'summary') || field(it, 'content')).slice(0, 500) }));
 }
+// Reddit: official script-app OAuth only (client_credentials, read-only).
+// Credentials arrive as Railway env via vault fill, never in code or chat.
+// No unauthenticated endpoint probing: without env, report unavailable.
+let redditToken = { token: null, exp: 0 };
+async function collectReddit() {
+  const meta = SOURCES.find(x => x.key === 'reddit');
+  const fetchedAt = new Date().toISOString();
+  const id = process.env.REDDIT_CLIENT_ID, secret = process.env.REDDIT_CLIENT_SECRET;
+  const ua = process.env.REDDIT_USER_AGENT || 'company-evidence-index-demo/1.0 by u/unknown (Cal Hacks 13.0; read-only public-data collection)';
+  if (!id || !secret) return { mode: 'unavailable', source: meta.label, name: meta.name, fetchedAt, detail: 'Reddit OAuth credentials not configured (REDDIT_CLIENT_ID/REDDIT_CLIENT_SECRET env vars absent); unauthenticated Reddit endpoints refuse datacenter requests (403), so no fallback is attempted.', items: [] };
+  const t0 = Date.now();
+  if (!redditToken.token || Date.now() > redditToken.exp) {
+    const tr = await fetch('https://www.reddit.com/api/v1/access_token', { method: 'POST', headers: { authorization: 'Basic ' + Buffer.from(id + ':' + secret).toString('base64'), 'content-type': 'application/x-www-form-urlencoded', 'user-agent': ua }, body: 'grant_type=client_credentials', signal: AbortSignal.timeout(8000) });
+    if (!tr.ok) throw new Error('token endpoint HTTP ' + tr.status);
+    const tj = await tr.json();
+    redditToken = { token: tj.access_token, exp: Date.now() + Math.max(60, (tj.expires_in || 3600) - 120) * 1000 };
+  }
+  const res = await fetch(meta.url, { headers: { authorization: 'Bearer ' + redditToken.token, 'user-agent': ua }, signal: AbortSignal.timeout(8000) });
+  const raw = await res.text();
+  const trace = { method: 'GET', url: meta.url + ' (OAuth client_credentials via www.reddit.com/api/v1/access_token)', status: res.status, bytes: raw.length, durationMs: Date.now() - t0, excerpt: raw.slice(0, 1600) };
+  if (!res.ok) throw new Error('listing HTTP ' + res.status + ': ' + raw.slice(0, 120));
+  const j = JSON.parse(raw);
+  const items = ((j.data && j.data.children) || []).map(c => c.data || {}).map(d => ({ title: d.title || '', context: String(d.selftext || '').replace(/\s+/g, ' ').slice(0, 500), date: d.created_utc ? new Date(d.created_utc * 1000).toISOString().slice(0, 10) : '', outlet: `r/${d.subreddit || 'apple'} · u/${d.author || 'unknown'} · ${d.score != null ? d.score + ' pts' : ''}`, link: d.permalink ? 'https://www.reddit.com' + d.permalink : (d.url || '') }));
+  return { mode: 'live', source: meta.label, name: meta.name, fetchedAt, runId: fetchedAt, items, trace };
+}
+
 async function collect(kind) {
   const hit = collectCache.get(kind);
   if (hit && Date.now() - hit.at < 600_000) return { ...hit.data, cached: true };
   const meta = SOURCES.find(s => s.key === kind);
   const fetchedAt = new Date().toISOString();
   try {
+    if (kind === 'reddit') {
+      const data = await collectReddit();
+      collectCache.set(kind, { at: Date.now(), data });
+      return data;
+    }
     if (MULTI[kind]) {
       const urls = MULTI[kind];
       const pages = []; let bytes = 0, ms = 0;
@@ -292,7 +324,14 @@ async function collect(kind) {
       collectCache.set(kind, { at: Date.now(), data });
       return data;
     }
-    const { body: raw, trace } = await cappedFetch(resolveUrl(kind, meta.url));
+    let raw, trace;
+    try { ({ body: raw, trace } = await cappedFetch(resolveUrl(kind, meta.url))); }
+    catch (e1) {
+      // Lemmy intermittently times out from this host; allow exactly one retry.
+      if (kind !== 'lemmy') throw e1;
+      await new Promise(r => setTimeout(r, 1500));
+      ({ body: raw, trace } = await cappedFetch(resolveUrl(kind, meta.url)));
+    }
     const data = { mode: 'live', source: meta.label, name: meta.name, fetchedAt, runId: fetchedAt, items: parse(kind, raw), trace };
     collectCache.set(kind, { at: Date.now(), data });
     return data;
