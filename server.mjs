@@ -382,6 +382,9 @@ const dateCompatible = (claimDate, itemDate) => {
   if (Number.isNaN(c) || Number.isNaN(i)) return false;
   return i >= c - DAY && i <= c + 45 * DAY;
 };
+// Fetched article bodies include site navigation/tag soup (no sentence
+// punctuation). Drop punctuation-free blobs so nav terms never match claims.
+const cleanBody = b => String(b || '').split(/(?<=[.!?])\s+/).filter(x => /[.!?]/.test(x) && x.length <= 600).join(' ');
 const jac = (a, b) => { const A = new Set(tokens(a)), B = new Set(tokens(b)); const inter = [...A].filter(w => B.has(w)).length; return inter / Math.max(1, A.size + B.size - inter); };
 function validateClaims(report) {
   const pressKeys = ['news', 'verge', 'ninetofive', 'macrumors', 'hackernews'];
@@ -395,7 +398,7 @@ function validateClaims(report) {
     const m = (f.title || '').match(/\$([\d.]+)B/);
     const fig = m ? m[1] : null;
     const figRe = fig ? new RegExp('\\b' + fig.replace(/\./g, '\\.') + '(?!\\d)') : null;
-    const withHit = figRe ? pressItems.map(it => { const hay = (it.title || '') + ' ' + (it.context || '') + ' ' + (it.body || ''); const hm = hay.match(figRe); return hm ? { ...it, excerpt: hay.slice(Math.max(0, hm.index - 60), hm.index + hm[0].length + 80).trim() } : null; }).filter(Boolean) : [];
+    const withHit = figRe ? pressItems.map(it => { const hay = (it.title || '') + ' ' + (it.context || '') + ' ' + cleanBody(it.body); const hm = hay.match(figRe); return hm ? { ...it, excerpt: hay.slice(Math.max(0, hm.index - 60), hm.index + hm[0].length + 80).trim() } : null; }).filter(Boolean) : [];
     return { claim: `${f.title} (filed to the SEC, XBRL)`, basis: 'SEC XBRL company facts', figure: fig, link: f.link || '', date: fmtDate(f.date),
       status: withHit.length ? 'cited-in-press' : 'no-press-citation-in-run',
       passages: withHit.slice(0, 5).map(it => ({ title: it.title, link: it.link || '', date: fmtDate(it.date), source: it.source, excerpt: it.excerpt })) };
@@ -404,14 +407,17 @@ function validateClaims(report) {
   const headlineChecks = nrItems.slice(0, 6).map(h => {
     const ht = new Set(tokens(h.title || ''));
     const anchors = anchorPhrases(h.title);
-    const GEN = new Set(['store','available','launch','launches','unveils','announces','worldwide','today','apple','reportedly','update','updates','week','price','prices','united','states','american','incredible','possibilities']);
+    const GEN = new Set(['store','available','launch','launches','unveils','announces','worldwide','today','apple','reportedly','update','updates','week','price','prices','united','states','american','incredible','possibilities','locations','latest','weekend','open','opening','arrives']);
+    const anchorTokens = new Set(anchors.flatMap(a => a.split(' ')));
     const cov = pressItems.filter(it => {
       if (!dateCompatible(h.date, it.date)) return false;
-      const hayRaw = ((it.title || '') + ' ' + (it.context || '') + ' ' + (it.body || '')).toLowerCase();
-      if (anchors.some(a => hayRaw.includes(a))) return true;
+      const hayRaw = ((it.title || '') + ' ' + (it.context || '') + ' ' + cleanBody(it.body)).toLowerCase();
       const st = new Set(tokens(hayRaw));
       const shared = [...ht].filter(w => st.has(w) && w.length > 3 && !GEN.has(w));
-      return shared.length >= 3 && shared.some(w => w.length >= 8 || /\d/.test(w));
+      // An event anchor alone is not enough (every iPhone Duo story is not
+      // coverage of every Duo claim): require a distinctive claim term too.
+      if (!anchors.length) return shared.length >= 3 && shared.some(w => w.length >= 8 || /\d/.test(w));
+      return anchors.some(a => hayRaw.includes(a)) && shared.some(w => !anchorTokens.has(w));
     });
     const seen = new Set();
     const passages = cov.map(it => ({ ...it, echo: jac(it.title, h.title) > 0.55 })).filter(it => { const k = it.title; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
@@ -428,7 +434,7 @@ function validateClaims(report) {
   const figMention = /\$([\d]{2,3}(?:\.\d)?)\s*(?:B|billion)/g;
   const contradictions = [];
   for (const it of pressItems) {
-    const hay = (it.title || '') + ' ' + (it.context || '') + ' ' + (it.body || '');
+    const hay = (it.title || '') + ' ' + (it.context || '') + ' ' + cleanBody(it.body);
     if (!/revenue|sales|fiscal|annual/i.test(hay)) continue;
     for (const m of hay.matchAll(figMention)) {
       // Only annual-scope mentions are comparable to filed annual figures;
@@ -449,7 +455,7 @@ function validateClaims(report) {
   const denom = figureChecks.length * 2 + headlineChecks.length;
   const score = denom ? Math.round(((figCited * 2 + headCov) / denom) * 100) : 0;
   const coverageScore = { score, drivers: `${figCited} of ${figureChecks.length} filed figures cited (weight 2x), ${headCov} of ${headlineChecks.length} company statements covered`, scope: 'Coverage within items collected this run only. A low score means the collected set lacks corroboration, not that claims are false.' };
-  return { figureChecks, headlineChecks, contradictions, coverageScore, method: `Extractive matching over titles, feed summaries, and fetched article bodies (${(report.articleBodies || {}).fetched || 0} of ${(report.articleBodies || {}).of || 0} newest press items) collected in this run: identical figures (word-boundary matched), and date-compatible passages sharing an event anchor phrase or at least three distinctive terms for coverage. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.` };
+  return { figureChecks, headlineChecks, contradictions, coverageScore, method: `Extractive matching over titles, feed summaries, and fetched article bodies (${(report.articleBodies || {}).fetched || 0} of ${(report.articleBodies || {}).of || 0} newest press items) collected in this run: identical figures (word-boundary matched), and date-compatible passages sharing an event anchor phrase plus a distinctive claim term, or at least three distinctive terms, for coverage (site navigation stripped from fetched bodies). "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.` };
 }
 async function runReport() {
   const runAt = new Date().toISOString();
