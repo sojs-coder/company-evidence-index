@@ -4,8 +4,8 @@
 const NAMES={AAPL:'Apple',MSFT:'Microsoft',AMZN:'Amazon',GOOGL:'Alphabet',NVDA:'Nvidia'};
 const DEFQ={customer:'What should I check before buying from them?',vendor:'Is this company worth pursuing, and what is the opening?',investor:'What deserves diligence, and what challenges their story?',scout:'How does this company compare to peers?'};
 const LENS={
-  customer:{line:'Evaluating as a customer: reported problems lead.',first:'counter',checks:['Are the reported problems about the product, the service or the price?','Do several independent posts raise the same problem, or only one?','Is the problem recent or old? See the content dates below.']},
-  vendor:{line:'Evaluating as a vendor: praise and unmet asks lead.',first:'claim',checks:['What do people praise that a partner could build on?','Which complaints point to a need you could address?','Who is talking: customers, developers or press? Check the sources on file.']},
+  customer:{line:'Evaluating as a customer: counterclaims lead, then claims.',first:'counter',checks:['Are the reported problems about the product, the service or the price?','Do several independent posts raise the same problem, or only one?','Is the problem recent or old? See the content dates below.']},
+  vendor:{line:'Evaluating as a vendor: claims lead, then counterclaims.',first:'claim',checks:['What do people praise that a partner could build on?','Which complaints point to a need you could address?','Who is talking: customers, developers or press? Check the sources on file.']},
   investor:{line:'Evaluating as an investor: claims lead, counterclaims challenge them.',first:'claim',checks:['Which claims have support from more than one post?','Which counterclaim contradicts the main story?','What would a primary source (filing, earnings call) have to show to settle it?']},
   scout:{line:'Evaluating as a scout: compare the five on coverage first.',first:'claim',checks:['Is the evidence volume comparable across companies?','Do the claims and counterclaims cover the same themes?','Which company has the thinnest or oldest evidence?']}
 };
@@ -131,7 +131,7 @@ async function load(){
   renderQuestions(ans);
   renderSignals(sig,p);
   const claims=rank(a&&a.claims),counter=rank(a&&a.counterclaims);
-  const order=L.first==='counter'?[['counter','Reported problems','COUNTERCLAIMS',counter],['claim','What people say in favour','CLAIMS',claims]]:[['claim','Claims in the posts','CLAIMS',claims],['counter','Counterclaims','COUNTERCLAIMS',counter]];
+  const order=L.first==='counter'?[['counter','Counterclaims in the posts','COUNTERCLAIMS',counter],['claim','Claims in the posts','CLAIMS',claims]]:[['claim','Claims in the posts','CLAIMS',claims],['counter','Counterclaims','COUNTERCLAIMS',counter]];
   [['first',order[0]],['second',order[1]]].forEach(([id,[kind,title,label,list]])=>{
     $('#b-'+id+'-label').textContent=label;$('#b-'+id+'-title').textContent=title;$('#b-'+id).innerHTML=items(list,kind,true);
   });
@@ -165,7 +165,7 @@ function compare(packs,analyses,sigs){
   const rows=Object.keys(NAMES).map((t,i)=>{const p=packs.find(x=>x.ticker===t),a=analyses[i],sg=sigs&&sigs[i],st=sg&&sg.sentiment?Object.values(sg.sentiment).reduce((x,y)=>x+y,0):0;
     return `<tr class="${t===ticker?'is-current':''}"><td><a href="?c=${t}&role=${encodeURIComponent(role)}&q=${encodeURIComponent(question)}">${NAMES[t]}</a></td><td>${p?num(p.itemCount):'-'}</td><td>${p?(p.sources||[]).length:'-'}</td><td>${a?num(a.inputItems):'-'}</td><td>${a?(a.claims||[]).length+' / '+(a.counterclaims||[]).length:'-'}</td><td>${sg&&st?Math.round(100*sg.sentiment.negative/st)+'% neg / '+Math.round(100*sg.sentiment.positive/st)+'% pos':'not analysed'}</td><td>${p?day(p.collectedAt):'-'}</td></tr>`}).join('');
   $('#b-compare').innerHTML='<tr><th>COMPANY</th><th>POSTS STORED</th><th>COLLECTIONS</th><th>CLAIMS SAMPLE</th><th>CLAIMS / COUNTER</th><th>SENTIMENT (POSTS ANALYSED)</th><th>PACK PREPARED</th></tr>'+rows;
-  if(role!=='scout')$('#b-compare-section').querySelector('h2').textContent='The other four, for context';
+  if(role!=='scout')$('#b-compare-section').querySelector('h2').textContent='All five, for context';
 }
 $('#b-switch').addEventListener('change',()=>{
   const c=$('#b-company').value,r=$('#b-role').value;
