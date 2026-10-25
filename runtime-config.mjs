@@ -52,7 +52,9 @@ export async function extractBrokeredSecret(keyName, { env = process.env, fetchI
   const t = setTimeout(() => ac.abort(), timeoutMs);
   let res;
   try {
-    res = await fetchImpl(env.RUNTIME_CONFIG_URL, {
+    const base = env.RUNTIME_CONFIG_URL.replace(/\/+$/, '');
+    const url = base.endsWith('/api/internal/runtime-config/snapshot') ? base : base + '/api/internal/runtime-config/snapshot';
+    res = await fetchImpl(url, {
       method: 'GET',
       headers: { 'x-api-key': env.RUNTIME_CONFIG_TOKEN, 'accept': 'application/json' },
       signal: ac.signal
