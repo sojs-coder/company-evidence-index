@@ -33,3 +33,7 @@ test('credit demo is labelled synthetic, not company credit, and never says it i
   assert.match(js, /SYNTHETIC CONSUMER DEMONSTRATION · NOT COMPANY CREDIT · NOT ABOUT/);
   assert.match(js, /c\.state!=='demonstration'/);
 });
+test('claim and counterclaim headings do not assert polarity', async () => {
+  const js = await read('brief.js');
+  assert.doesNotMatch(js, /in favour|Reported problems/);
+});
