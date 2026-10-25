@@ -2,7 +2,8 @@
 // AI claim/counterclaim synthesis as a clearly labeled, separate panel.
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));// " intentional
 const srclist=s=>`<li><span class="mono">${esc((s.at||'').slice(0,10))}</span><span class="collect-item-title">${esc(s.source)}</span><span class="faint">${esc(String(s.added))} added</span></li>`;
-const claimList=(arr,empty)=>arr&&arr.length?arr.map(c=>`<li><span class="collect-item-title">${esc(c.text)}</span><span class="mono faint">${esc(String(c.support??''))} posts</span></li>`).join(''):`<li><span class="faint">${esc(empty)}</span></li>`;
+const postLinks=c=>(c.posts||[]).map(p=>`<li><span class="collect-item-title">${p.link?`<a class="detail-source" href="${esc(p.link)}" target="_blank" rel="noreferrer">${esc(p.text.slice(0,140))}${p.text.length>140?'…':''}</a>`:esc(p.text.slice(0,140))}</span></li>`).join('');
+const claimList=(arr,empty)=>arr&&arr.length?arr.map(c=>`<li><span class="collect-item-title">${esc(c.text)}</span><span class="mono faint">${esc(String(c.support??''))} cited post${c.support===1?'':'s'}</span></li>${postLinks(c)}`).join(''):`<li><span class="faint">${esc(empty)}</span></li>`;
 async function boot(){
   const wrap=document.querySelector('#packs-live');
   let packs=[],analysis={};
@@ -43,7 +44,7 @@ async function bootCrs(){
     <p class="side-copy">${esc(d.label||'')}</p>
     <ul class="collect-list">
       <li><span class="collect-item-title">Response sections</span><span class="mono faint">${esc(String((d.sections||[]).length))}</span></li>
-      <li><span class="collect-item-title">Billable</span><span class="mono faint">${esc(String(d.billable))}</span></li>
+      ${d.billable!=null?`<li><span class="collect-item-title">Billable</span><span class="mono faint">${esc(String(d.billable))}</span></li>`:''}
       ${score}
     </ul></article>`;
 }
