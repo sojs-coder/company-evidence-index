@@ -10,7 +10,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 import { maybeWrapWithX402, x402Status } from './x402-gate.mjs';
-import { crsStatus, submitSbssDecision, validateSbssRequest } from './crs-sbss.mjs';
+import { crsSandboxStatus, fetchSandboxDemoReport } from './crs-sandbox.mjs';
 import { runtimeConfigStatus, extractBrokeredSecret } from './runtime-config.mjs';
 import { healthProjection } from './health-projection.mjs';
 
@@ -50,16 +50,19 @@ function readBody(req, cap = 65536) {
 async function handleApi(req, res, url, ip) {
   if (!allowed(ip)) return send(res, 429, { error: 'rate_limited', detail: 'Per-IP request budget exhausted; retry shortly.' });
   const p = url.pathname;
+  // DEPRECATED 2026-10-25: this route targeted sbss-sandbox.crscreditapi.com,
+  // a different CRS sandbox whose bearer-token issuance is undocumented for
+  // this account and which is not part of the CalHacks sandbox spec. Kept as
+  // an explicit unavailable state rather than silently removed.
   if (p === '/api/credit/sbss') {
-    const st = crsStatus();
-    if (req.method !== 'POST') return send(res, 405, { error: 'method_not_allowed', detail: 'POST a JSON SbssRequest body (schema: CRS sandbox OpenAPI, sbss-sandbox.crscreditapi.com/openapi.yaml).', state: st.state });
-    if (!st.configured) return send(res, 200, { state: 'not_configured', detail: st.detail, fit: 'SBSS scores small-business credit decisions from principal consumer files; it is not a credit layer for a large-cap public company like Apple. This endpoint exists for private-company / counterparty targets with a defined permitted business purpose. No account was created from code.', sandbox: st.sandbox });
-    let body;
-    try { body = JSON.parse(await readBody(req)); } catch { return send(res, 400, { error: 'bad_json' }); }
-    const v = validateSbssRequest(body);
-    if (!v.ok) return send(res, 400, { error: 'invalid_request', details: v.errors });
-    const r = await submitSbssDecision(body);
-    return send(res, r.ok ? 200 : 502, r);
+    return send(res, 410, { error: 'deprecated', state: 'unavailable', detail: 'The SBSS sandbox host is not part of the CalHacks sandbox and its token issuance is not documented for this account. Use /api/credit/sandbox-demo for the sponsor sandbox demonstration.' });
+  }
+  // Sponsor sandbox demonstration: the CRS CalHacks sandbox answers with
+  // synthetic TEST PERSONAS (non-billable, no real consumer). This is a demo
+  // of the sponsor integration, NOT evidence about any company.
+  if (p === '/api/credit/sandbox-demo') {
+    const r = await fetchSandboxDemoReport();
+    return send(res, r.ok ? 200 : (r.error === 'not_configured' ? 200 : 502), r);
   }
   if (p === '/api/vet/identify') {
     const name = (url.searchParams.get('name') || '').trim().slice(0, 120);
@@ -83,7 +86,7 @@ async function handleApi(req, res, url, ip) {
     if (!name) return send(res, 400, { error: 'missing_name', detail: 'Pass ?name=<supplier> to build a vetting evidence pack.' });
     return send(res, 200, await buildSupplierPack(name));
   }
-  if (p === '/api/health') return send(res, 200, healthProjection({ gateStatus, crs: crsStatus(), runtimeConfig: runtimeConfigStatus(), seeded: true }));
+  if (p === '/api/health') return send(res, 200, healthProjection({ gateStatus, crs: crsSandboxStatus(), runtimeConfig: runtimeConfigStatus(), seeded: true }));
 
   const claims = () => {
     const q = (url.searchParams.get('q') || '').slice(0, 120).toLowerCase();
