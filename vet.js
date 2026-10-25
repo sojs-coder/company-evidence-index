@@ -32,7 +32,9 @@ async function identify(name){
 }
 async function report(identity){
   const question=document.getElementById('vet-question').value.trim();
-  const category=document.getElementById('vet-category').value;
+  // Read the active lens when building, including changes made after identity lookup.
+  const role=window.CEI_ROLE?.get();
+  const category=({customer:'supplier',vendor:'vendor',investor:'invest',scout:'general'})[role]||'general';
   for(const p of ['answer-panel','awards-panel','citations-panel','sources-panel'])document.getElementById(p).hidden=false;
   document.getElementById('answer-title').textContent='“'+question+'”'+' · '+identity.name;
   state('#quotes','Fetching cited evidence for this exact entity. Live sources only.');
