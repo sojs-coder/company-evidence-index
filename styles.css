@@ -405,3 +405,7 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .memo-table th,.memo-table td{border-top:1px solid var(--border-muted);padding:8px 12px;text-align:left;vertical-align:top;font-size:12px}
 .memo-table th{font:10px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);border-top:0}
 .memo-sub{margin:16px 0 2px}
+/* Memo section: never let long tokens (us-gaap concepts, accessions, filings) push the page wide */
+#memo-body,#memo-body *{overflow-wrap:anywhere}
+.memo-table{table-layout:fixed}
+.memo-table td,.memo-table th{overflow-wrap:anywhere;word-break:break-word}
