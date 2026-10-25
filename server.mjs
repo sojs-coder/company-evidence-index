@@ -914,15 +914,24 @@ function tensionsFromV(v) {
 // keyless public APIs. Fetched live per request; nothing seeded, nothing
 // fabricated. Contract history shows agencies bought from the supplier - it
 // does NOT by itself establish reliability or qualification; the pack says so.
+const STOP_TOKENS = new Set(['inc','llc','ltd','corp','corporation','company','co','the','lp','llp']);
+const nameTokens = (q) => String(q || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t && !STOP_TOKENS.has(t));
+const nameMatches = (candidate, toks) => {
+  const rt = new Set(nameTokens(candidate));
+  return toks.length > 0 && toks.every(t => rt.has(t));
+};
 async function buildSupplierPack(name) {
   const fetchedAt = new Date().toISOString();
+  const queryToks = nameTokens(name);
   const pack = {
     supplier: name, fetchedAt, provenance: 'fetched_live',
     awards: [], citations: [], sources: [],
     caveats: [
       'Contract history shows an agency agreed to buy from this supplier; it does not by itself establish reliability, quality, or qualification.',
       'Award amounts are obligations as recorded in USASpending at query time; always read them with their start date and description.',
-      'Records are candidate name matches requiring identity confirmation, not entity resolution: distinct legal entities can share name tokens; subsidiaries, acquisitions and name variants are missed; absence of a record here is not evidence of absence.'
+      'Records are candidate name matches requiring identity confirmation, not entity resolution: distinct legal entities can share name tokens; subsidiaries, acquisitions and name variants are missed; absence of a record here is not evidence of absence.',
+      'Awards stay grouped under their exact recorded legal recipient names; a name match or a reported ownership relationship does not by itself merge distinct legal entities.',
+      'NASA citations are keyword search matches. Only entries whose recorded author affiliation matches the queried name count as company-associated; everything else is a search match, not the company\'s research or technical record.'
     ],
     plannedConnectors: [
       { key: 'Deep web research', state: 'not included', detail: 'Full-page research, structured extraction and change monitoring. Not included in this pack.' },
@@ -942,15 +951,9 @@ async function buildSupplierPack(name) {
     });
     if (r.ok) {
       const j = await r.json();
-      const STOP = new Set(['inc','llc','ltd','corp','corporation','company','co','the','lp','llp']);
-      const toks = name.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t && !STOP.has(t));
-      const nameMatches = (recip) => {
-        const rt = new Set(String(recip || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/));
-        return toks.length > 0 && toks.every(t => rt.has(t));
-      };
       // Name-matched records only: recipient_search_text is fuzzy text search,
       // not entity resolution - unfiltered it returns wrong entities.
-      pack.awards = (j.results || []).filter(a => nameMatches(a['Recipient Name'])).map(a => ({
+      pack.awards = (j.results || []).filter(a => nameMatches(a['Recipient Name'], queryToks)).map(a => ({
         awardId: a['Award ID'] || null,
         recipient: a['Recipient Name'] || null,
         startDate: a['Start Date'] || null,
@@ -959,6 +962,18 @@ async function buildSupplierPack(name) {
         description: a['Description'] || null,
         sourceUrl: a['Award ID'] ? ('https://www.usaspending.gov/award/' + encodeURIComponent(a['Award ID'])) : null
       }));
+      // Group by the exact recorded legal recipient name: distinct entities stay distinct.
+      const groups = new Map();
+      for (const a of pack.awards) {
+        const key = a.recipient || '(recipient not recorded)';
+        if (!groups.has(key)) groups.set(key, { recipient: key, awardCount: 0, totalObligatedUsd: 0, totalComplete: true, awards: [] });
+        const g = groups.get(key);
+        g.awardCount += 1;
+        if (a.obligatedAmountUsd == null) g.totalComplete = false; else g.totalObligatedUsd += a.obligatedAmountUsd;
+        g.awards.push(a);
+      }
+      pack.recipientGroups = [...groups.values()].sort((a, b) => b.awardCount - a.awardCount)
+        .map(g => ({ recipient: g.recipient, awardCount: g.awardCount, totalObligatedUsd: g.totalComplete ? g.totalObligatedUsd : null, awards: g.awards }));
       pack.sources.push({ key: 'usaspending', name: 'USASpending award search', url: 'https://www.usaspending.gov/', fetched: pack.awards.length, mode: 'live' });
     } else {
       pack.sources.push({ key: 'usaspending', name: 'USASpending award search', url: 'https://www.usaspending.gov/', fetched: 0, mode: 'error', detail: 'HTTP ' + r.status });
@@ -968,14 +983,26 @@ async function buildSupplierPack(name) {
   }
   // NASA NTRS: technical reports citing the supplier.
   try {
-    const r = await fetch('https://ntrs.nasa.gov/api/citations/search?q=' + encodeURIComponent(name) + '&size=5', { headers: { accept: 'application/json' } });
+    const r = await fetch('https://ntrs.nasa.gov/api/citations/search?q=' + encodeURIComponent(name) + '&size=8', { headers: { accept: 'application/json' } });
     if (r.ok) {
       const j = await r.json();
-      pack.citations = (j.results || []).map(c => ({
-        title: c.title || null,
-        id: c.id || null,
-        sourceUrl: c.id ? ('https://ntrs.nasa.gov/citations/' + c.id) : null
-      })).filter(c => c.title);
+      // Explicit association only: an author affiliation whose organization
+      // name matches the query tokens. A keyword hit in title/abstract is NOT
+      // the company's research record - label those as search matches.
+      const seen = new Set();
+      pack.citations = (j.results || []).map(c => {
+        const orgs = [...new Set((c.authorAffiliations || []).map(a => a && a.meta && a.meta.organization && a.meta.organization.name).filter(Boolean))];
+        const matched = orgs.filter(o => nameMatches(o, queryToks));
+        return {
+          title: c.title || null,
+          id: c.id || null,
+          sourceUrl: c.id ? ('https://ntrs.nasa.gov/citations/' + c.id) : null,
+          association: matched.length
+            ? { state: 'affiliation_verified', organizations: matched }
+            : { state: 'search_match', organizations: orgs.slice(0, 3) }
+        };
+      }).filter(c => c.title && !seen.has(c.title) && seen.add(c.title));
+      pack.citations.sort((a, b) => (a.association.state === b.association.state ? 0 : a.association.state === 'affiliation_verified' ? -1 : 1));
       pack.sources.push({ key: 'ntrs', name: 'NASA Technical Reports Server', url: 'https://ntrs.nasa.gov/', fetched: pack.citations.length, mode: 'live' });
     } else {
       pack.sources.push({ key: 'ntrs', name: 'NASA Technical Reports Server', url: 'https://ntrs.nasa.gov/', fetched: 0, mode: 'error', detail: 'HTTP ' + r.status });
