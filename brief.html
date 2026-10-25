@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f5f4f4" />
+  <title>Company brief · Company Evidence Index</title>
+  <link rel="stylesheet" href="cal-hacks-tokens.css?v=11" />
+  <link rel="stylesheet" href="styles.css?v=30" />
+  <link rel="stylesheet" href="brief.css?v=2" />
+</head>
+<body data-no-role-gate>
+  <header class="topbar"></header>
+  <script src="/navigation.js?v=1"></script>
+  <script src="/role.js?v=1" defer></script>
+  <main id="overview">
+    <div class="dash-head">
+      <div><h1 class="dash-title" id="b-title">Company brief</h1></div>
+      <div class="dash-badges" id="b-badges"></div>
+    </div>
+    <form id="b-switch" class="brief-switch" aria-label="Change company or role">
+      <label>Company <select id="b-company"><option value="AAPL">Apple</option><option value="MSFT">Microsoft</option><option value="AMZN">Amazon</option><option value="GOOGL">Alphabet</option><option value="NVDA">Nvidia</option></select></label>
+      <label>You are <select id="b-role"><option value="customer">Customer</option><option value="vendor">Vendor</option><option value="investor">Investor</option><option value="scout">Scout</option></select></label>
+    </form>
+    <section class="bottom-section" aria-label="Your question"><div class="section-heading"><div><p class="overline" id="b-lens-label">QUESTION</p><h2 id="b-question"></h2></div></div><p class="state-note" id="b-lens-line"></p><ul id="b-checks" class="brief-checks"></ul></section>
+    <section class="bottom-section" aria-label="Investigation questions"><div class="section-heading"><div><p class="overline" id="b-iq-label">INVESTIGATION QUESTIONS</p><h2>Questions the evidence raises</h2></div></div><div id="b-iq"><p class="state-note">Checking.</p></div></section>
+    <section class="bottom-section" aria-label="Post analysis"><div class="section-heading"><div><p class="overline">POST ANALYSIS</p><h2>What the posts say, in aggregate</h2></div></div><div id="b-sig"><p class="state-note">Checking.</p></div></section>
+    <section class="bottom-section" aria-label="Closest stored claims"><div class="section-heading"><div><p class="overline" id="b-first-label"></p><h2 id="b-first-title"></h2></div></div><p class="state-note" id="b-first-note"></p><ul id="b-first" class="stream-list brief-list"></ul></section>
+    <section class="bottom-section" aria-label="Second list"><div class="section-heading"><div><p class="overline" id="b-second-label"></p><h2 id="b-second-title"></h2></div></div><ul id="b-second" class="stream-list brief-list"></ul></section>
+    <section class="bottom-section" aria-label="Compare" id="b-compare-section"><div class="section-heading"><div><p class="overline">COMPARE THE FIVE</p><h2 id="b-compare-title">Stored evidence side by side</h2></div></div><div class="brief-table-wrap"><table class="brief-table" id="b-compare"></table></div></section>
+    <section class="bottom-section" aria-label="Evidence freshness"><div class="section-heading"><div><p class="overline">EVIDENCE ON FILE</p><h2>What was collected, read and when</h2></div></div><section id="b-metrics" class="metric-row"><p class="state-note">Loading stored evidence.</p></section><p class="state-note" id="b-fresh"></p><p class="state-note" id="b-sources"></p></section>
+    <section class="bottom-section" aria-label="Related views"><div class="section-heading"><div><p class="overline">GO DEEPER</p><h2>Related views</h2></div></div><ul class="brief-links" id="b-links"></ul><p class="state-note" id="b-basis"></p></section>
+  </main>
+  <script src="brief.js?v=2"></script>
+</body>
+</html>
