@@ -7,10 +7,6 @@ function itemLine(i){
   const meta=i.outlet||(i.rating?i.rating+'/5':(i.points!=null?i.points+' pts':(i.date||'')));
   return `<li><span class="collect-item-title">${i.link?`<a class="detail-source" href="${esc(i.link)}" target="_blank" rel="noreferrer">${esc(title)}</a>`:esc(title)}</span>${meta?`<span class="faint">${esc(meta)}</span>`:''}</li>`;
 }
-// Theme toggle on this page (app.js owns it elsewhere): persist + apply.
-const themeBtn=document.querySelector('.theme-toggle');
-if(localStorage.getItem('cei-theme')==='dark'){document.documentElement.dataset.theme='dark';document.querySelector('meta[name="theme-color"]').content='#02205e'}
-themeBtn&&themeBtn.addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';localStorage.setItem('cei-theme',dark?'dark':'light');document.querySelector('meta[name="theme-color"]').content=dark?'#02205e':'#f5f4f4'});
 function failAll(msg){for(const sel of ['#run-summary','#memo-body','#evidence-stream','#run-graph','#claim-checks','#trend-chart']){const el=document.querySelector(sel);if(el)el.innerHTML=sel==='#evidence-stream'?`<li class="state-note state-error">${msg}</li>`:`<p class="state-note state-error">${msg}</p>`}}
 function enableDownloads(){for(const id of ['download-memo','export-citations']){const a=document.getElementById(id);if(a){a.classList.remove('is-disabled');a.removeAttribute('aria-disabled')}}}
 async function boot(){

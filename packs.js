@@ -71,8 +71,6 @@ async function boot(){
     </article>`;
   }).join('');
 }
-document.querySelector('.theme-toggle').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name="theme-color"]').content=dark?'#02205e':'#f5f4f4'});
-
 async function bootCrs(){
   const wrap=document.querySelector('#crs-live'); if(!wrap) return;
   let d=null; try{d=await fetch('/api/credit/sandbox-demo').then(r=>r.json())}catch(e){}

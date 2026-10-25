@@ -2,9 +2,6 @@
 // then a cited report answering the buyer's question. Nothing is substituted.
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const money=n=>n==null?'(not recorded)':'$'+Number(n).toLocaleString('en-US',{maximumFractionDigits:0});
-if(localStorage.getItem('cei-theme')==='dark'){document.documentElement.dataset.theme='dark';document.querySelector('meta[name="theme-color"]').content='#02205e'}
-const themeBtn=document.querySelector('.theme-toggle');
-themeBtn&&themeBtn.addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';localStorage.setItem('cei-theme',dark?'dark':'light');document.querySelector('meta[name="theme-color"]').content=dark?'#02205e':'#f5f4f4'});
 function state(el,msg,err){const n=document.querySelector(el);if(n)n.innerHTML=`<p class="state-note${err?' state-error':''}">${esc(msg)}</p>`}
 const KIND={public_company:'SEC company registry',brand_match:'Brand registry match',legal_recipient:'Recorded legal recipient (USASpending)',custom:'Name as typed'};
 let currentName='';

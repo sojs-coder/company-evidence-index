@@ -48,5 +48,4 @@ async function boot(){
     <div class="collect-head"><h2>${s.name}</h2><span class="collect-badge demo">NOT LIVE</span></div>
     <p class="side-copy">${s.note}</p>`,'muted')).join('');
 }
-document.querySelector('.theme-toggle').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name="theme-color"]').content=dark?'#02205e':'#f5f4f4'});
 boot();
