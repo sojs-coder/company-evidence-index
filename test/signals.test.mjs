@@ -194,3 +194,12 @@ test('rollupSignals: failed readings are unclassified, never neutral sentiment',
   assert.equal(roll.sentiment.negative, 1);
   assert.equal(roll.unclassified, 1);
 });
+
+test('model provenance: no call site or stored record hardcodes a model literal', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
+  assert.ok(!src.includes("model: 'gpt-4o-mini'"), 'no hardcoded gpt-4o-mini anywhere');
+  const sites = src.match(/model: SIGNALS_MODEL/g) || [];
+  assert.ok(sites.length >= 4, 'all four OpenAI call/record sites use SIGNALS_MODEL (found ' + sites.length + ')');
+  assert.ok((src.match(/reasoning_effort: 'none'/g) || []).length >= 4, 'all four calls set reasoning_effort none');
+});
