@@ -74,9 +74,46 @@ async function handleApi(req, res, url, ip) {
   const collectMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z]+)$/);
   if (collectMatch && ALLOWED[collectMatch[1]]) return send(res, 200, await collect(collectMatch[1]));
   if (p === '/api/companies/apple/report') return send(res, 200, await runReport());
+  if (p === '/api/companies/apple/export') {
+    const report = await runReport();
+    const v = validateClaims(report);
+    const L = [];
+    L.push('# Apple Inc. (AAPL) - evidence export');
+    L.push(`Generated ${report.generatedAt} by a live collection run across ${report.liveCount} live sources.`);
+    L.push('');
+    L.push('## Claim checks');
+    const card = (c, kind) => {
+      L.push(`### ${c.claim}`);
+      L.push(`- Kind: ${kind}; Basis: ${c.basis}${c.date ? '; Date: ' + c.date : ''}`);
+      L.push(`- Status: ${c.status}`);
+      if (c.passages && c.passages.length) for (const p of c.passages) {
+        L.push(`- ${p.source}, ${p.date}: "${p.title}" ${p.link}`.trim());
+        if (p.excerpt) L.push(`  Passage: "...${p.excerpt}..."`);
+        if (p.wording) L.push(`  Wording: ${p.wording} (wording-only observation)`);
+      } else L.push('- No matching items collected in this run.');
+      L.push('');
+    };
+    for (const c of v.figureChecks) card(c, 'Filed figure (SEC XBRL)');
+    for (const c of v.headlineChecks) card(c, 'Company statement');
+    for (const c of (v.contradictions || [])) card(c, 'Figure mismatch candidate');
+    L.push('## Coverage score');
+    L.push(`${v.coverageScore.score}/100 - ${v.coverageScore.drivers}`);
+    L.push(v.coverageScore.scope);
+    L.push('');
+    L.push('## Method');
+    L.push(v.method);
+    L.push('');
+    L.push('## Sources this run');
+    for (const s of report.sources) L.push(`- ${s.name}: ${s.itemCount} collected${s.relevantCount != null ? `, ${s.relevantCount} Apple-relevant` : ''} (${s.mode})`);
+    L.push('');
+    L.push('Signalor mention analytics: historical aggregate through 2026-10-20, not live; see dashboard panel for sentiment/platform/aspect breakdown.');
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="apple-evidence-export.md"');
+    return send(res, 200, L.join('\n'));
+  }
   if (p === '/api/companies/apple/analysis') {
     const report = await runReport();
-    return send(res, 200, { ...report, analysis: matchClaims(report), validation: validateClaims(report), history: store.runs, historyNote: 'Runs persist to disk within this deployment; a redeploy resets the store. No external database.' });
+    return send(res, 200, { ...report, analysis: matchClaims(report), validation: validateClaims(report), history: store.runs, storeMode: process.env.DATA_DIR ? 'attached-volume' : 'ephemeral', historyNote: process.env.DATA_DIR ? 'Runs persist to an attached Railway volume and survive redeploys.' : 'Runs persist to disk within this deployment only; a redeploy resets the store.' });
   }
   const traceMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z]+)\/trace$/);
   if (traceMatch && ALLOWED[traceMatch[1]]) {
@@ -265,7 +302,7 @@ async function collect(kind) {
 // Persistence: JSON store on the deployment's local disk. Survives process
 // restarts inside this deployment; a redeploy or container replacement resets
 // it. No external database is provisioned.
-const STORE_PATH = join(ROOT, 'data', 'run-store.json');
+const STORE_PATH = join(process.env.DATA_DIR || join(ROOT, 'data'), 'run-store.json');
 let store = { runs: [], items: {} };
 try { store = JSON.parse(await readFile(STORE_PATH, 'utf8')); } catch { /* first boot */ }
 async function saveStore() { try { await writeFile(STORE_PATH, JSON.stringify(store)); } catch { /* read-only fs */ } }
@@ -379,7 +416,7 @@ function validateClaims(report) {
   const denom = figureChecks.length * 2 + headlineChecks.length;
   const score = denom ? Math.round(((figCited * 2 + headCov) / denom) * 100) : 0;
   const coverageScore = { score, drivers: `${figCited} of ${figureChecks.length} filed figures cited (weight 2x), ${headCov} of ${headlineChecks.length} company statements covered`, scope: 'Coverage within items collected this run only. A low score means the collected set lacks corroboration, not that claims are false.' };
-  return { figureChecks, headlineChecks, contradictions, coverageScore, method: `Extractive matching over titles, feed summaries, and fetched article bodies (${(report.articleBodies || {}).fetched || 0} of ${(report.articleBodies || {}).of || 0} newest press items) collected in this run: identical figures (word-boundary matched), and shared distinctive terms for coverage. Full article bodies are not fetched. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.` };
+  return { figureChecks, headlineChecks, contradictions, coverageScore, method: `Extractive matching over titles, feed summaries, and fetched article bodies (${(report.articleBodies || {}).fetched || 0} of ${(report.articleBodies || {}).of || 0} newest press items) collected in this run: identical figures (word-boundary matched), and shared distinctive terms for coverage. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.` };
 }
 async function runReport() {
   const runAt = new Date().toISOString();
