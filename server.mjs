@@ -163,6 +163,9 @@ const SOURCES = [
   { key: 'itunes', name: 'Apple on the App Store', url: 'https://itunes.apple.com/search?term=Apple&entity=software&limit=50', label: 'iTunes Search API' },
   { key: 'reviews', name: 'App Store reviews', url: 'https://itunes.apple.com/us/rss/customerreviews/id=408709785/sortBy=mostRecent/json', label: 'App Store customer reviews RSS (GarageBand, an Apple app)' },
   { key: 'xbrl', name: 'SEC XBRL facts', url: 'https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax.json', label: 'SEC EDGAR XBRL company concept API' },
+  { key: 'xbrl_ni', name: 'SEC XBRL net income', url: 'https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/NetIncomeLoss.json', label: 'SEC EDGAR XBRL company concept API' },
+  { key: 'xbrl_rd', name: 'SEC XBRL R&D expense', url: 'https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/ResearchAndDevelopmentExpense.json', label: 'SEC EDGAR XBRL company concept API' },
+  { key: 'xbrl_eps', name: 'SEC XBRL diluted EPS', url: 'https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/EarningsPerShareDiluted.json', label: 'SEC EDGAR XBRL company concept API' },
   { key: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', label: 'The Verge RSS' },
   { key: 'mastodon', name: 'Mastodon #apple', url: 'https://mastodon.social/api/v1/timelines/tag/apple?limit=40', label: 'Mastodon public tag timeline API' },
   { key: 'lemmy', name: 'Lemmy', url: 'https://lemmy.world/api/v3/search?q=apple&type_=Posts&limit=50&sort=New', label: 'Lemmy public search API' },
@@ -240,11 +243,15 @@ function parse(kind, raw) {
     const j = JSON.parse(raw);
     return (j.items || []).slice().reverse().map(v => ({ title: `${Number(v.views).toLocaleString('en-US')} views of Apple Inc.`, date: `${v.timestamp.slice(0,4)}-${v.timestamp.slice(4,6)}-${v.timestamp.slice(6,8)}`, link: 'https://en.wikipedia.org/wiki/Apple_Inc.' }));
   }
-  if (kind === 'xbrl') {
+  if (kind.startsWith('xbrl')) {
     const j = JSON.parse(raw);
-    const usd = ((j.units && j.units.USD) || []).filter(u => u.fp === 'FY');
+    const isShares = kind === 'xbrl_eps';
+    const metric = kind === 'xbrl_ni' ? 'net income' : kind === 'xbrl_rd' ? 'R&D expense' : isShares ? 'diluted EPS' : 'revenue';
+    const tag = j.tag || (kind === 'xbrl_ni' ? 'NetIncomeLoss' : kind === 'xbrl_rd' ? 'ResearchAndDevelopmentExpense' : isShares ? 'EarningsPerShareDiluted' : 'RevenueFromContractWithCustomerExcludingAssessedTax');
+    const fmt = v => isShares ? '$' + Number(v).toFixed(2) : '$' + (v / 1e9).toFixed(1) + 'B';
+    const rows = ((j.units && (j.units[isShares ? 'USD/shares' : 'USD'] || j.units.USD)) || []).filter(u => u.fp === 'FY');
     const seen = new Set();
-    return usd.slice().reverse().filter(u => { const k = String(u.val); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 5).map(u => ({ title: `FY${String(u.end || '').slice(0, 4)} revenue $${(u.val / 1e9).toFixed(1)}B`, date: u.end, link: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000320193&type=10-K' }));
+    return rows.slice().reverse().filter(u => { const k = String(u.val); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 5).map(u => ({ title: `FY${String(u.end || '').slice(0, 4)} ${metric} ${fmt(u.val)}`, date: u.end, concept: tag, link: `https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/${tag}.json` }));
   }
   if (kind === 'itunes') {
     const j = JSON.parse(raw);
@@ -433,16 +440,21 @@ function validateClaims(report) {
   const newsroom = report.sources.find(s => s.key === 'newsroom');
   const nrItems = newsroom ? (newsroom.relevantItems || newsroom.allItems || []) : [];
   // Figure checks: filed XBRL facts -> look for the same figure in press titles.
-  const xbrl = report.sources.find(s => s.key === 'xbrl');
-  const figureChecks = ((xbrl && xbrl.allItems) || []).slice(-6).reverse().map(f => {
-    const m = (f.title || '').match(/\$([\d.]+)B/);
-    const fig = m ? m[1] : null;
-    const figRe = fig ? new RegExp('\\b' + fig.replace(/\./g, '\\.') + '(?!\\d)') : null;
-    const withHit = figRe ? pressItems.map(it => { const hay = (it.title || '') + ' ' + (it.context || '') + ' ' + cleanBody(it.body); const hm = hay.match(figRe); return hm ? { ...it, excerpt: hay.slice(Math.max(0, hm.index - 60), hm.index + hm[0].length + 80).trim() } : null; }).filter(Boolean) : [];
-    return { claim: `${f.title} (filed to the SEC, XBRL)`, basis: 'SEC XBRL company facts, us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax, annual period ended ' + fmtDate(f.date), figure: fig, link: 'https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax.json', date: fmtDate(f.date),
-      status: withHit.length ? 'cited-in-press' : 'no-press-citation-in-run',
-      passages: withHit.slice(0, 5).map(it => ({ title: it.title, link: it.link || '', date: fmtDate(it.date), source: it.source, excerpt: it.excerpt })) };
-  });
+  const figureChecks = [];
+  for (const xs of report.sources) {
+    if (!xs.key.startsWith('xbrl')) continue;
+    for (const f of (xs.allItems || []).slice(-2).reverse()) {
+      const t = f.title || '';
+      const mB = t.match(/\$([\d.]+)B/);
+      const mS = mB ? null : t.match(/\$([\d.]+)(?!\d|B)/);
+      const fig = mB ? mB[1] : mS ? mS[1] : null;
+      const figRe = fig ? new RegExp('\\b' + fig.replace(/\./g, '\\.') + '(?!\\d)') : null;
+      const withHit = figRe ? pressItems.map(it => { const hay = (it.title || '') + ' ' + (it.context || '') + ' ' + cleanBody(it.body); const hm = hay.match(figRe); return hm ? { ...it, excerpt: hay.slice(Math.max(0, hm.index - 60), hm.index + hm[0].length + 80).trim() } : null; }).filter(Boolean) : [];
+      figureChecks.push({ claim: `${t} (filed to the SEC, XBRL)`, basis: 'SEC XBRL company facts, us-gaap:' + (f.concept || 'RevenueFromContractWithCustomerExcludingAssessedTax') + ', annual period ended ' + fmtDate(f.date), figure: fig, link: f.link || '', date: fmtDate(f.date),
+        status: withHit.length ? 'cited-in-press' : 'no-press-citation-in-run',
+        passages: withHit.slice(0, 5).map(it => ({ title: it.title, link: it.link || '', date: fmtDate(it.date), source: it.source, excerpt: it.excerpt })) });
+    }
+  }
   // Headline checks: company statements -> coverage with echo/separate wording.
   const headlineChecks = nrItems.slice(0, 6).map(h => {
     const ht = new Set(tokens(h.title || ''));
