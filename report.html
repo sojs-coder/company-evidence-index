@@ -9,17 +9,9 @@
   <link rel="stylesheet" href="styles.css?v=28" />
 </head>
 <body>
-  <header class="topbar">
-    <a class="wordmark" href="/" aria-label="Open home"><span>open<span class="wordmark-period">.</span></span></a>
-    <nav class="main-nav" aria-label="Primary navigation">
-      <a class="nav-link" href="/">Vet</a>
-      <a class="nav-link" href="/collection.html">Collection</a>
-      <a class="nav-link" href="/results.html">Results</a>
-      <a class="nav-link active" href="/report.html">Apple example</a>
-      <a class="nav-link" href="/supplier.html">Supplier example</a>
-    </nav>
-    <div class="top-actions"><span class="snapshot-state"><i></i> Live</span><button class="theme-toggle" aria-label="Switch color theme" title="Switch theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor"/></svg></button></div>
-  </header>
+  <header class="topbar"></header>
+  <script src="/navigation.js?v=1"></script>
+  <script src="/role.js?v=1" defer></script>
   <main id="overview">
     <div class="dash-head">
       <div>
@@ -27,7 +19,7 @@
       </div>
       <div class="dash-badges" id="run-badges"></div>
     </div>
-    <section id="run-summary" class="metric-row" aria-label="Run summary"><p class="state-note">Collecting this run’s sources. A cold start can take up to about 80 seconds; nothing is substituted.</p></section>
+    <section id="run-summary" class="metric-row" aria-label="Run summary"><p class="state-note">Collecting sources; this may take up to 80 seconds.</p></section>
     <section class="bottom-section" aria-label="Diligence memo">
       <div class="section-heading"><div><p class="overline">DILIGENCE MEMO</p><h2>Findings from this run</h2></div><a class="text-button is-disabled" aria-disabled="true" id="download-memo" href="/api/companies/apple/memo">Download memo <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M3 13h10" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></a></div>
       <div id="memo-body"><p class="state-note">Building the memo once the run lands.</p></div>
@@ -58,6 +50,6 @@
     </section>
     <p class="chart-caption foot-note" id="foot-note"></p>
   </main>
-  <script src="report.js?v=25"></script>
+  <script src="report.js?v=26"></script>
 </body>
 </html>

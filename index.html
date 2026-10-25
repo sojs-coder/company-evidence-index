@@ -9,19 +9,9 @@
   <link rel="stylesheet" href="styles.css?v=28" />
 </head>
 <body>
-  <header class="topbar">
-    <a class="wordmark" href="/" aria-label="Open home"><span>open<span class="wordmark-period">.</span></span></a>
-    <nav class="main-nav" aria-label="Primary navigation">
-      <a class="nav-link active" href="/">Vet</a>
-      <a class="nav-link" href="/companies.html">Apple demo</a>
-      <a class="nav-link" href="/collection.html">Collection</a>
-      <a class="nav-link" href="/packs.html">Mentions</a>
-      <a class="nav-link" href="/results.html">Results</a>
-      <a class="nav-link" href="/report.html">Apple example</a>
-      <a class="nav-link" href="/supplier.html">Supplier example</a>
-    </nav>
-    <div class="top-actions"><span class="snapshot-state"><i></i> Live</span><button class="theme-toggle" aria-label="Switch color theme" title="Switch theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor"/></svg></button></div>
-  </header>
+  <header class="topbar"></header>
+  <script src="/navigation.js?v=1"></script>
+  <script src="/role.js?v=1" defer></script>
   <main id="overview">
     <div class="dash-head">
       <div>
@@ -29,7 +19,6 @@
       </div>
     </div>
     <section class="panel" aria-label="Vetting request">
-      <p class="state-note">For anyone who needs to vet a company before trusting it. Name the company, ask the question you are actually deciding on, pick the exact legal entity, and get a report of cited evidence with its limits stated. Public records only; nothing is fabricated, and no verdict is sold.</p>
       <form id="vet-form" class="vet-form">
         <span class="vet-field"><label for="vet-name">Company name</label><input id="vet-name" name="name" type="text" value="Honeybee Robotics" autocomplete="off" list="vet-companies" placeholder="Search by company or ticker" /><datalist id="vet-companies"></datalist></span>
         <span class="vet-field vet-field--q"><label for="vet-question">Your evaluation question</label><textarea id="vet-question" name="question" rows="2">Do they have flight heritage for Mars rover mechanisms?</textarea></span>
@@ -45,12 +34,12 @@
     </section>
     <section class="panel" aria-label="Identity selection" id="identity-panel" hidden>
       <div class="section-heading"><div><p class="overline">STEP 1</p><h2>Which company exactly?</h2></div><span class="badge-dim" id="identity-count"></span></div>
-      <p class="state-note">Registry name matches, not resolved entities. Distinct legal entities can share name tokens; acquisitions and subsidiaries are not resolved automatically. Select one before any company-specific report.</p>
+      <p class="state-note">Select the exact legal entity; name matches may include unrelated companies.</p>
       <div id="identities"><p class="state-note">Candidates appear here.</p></div>
     </section>
     <section class="panel" aria-label="Cited answer" id="answer-panel" hidden>
       <div class="section-heading"><div><p class="overline">STEP 2 · CITED ANSWER</p><h2 id="answer-title">Your question, answered from sources</h2></div><span class="badge-dim" id="answer-count"></span></div>
-      <p class="state-note">Extractive prototype: passages are quoted verbatim from the cited pages and findings are stated from their named sources. A labeled third-party synthesis may appear below; it is generated, not extractive. No verdict on whether the company deserves trust.</p>
+      <p class="state-note">Source quotes and findings, with any AI-generated summary labeled separately.</p>
       <div id="quotes"><p class="state-note">Quoted passages appear here.</p></div>
       <div id="findings"></div>
       <div id="limitations"></div>
@@ -70,7 +59,7 @@
       <div id="sources"></div>
     </section>
   </main>
-  <script src="vet.js?v=2"></script>
+  <script src="vet.js?v=3"></script>
     <script>
     // Role retention into the vet flow: the role changes the evaluation
     // question asked, not the evidence or standards behind the report.
@@ -94,6 +83,5 @@
       document.addEventListener('cei-role', apply);
     });
   </script>
-  <script src="/role.js?v=1"></script>
 </body>
 </html>
