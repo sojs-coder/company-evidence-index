@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { prepareItems, estimateCost, buildBatchPrompt, normalizeBatchSignals, rollupSignals, BATCH_SIZE, splitChunks, reconcileParts, postsFromParts, publicSignals, resumeCheckpoint, buildQuestionsPrompt } from '../signals.mjs';
@@ -202,4 +203,24 @@ test('model provenance: no call site or stored record hardcodes a model literal'
   const sites = src.match(/model: SIGNALS_MODEL/g) || [];
   assert.ok(sites.length >= 4, 'all four OpenAI call/record sites use SIGNALS_MODEL (found ' + sites.length + ')');
   assert.ok((src.match(/reasoning_effort: 'none'/g) || []).length >= 4, 'all four calls set reasoning_effort none');
+});
+
+test('splitChunks: surrogate pairs split at a boundary are stripped, chunks stay JSON-safe', () => {
+  // Regression: openai_http_400 mid-job. A valid emoji pair straddling the
+  // 400-char slice boundary left a lone half in each chunk; the API rejects
+  // the resulting invalid string. Chunks must never contain lone surrogates.
+  const pad = 'word '.repeat(79); // 395 chars
+  const t = pad + ' X🧪Y ' + 'tail '.repeat(100);
+  const chunks = splitChunks(t);
+  assert.ok(chunks.length > 1);
+  const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+  for (const c of chunks) assert.ok(!lone.test(c), 'lone surrogate in chunk: ' + JSON.stringify(c.slice(0, 40)));
+});
+
+test('signals job loop runs parallel windows with bounded retry and ordered merge (source pin)', () => {
+  const src = fs.readFileSync(new URL('../server.mjs', import.meta.url), 'utf8');
+  assert.ok(src.includes('const LANES = 8'), 'parallel lane count present');
+  assert.ok(src.includes('Promise.allSettled(window.map(runBatch))'), 'windowed parallel execution, all lanes settle before any failure save');
+  assert.ok(src.includes('cr.status === 429 || cr.status >= 500'), 'retryable statuses bounded');
+  assert.ok(src.includes('settled.slice(0, firstBad)'), 'contiguous-prefix merge preserves offset order before reconcile');
 });
