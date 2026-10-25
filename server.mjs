@@ -74,7 +74,7 @@ async function handleApi(req, res, url, ip) {
     const fresh = items.filter(i => !seen.has((i.link || '') + '|' + String(i.text || '').slice(0, 80))).map(i => ({ ...i, src }));
     const merged = (prev ? prev.items : []).concat(fresh);
     const at = new Date().toISOString();
-    store.packs[ticker] = { company: company || (prev && prev.company) || ticker, ticker, terms: (terms && terms.length ? terms : (prev ? prev.terms : [])), collectedAt: at, itemCount: merged.length, estUsd: +(((prev && prev.estUsd) || 0) + (estUsdAdd || 0)).toFixed(4), sources: (prev ? prev.sources : []).concat([{ source: src, at, collected: items.length, added: fresh.length }]), items: merged };
+    store.packs[ticker] = { company: company || (prev && prev.company) || ticker, ticker, terms: (terms && terms.length ? terms : (prev ? prev.terms : [])), collectedAt: at, itemCount: merged.length, estUsd: +(((prev && prev.estUsd) || 0) + (estUsdAdd || 0)).toFixed(4), sources: ((prev && prev.sources) || []).concat([{ source: src, at, collected: items.length, added: fresh.length }]), items: merged };
     return { added: fresh.length, packTotal: merged.length };
   }
   async function apifyToken() {
@@ -284,7 +284,7 @@ async function handleApi(req, res, url, ip) {
     const fresh = items.filter(i => !seen.has((i.link || '') + '|' + String(i.text || '').slice(0, 80)));
     const merged = (prev ? prev.items : []).concat(fresh);
     const at = new Date().toISOString();
-    store.packs[ticker] = { company: company || (prev && prev.company) || ticker, ticker, terms: prev ? prev.terms : [], collectedAt: at, itemCount: merged.length, estUsd: prev ? prev.estUsd : 0, sources: (prev ? prev.sources : []).concat([{ source: src, at, collected: items.length, added: fresh.length }]), items: merged };
+    store.packs[ticker] = { company: company || (prev && prev.company) || ticker, ticker, terms: prev ? prev.terms : [], collectedAt: at, itemCount: merged.length, estUsd: prev ? prev.estUsd : 0, sources: ((prev && prev.sources) || []).concat([{ source: src, at, collected: items.length, added: fresh.length }]), items: merged };
     await saveStore();
     return send(res, 200, { ok: true, ticker, source: src, received: items.length, added: fresh.length, packTotal: merged.length, withText: merged.filter(i => i.hasText !== false && i.text).length });
   }
