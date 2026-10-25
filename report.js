@@ -48,6 +48,27 @@ async function boot(){
     document.querySelector('#check-method').textContent=v.method;
     if(v.coverageScore){document.querySelector('#coverage-score').innerHTML=`<div class="metric"><div class="metric-number">${v.coverageScore.score}</div><div class="metric-label">Coverage score</div><div class="metric-note">${esc(v.coverageScore.drivers)}</div></div><p class="faint">${esc(v.coverageScore.scope)}</p>`}
   }
+  // Signalor historical mention analytics: static sanitized snapshot, never live-labeled.
+  fetch('data/signalor-apple-mentions.json').then(x=>x.ok?x.json():null).then(sg=>{if(!sg)return;
+    document.querySelector('#signalor-freshness').textContent='HISTORICAL · '+sg.freshnessLabel.toUpperCase().replace(/\.$/,'');
+    const st=sg.sentiment,tot=st.total,pc=n=>(n/tot*100).toFixed(1);
+    const mxT=Math.max(1,...sg.trends.map(d=>d.total));
+    document.querySelector('#signalor-panel').innerHTML=`
+      <div class="metric-row">
+        <div class="metric"><div class="metric-number">${tot.toLocaleString('en-US')}</div><div class="metric-label">Public mentions analyzed</div><div class="metric-note">${esc(st.sourceMetadata.label)}</div></div>
+        <div class="metric"><div class="metric-number">${st.averageScore>=0?'+':''}${st.averageScore.toFixed(3)}</div><div class="metric-label">Avg sentiment score</div><div class="metric-note">-1 negative to +1 positive</div></div>
+        <div class="metric"><div class="metric-number">${sg.aspectCount.toLocaleString('en-US')}</div><div class="metric-label">Aspect tags</div><div class="metric-note">labels on mentions, not separate mentions</div></div>
+      </div>
+      <div class="sent-bar" role="img" aria-label="Sentiment split"><span class="sent-pos" style="width:${pc(st.positive)}%"></span><span class="sent-neu" style="width:${pc(st.neutral)}%"></span><span class="sent-neg" style="width:${pc(st.negative)}%"></span></div>
+      <p class="util-legend"><span><i class="util-sw sent-pos"></i>Positive ${st.positive.toLocaleString('en-US')} (${pc(st.positive)}%)</span><span><i class="util-sw sent-neu"></i>Neutral ${st.neutral.toLocaleString('en-US')} (${pc(st.neutral)}%)</span><span><i class="util-sw sent-neg"></i>Negative ${st.negative.toLocaleString('en-US')} (${pc(st.negative)}%)</span></p>
+      <div class="signalor-cols">
+        <div><p class="overline">PLATFORMS</p>${sg.platformMix.map(p=>`<div class="sig-row"><span class="sig-name">${esc(p.platform)}</span><span class="sig-n"><b>${p.count.toLocaleString('en-US')}</b> · ${p.percentage.toFixed(1)}%</span></div>`).join('')}</div>
+        <div><p class="overline">TOP ASPECTS BY MENTIONS</p>${sg.aspects.slice(0,10).map(a=>`<div class="sig-row"><span class="sig-name">${esc(a.aspect)}</span><span class="sig-n"><b>${a.count.toLocaleString('en-US')}</b> · ${a.negative.toLocaleString('en-US')} neg / ${a.positive.toLocaleString('en-US')} pos</span></div>`).join('')}</div>
+      </div>
+      <p class="overline">MENTIONS PER DAY</p>
+      <div class="trend-chart">${sg.trends.map(d=>`<div class="trend-col" title="${esc(d.date)}: ${d.total.toLocaleString('en-US')} mentions"><span class="trend-bar" style="height:${Math.max(2,Math.round(d.total/mxT*64))}px"></span><span class="trend-day">${esc(d.date.slice(5))}</span></div>`).join('')}</div>
+      <p class="chart-caption">${esc(sg.provenance)} Aggregates are historical and do not update with live runs. Aspect tags and sentiment are platform classifications, not verified claims.</p>`;
+  }).catch(()=>{});
   if(r.trends&&r.trends.days&&r.trends.days.length){const mx=Math.max(1,...r.trends.days.map(d=>d.count));document.querySelector('#trend-chart').innerHTML=r.trends.days.map(d=>`<div class="trend-col" title="${esc(d.day)}: ${d.count.toLocaleString('en-US')} collected items"><span class="trend-bar" style="height:${Math.max(2,Math.round(d.count/mx*64))}px"></span><span class="trend-day">${esc(d.day.slice(5))}</span><span class="trend-n">${d.count.toLocaleString('en-US')}</span></div>`).join('')+`<p class="faint">${esc(r.trends.scope)}</p>`}
   document.querySelector('#foot-note').textContent='Items are deduplicated within each source; the same story syndicated across outlets can appear once per source. The on-disk store resets when the service redeploys.';
 }
