@@ -20,7 +20,7 @@ async function identify(name){
   document.getElementById('run-stamp').textContent='FETCHED '+new Date(r.fetchedAt).toUTCString().slice(17,25)+' UTC';
   const ids=r.identities;
   document.getElementById('identity-count').textContent=ids.length+' CANDIDATES';
-  const card=(c,i)=>`<label class="id-card"><input type="radio" name="identity" value="${i}" /><span class="collect-item-title">${esc(c.name)}</span><span class="faint">${esc(KIND[c.kind]||c.kind)}${c.domain?' · '+esc(c.domain):''}${c.ticker?' · '+esc(c.ticker):''}${c.awardCount!=null?' · '+c.awardCount+' awards':''}</span></label>`;
+  const card=(c,i)=>`<label class="id-card"><input type="radio" name="identity" value="${i}" /><span class="collect-item-title">${esc(c.name)}</span><span class="faint">${esc(KIND[c.kind]||c.kind)}${c.domain?' · '+esc(c.domain):''}${c.ticker?' · '+esc(c.ticker):''}${c.exchange?' · '+esc(c.exchange):''}${c.awardCount!=null?' · '+c.awardCount+' awards':''}</span></label>`;
   document.getElementById('identities').innerHTML=(ids.length
     ?ids.map(card).join('')
     :'<p class="state-note">No registry candidates matched. You can still run the name as typed; the report will say it is buyer-asserted, not registry-verified.</p>')
@@ -52,8 +52,10 @@ async function report(identity){
   document.getElementById('findings').innerHTML=r.findings.length
     ?'<ul class="collect-list collect-list--plain">'+r.findings.map(f=>`<li><span class="collect-item-title">${esc(f.statement)} <span class="badge-dim">${esc(f.confidence)}</span></span><span class="faint">${f.source&&f.source.url?`<a class="detail-source" href="${esc(f.source.url)}" target="_blank" rel="noreferrer">${esc(f.source.name)}</a>`:esc(f.source?f.source.name:'')}</span></li>`).join('')+'</ul>'
     :'';
-  document.getElementById('limitations').innerHTML=r.answer.limitations.length
-    ?'<ul class="collect-list collect-list--plain">'+r.answer.limitations.map(l=>`<li><span class="collect-item-title">${esc(l)}</span></li>`).join('')+'</ul>':'';
+  const cc=r.conflictChecks||[];
+  document.getElementById('limitations').innerHTML=(r.answer.limitations.length
+    ?'<ul class="collect-list collect-list--plain">'+r.answer.limitations.map(l=>`<li><span class="collect-item-title">${esc(l)}</span></li>`).join('')+'</ul>':'')
+    +(cc.length?'<p class="overline pack-group">CONFLICT CHECKS - DETERMINISTIC, EXTRACTIVE</p><ul class="collect-list collect-list--plain">'+cc.map(c=>`<li><span class="collect-item-title">${esc(c.finding)}</span><span class="faint">${esc(c.method)}</span></li>`).join('')+'</ul>':'');
   const awards=r.awards||[];
   document.getElementById('award-count').textContent=awards.length+' RECORDS'+(r.awardCoverage==='first_page_sample'?' · FIRST-PAGE SAMPLE':r.awardCoverage==='complete_result_set'?' · COMPLETE RESULT SET OF THAT SEARCH':'');
   const awardItem=a=>`<li><span class="collect-item-title">${a.sourceUrl?`<a class="detail-source" href="${esc(a.sourceUrl)}" target="_blank" rel="noreferrer">${esc(a.description||a.awardId||'(untitled award)')}</a>`:esc(a.description||'(untitled award)')}</span><span class="faint">${esc([a.agency,a.startDate,money(a.obligatedAmountUsd)].filter(Boolean).join(' · '))}</span></li>`;
