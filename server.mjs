@@ -178,6 +178,26 @@ async function handleApi(req, res, url, ip) {
   // infra). Apify share bounded at $5 here to preserve analysis headroom;
   // $0.008 already spent on the first verified scrape.
   // Public posts only; no login/private data.
+  // Derived pack summary fields (main ask 2026-10-25): contentFrom/contentTo
+  // from item dates; uniqueItems deduped EXACTLY like analysis prepareItems
+  // (link, else sha1 of whitespace-normalized lowercase text). Raw itemCount
+  // stays untouched - it includes duplicates.
+  const packExtras = (pack) => {
+    const items = (pack && pack.items) || [];
+    const seen = new Set();
+    let from = '', to = '';
+    for (const it of items) {
+      const key = it.link || createHash('sha1').update(String(it.text || '').replace(/\s+/g, ' ').trim().toLowerCase()).digest('hex').slice(0, 16);
+      seen.add(key);
+      const t = Date.parse(it.date || '');
+      if (!Number.isNaN(t)) {
+        const d = new Date(t).toISOString().slice(0, 10);
+        if (!from || d < from) from = d;
+        if (!to || d > to) to = d;
+      }
+    }
+    return { uniqueItems: seen.size, contentFrom: from || null, contentTo: to || null };
+  };
   if (p === '/api/packs/collect' && req.method === 'POST') {
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
       return send(res, 403, { error: 'forbidden', detail: 'Pack collection requires the admin token (PACK_ADMIN_TOKEN).' });
@@ -296,7 +316,7 @@ async function handleApi(req, res, url, ip) {
     const pack = store.packs && store.packs[ticker];
     if (!pack) return send(res, 404, { error: 'no_pack', detail: 'No data pack collected for ' + ticker + ' yet.' });
     const { estUsd, ...pub } = pack;
-    return send(res, 200, pub);
+    return send(res, 200, { ...pub, ...packExtras(pack) });
   }
   // Ingest an authorized historical export (e.g. Signalor public-mention
   // extract handed off by the ops owner). Same admin gate; no spend involved.
@@ -612,7 +632,7 @@ async function handleApi(req, res, url, ip) {
   if (p === '/api/packs' && req.method === 'GET') {
     // Public: counts and provenance only. Spend/cost fields stay server-side
     // (private budget ledger in the run store), never on public routes.
-    const packs = Object.values(store.packs || {}).map(({ items, estUsd, ...meta }) => meta);
+    const packs = Object.values(store.packs || {}).map(({ items, estUsd, ...meta }) => ({ ...meta, ...packExtras({ items }) }));
     return send(res, 200, { packs });
   }
   if (p === '/api/vet/identify') {
