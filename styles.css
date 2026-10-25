@@ -243,6 +243,21 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .result-block{background:var(--bg);padding:20px 24px}
 .result-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .result-title{font:600 19px/1.3 var(--font-heading);margin-bottom:10px}
+.results-table-wrap{overflow-x:auto;margin:14px 0}
+.results-table{width:100%;min-width:960px;border-collapse:collapse;table-layout:fixed;text-align:left;font-size:12px;line-height:1.55}
+.results-table caption{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.result-status-col{width:132px}
+.result-claim-col{width:29%}
+.result-evidence-col{width:22%}
+.result-source-col{width:auto}
+.results-table thead th{padding:10px 12px;border-block:1px solid var(--border);font:9px/1.5 var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint)}
+.results-table tbody td,.results-table tbody th{padding:15px 12px;vertical-align:top;border-bottom:1px solid var(--border-muted);overflow-wrap:anywhere}
+.results-table tbody th{font-weight:400}
+.results-table tbody td{color:var(--text-muted)}
+.results-table tbody tr:hover{background:var(--color-brand-muted)}
+.result-claim-title{display:block;font-weight:600;color:var(--text)}
+.result-claim-id,.result-claim-date{display:block;margin-top:5px;font:10px/1.5 var(--font-mono);color:var(--text-faint)}
+.results-table .detail-source .icon{display:inline-block;vertical-align:-.1em;margin-left:4px}
 .util-legend{display:flex;gap:18px;font:500 11px var(--font-mono);letter-spacing:.1em;color:var(--text-faint);margin:14px 0 6px}
 .util-legend span{display:inline-flex;align-items:center;gap:7px}
 .util-sw{width:14px;height:8px;display:inline-block}
@@ -469,3 +484,45 @@ li.state-note{list-style:none}
 .role-change{background:none;border:none;text-decoration:underline;cursor:pointer;font:inherit;color:inherit}
 .lens-details{margin-top:.6rem}
 .lens-details summary{cursor:pointer;font:11px var(--font-mono,monospace);letter-spacing:.08em;color:var(--text-faint,#666)}
+
+/* Vetting is a considered reading flow, not a dense dashboard.
+   Keep these rules scoped so reports and collection views retain their rhythm. */
+.vet-page main{max-width:1120px;padding-block:clamp(48px,7vw,96px) 96px}
+.vet-page .dash-head{margin-bottom:32px}
+.vet-page .page-kicker{flex-wrap:wrap;gap:10px;line-height:1.8;margin-bottom:18px}
+.vet-page .dash-title{font-size:clamp(36px,5vw,60px);line-height:1.12}
+.vet-intro{max-width:42ch;font-size:clamp(21px,2.5vw,27px);line-height:1.55;color:var(--text-muted);text-wrap:pretty}
+.vet-page .state-note{max-width:75ch;font-size:15px;line-height:1.75;letter-spacing:0;padding:16px 0}
+.vet-page .vet-form{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);align-items:start;gap:28px 24px;margin-top:32px}
+.vet-page .vet-field{min-width:0;gap:10px}
+.vet-page .vet-field label{font-size:12px;line-height:1.5;margin:0}
+.vet-page .vet-field:first-child,.vet-page .vet-field--q{grid-column:1/-1}
+.vet-page .vet-form input,.vet-page .vet-form textarea,.vet-page .vet-form select{width:100%;min-width:0;min-height:52px;border:1px solid var(--color-brand-border);padding:14px 16px;font:400 17px/1.5 var(--font-body);color:var(--text);background:transparent;border-radius:0}
+.vet-page .vet-form textarea{min-height:112px;resize:vertical}
+.vet-page .vet-form .outline-button{align-self:end;justify-content:center;min-height:52px;padding:14px 24px;font-size:16px}
+.vet-page :where(input,textarea,select):focus-visible{outline:2px solid var(--color-brand);outline-offset:3px}
+.vet-page .panel:not([hidden])~.panel:not([hidden]){margin-top:56px;padding-top:36px;border-top:1px solid var(--border)}
+.vet-page .section-heading{align-items:flex-start;flex-wrap:wrap;gap:16px 24px;margin-bottom:24px}
+.vet-page .section-heading h2{font-size:clamp(26px,3vw,34px);overflow-wrap:anywhere}
+.vet-page .section-heading .badge-dim{max-width:100%;white-space:normal}
+.vet-page .badge-dim:empty{display:none}
+.vet-page .id-card{padding:20px;margin:12px 0;border-color:var(--border);border-radius:0}
+.vet-page .id-card:hover{border-color:var(--color-brand)}
+.vet-page .id-card .faint{margin-top:8px}
+.vet-page #report-go{min-height:48px;margin-top:16px;padding:12px 24px;font-size:16px}
+.vet-page .collect-list li{padding-block:18px;font-size:15px;line-height:1.7}
+.vet-page .quote-block{margin:24px 0;padding:8px 24px;font-size:17px;line-height:1.8}
+.vet-page .panel{overflow-wrap:anywhere}
+@media(max-width:1100px){
+  .vet-page .topbar{height:auto;min-height:68px;flex-wrap:wrap;gap:12px 24px;padding-block:16px}
+  .vet-page .main-nav{order:3;width:100%;height:auto;overflow-x:auto;justify-content:flex-start;gap:24px;padding-block:8px}
+  .vet-page .nav-link{flex:none;white-space:nowrap}
+}
+@media(max-width:620px){
+  .vet-page main{padding-top:40px}
+  .vet-page .dash-head{margin-bottom:24px}
+  .vet-page .vet-form{grid-template-columns:minmax(0,1fr);gap:24px;margin-top:24px}
+  .vet-page .vet-form .outline-button{width:100%;margin-top:4px}
+  .vet-page .panel:not([hidden])~.panel:not([hidden]){margin-top:40px;padding-top:28px}
+  .vet-page .quote-block{padding-inline:16px}
+}
