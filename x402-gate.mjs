@@ -52,7 +52,16 @@ export async function maybeWrapWithX402(handler, env = process.env) {
     const { default: express } = await import('express');
     const network = env.X402_NETWORK || 'eip155:84532'; // Base Sepolia testnet default
     const price = env.X402_PRICE || '$0.01';
-    const routes = {};
+    // Scope direction 2026-10-24 23:06: all research access is accountless and
+    // paid via x402 - the vet routes ARE the research product. The Apple demo
+    // routes stay listed as the worked example. Prices/network/wallet are
+    // owner-settled before X402_ENABLED ever flips on: enabling gates the
+    // public demo UI's own API calls too, so activation needs the payment
+    // client flow first.
+    const routes = {
+      'GET /api/vet/report': { price: env.X402_PRICE_REPORT || price, networks: [network], description: 'Cited company-vetting evidence report (accountless x402 access)' },
+      'GET /api/vet/identify': { price: env.X402_PRICE_IDENTIFY || '$0.001', networks: [network], description: 'Company identity resolution for vetting (accountless x402 access)' }
+    };
     for (const r of ['GET /api/companies/apple/report', 'GET /api/companies/apple/analysis', 'GET /api/companies/apple/export', 'GET /api/companies/apple/memo', 'POST /api/companies/apple/collect/{key}', 'GET /api/companies/apple/collect/{key}']) {
       routes[r] = { price, networks: [network], description: 'Company Evidence Index diligence API (per-endpoint paid access)' };
     }
