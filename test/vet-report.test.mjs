@@ -99,3 +99,26 @@ test('URL-only evidence points are moved to synthesis sources, not rendered as c
     assert.ok(urls.includes('https://example.gov/src'), 'provider source kept');
   } finally { globalThis.fetch = prev; delete process.env.CONTEXT_DEV_API_KEY; }
 });
+
+test('synthesis sources carry labeled reachability results', async () => {
+  process.env.CONTEXT_DEV_API_KEY = 'test-key';
+  const prev = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    const u = String(url);
+    if (u.includes('context.dev/v1/web/answers')) return ok({
+      json_content: { summary: 'No figures here.', evidence_points: ['Point.'], open_questions: [] },
+      sources: [{ title: 'Good', url: 'https://good.example/page' }, { title: 'Bad', url: 'https://bad.example/page' }],
+      partial: false
+    });
+    if (u === 'https://good.example/page') return new Response('', { status: 200 });
+    if (u === 'https://bad.example/page') return new Response('', { status: 404 });
+    return prev(url, opts);
+  };
+  try {
+    const r = await buildVetReport('Caterpillar', 'federal contracts?', 'supplier', { kind: 'public_company', name: 'CATERPILLAR INC' });
+    const checked = r.synthesis.sourcesChecked;
+    assert.equal(checked.length, 2);
+    assert.equal(checked.find(c => c.url === 'https://good.example/page').reachable, true);
+    assert.equal(checked.find(c => c.url === 'https://bad.example/page').reachable, false);
+  } finally { globalThis.fetch = prev; delete process.env.CONTEXT_DEV_API_KEY; }
+});
