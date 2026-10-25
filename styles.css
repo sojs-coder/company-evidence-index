@@ -468,6 +468,40 @@ dialog h2{font-size:28px;margin:10px 0 22px}
   .metric-row .metric:nth-child(2n){border-right:0}
 }
 
+/* Report: conclusions first, with evidence paired at the point of reading. */
+.report-nav{display:flex;flex-wrap:wrap;gap:12px 24px;padding:12px 0 20px;border-bottom:1px solid var(--border);font:12px var(--font-mono)}
+.report-nav a{color:var(--text-muted)}
+.report-nav a:hover{color:var(--color-brand)}
+.takeaway-list{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px}
+.takeaway-list li{padding-left:16px;border-left:2px solid var(--color-brand)}
+.takeaway-list h3{font-size:17px;line-height:1.4;margin:0 0 8px}
+.finding-list{display:grid;gap:20px;margin-top:20px}
+.finding-card{border:1px solid var(--border);padding:24px;min-width:0;overflow-wrap:anywhere}
+.finding-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.finding-heading .overline{margin:0}
+.finding-heading .badge-dim{white-space:normal}
+.finding-card h3{font-size:20px;line-height:1.45;margin:14px 0 8px;font-weight:500}
+.finding-meta{font:11px/1.7 var(--font-mono);color:var(--text-faint);margin:6px 0 12px}
+.finding-columns{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:20px}
+.finding-evidence{min-width:0}
+.finding-evidence h4{font:11px var(--font-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin:0 0 12px}
+.finding-copy{font-size:13px;line-height:1.75;margin:8px 0;color:var(--text-muted)}
+.finding-sources{list-style:none;padding:0;margin:0;font-size:13px;line-height:1.7}
+.finding-sources li+li{border-top:1px solid var(--border-muted);padding-top:12px;margin-top:12px}
+.finding-sources blockquote{margin:8px 0;padding-left:12px;border-left:2px solid var(--border);color:var(--text-muted)}
+.finding-next{font-size:13px;line-height:1.75;border-top:1px solid var(--border-muted);padding-top:16px;margin:20px 0 0;color:var(--text-muted)}
+.finding-next strong{display:block;color:var(--text);font-weight:500}
+.finding-related{margin-top:18px}
+.finding-related summary,.reference-detail summary{cursor:pointer;font-size:13px;color:var(--color-brand-hover);padding:10px 0}
+.reference-detail{border-bottom:1px solid var(--border-muted);padding:8px 0}
+#reference .metric-row{margin-top:24px}
+@media(max-width:760px){
+  .finding-card{padding:18px}
+  .finding-columns{grid-template-columns:1fr;gap:18px}
+  .finding-card h3{font-size:18px}
+  .takeaway-list{grid-template-columns:1fr}
+}
+
 .memo-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--border-muted);margin:4px 0 14px}
 .memo-table th,.memo-table td{border-top:1px solid var(--border-muted);padding:8px 12px;text-align:left;vertical-align:top;font-size:12px}
 .memo-table th{font:10px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);border-top:0}
