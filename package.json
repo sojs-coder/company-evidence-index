@@ -6,7 +6,7 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test test/crs-sbss.test.mjs test/x402-gate.test.mjs test/x402-integration.test.mjs test/runtime-config.test.mjs"
+    "test": "node --test test/crs-sbss.test.mjs test/x402-gate.test.mjs test/x402-integration.test.mjs test/runtime-config.test.mjs test/clean-passage.test.mjs"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.60.0",
