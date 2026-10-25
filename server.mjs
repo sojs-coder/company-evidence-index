@@ -12,7 +12,7 @@ let appleReportRunning = false;
 import { readFileSync } from 'node:fs';
 let SEED_COMPANIES = [];
 try { SEED_COMPANIES = (JSON.parse(readFileSync(new URL('./data/public-companies-seed.json', import.meta.url), 'utf8')) || {}).companies || []; } catch { SEED_COMPANIES = []; }
-import { readFile, writeFile, rename } from 'node:fs/promises';
+import { readFile, writeFile, rename, stat, utimes, unlink } from 'node:fs/promises';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { extname, join, normalize } from 'node:path';
@@ -92,6 +92,7 @@ async function handleApi(req, res, url, ip) {
   // synthetic TEST PERSONAS (non-billable, no real consumer). This is a demo
   // of the sponsor integration, NOT evidence about any company.
   if (p === '/api/credit/sandbox-demo') {
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode (corrupt, missing, or superseded on disk). Mutations and paid calls are refused before they happen until an admin completes recovery.' });
     // Real-schema extractor (crs-credit-evidence.mjs). The old crs-sandbox.mjs
     // path read data.creditResponse.score, a key the sandbox never returns,
     // which is why this route showed scoreSummary:null live. Persona calls are
@@ -204,6 +205,7 @@ async function handleApi(req, res, url, ip) {
     return { uniqueItems: seen.size, contentFrom: from || null, contentTo: to || null };
   };
   if (p === '/api/packs/collect' && req.method === 'POST') {
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode (corrupt, missing, or superseded on disk). Mutations and paid calls are refused before they happen until an admin completes recovery.' });
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
       return send(res, 403, { error: 'forbidden', detail: 'Pack collection requires the admin token (PACK_ADMIN_TOKEN).' });
     }
@@ -235,7 +237,7 @@ async function handleApi(req, res, url, ip) {
     store.pendingRuns[run.id] = { ticker, company, terms, maxItems, startedAt: run.startedAt || new Date().toISOString(), estUsd };
     store.apifySpend.estimatedUsd = +(store.apifySpend.estimatedUsd + estUsd).toFixed(4);
     store.apifySpend.runs.push({ runId: run.id, ticker, at: new Date().toISOString(), estUsd, status: 'RUNNING' });
-    await saveStore();
+    if (!await persistOr503(res)) return;
     sweepPendingRuns().catch(() => {}); // opportunistic immediate check
     return send(res, 202, { ok: true, runId: run.id, ticker, estCostUsd: estUsd, note: 'Async run launched; pack finalizes automatically when the actor run succeeds.' });
   }
@@ -243,6 +245,7 @@ async function handleApi(req, res, url, ip) {
   // Admin-only recovery: a run that SUCCEEDED but whose pack never stored
   // (client disconnect / redeploy) - re-read its dataset (free) and merge.
   if (p === '/api/packs/recover' && req.method === 'POST') {
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode (corrupt, missing, or superseded on disk). Mutations and paid calls are refused before they happen until an admin completes recovery.' });
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
       return send(res, 403, { error: 'forbidden' });
     }
@@ -270,7 +273,7 @@ async function handleApi(req, res, url, ip) {
       replies: x.replyCount ?? null
     })).filter(x => x.text);
     const r = mergeIntoPack(ticker, company, [], mapped, 'apify-x', 0);
-    await saveStore();
+    if (!await persistOr503(res)) return;
     return send(res, 200, { ok: true, ticker, runId, recovered: mapped.length, added: r.added, packTotal: r.packTotal, chargedUsd: run.usageTotalUsd ?? null });
   }
 
@@ -350,6 +353,7 @@ async function handleApi(req, res, url, ip) {
   // keep verified:false + screenshot provenance through the merge and never
   // enter cited/verified quote counts (they are model transcriptions).
   if (p === '/api/packs/phone-capture' && req.method === 'POST') {
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode (corrupt, missing, or superseded on disk). Mutations and paid calls are refused before they happen until an admin completes recovery.' });
     if (!adminTokenOk(req)) return send(res, 403, { error: 'forbidden', detail: 'Phone capture requires the admin token.' });
     let body;
     try { body = await readBody(req, 64_000).then(b => JSON.parse(b)); } catch { return send(res, 400, { error: 'bad_json' }); }
@@ -370,10 +374,11 @@ async function handleApi(req, res, url, ip) {
     const at = new Date().toISOString();
     const merged = (prev ? prev.items : []).concat(fresh);
     store.packs[ticker] = { company: (prev && prev.company) || ticker, ticker, terms: prev ? prev.terms : [], collectedAt: prev ? prev.collectedAt : at, itemCount: merged.length, estUsd: prev ? prev.estUsd : 0, sources: ((prev && prev.sources) || []).concat([{ source: 'phone-capture', at, collected: ext.items.length, added: fresh.length }]), items: merged };
-    await saveStore();
+    if (!await persistOr503(res)) return;
     return send(res, 200, { ok: true, ticker, frames: cap.frames.length, extracted: ext.items.length, added: fresh.length, packTotal: merged.length });
   }
   if (p === '/api/packs/ingest' && req.method === 'POST') {
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode (corrupt, missing, or superseded on disk). Mutations and paid calls are refused before they happen until an admin completes recovery.' });
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
       return send(res, 403, { error: 'forbidden', detail: 'Pack ingest requires the admin token (PACK_ADMIN_TOKEN).' });
     }
@@ -404,7 +409,7 @@ async function handleApi(req, res, url, ip) {
     const merged = (prev ? prev.items : []).concat(fresh);
     const at = new Date().toISOString();
     store.packs[ticker] = { company: company || (prev && prev.company) || ticker, ticker, terms: prev ? prev.terms : [], collectedAt: at, itemCount: merged.length, estUsd: prev ? prev.estUsd : 0, sources: ((prev && prev.sources) || []).concat([{ source: src, at, collected: items.length, added: fresh.length }]), items: merged };
-    await saveStore();
+    if (!await persistOr503(res)) return;
     return send(res, 200, { ok: true, ticker, source: src, received: items.length, added: fresh.length, packTotal: merged.length, withText: merged.filter(i => i.hasText !== false && i.text).length });
   }
 
@@ -427,6 +432,7 @@ async function handleApi(req, res, url, ip) {
   // only, not a budget; every call's real token cost is still recorded.
   const OPENAI_CAP_USD = 50.00;
   if (p === '/api/analysis/run' && req.method === 'POST') {
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode (corrupt, missing, or superseded on disk). Mutations and paid calls are refused before they happen until an admin completes recovery.' });
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
       return send(res, 403, { error: 'forbidden', detail: 'Analysis runs require the admin token.' });
     }
@@ -473,7 +479,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
     };
     store.openaiSpend.confirmedUsd = +(store.openaiSpend.confirmedUsd + cost).toFixed(6);
     store.openaiSpend.runs.push({ ticker, at, promptTokens: usage.prompt_tokens || 0, completionTokens: usage.completion_tokens || 0, costUsd: cost });
-    await saveStore();
+    if (!await persistOr503(res)) return;
     return send(res, 200, { ok: true, ticker, inputItems: posts.length, claims: store.analysis[ticker].claims.length, counterclaims: store.analysis[ticker].counterclaims.length, costUsd: cost });
   }
   // Full-pack per-post signals ("analyze everything, Signalor style", owner
@@ -482,6 +488,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
   // existing claims analysis and demo routes unchanged. OpenAI via the
   // brokered Signalor production key (owner 05:21), uncapped, cost tracked.
   if (p === '/api/analysis/signals/run' && req.method === 'POST') {
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode (corrupt, missing, or superseded on disk). Mutations and paid calls are refused before they happen until an admin completes recovery.' });
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
       return send(res, 403, { error: 'forbidden', detail: 'Signal runs require the admin token.' });
     }
@@ -508,7 +515,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
     const { priorPartial, resumeDone } = resumeCheckpoint(cur, prep);
     const job = { status: 'running', ticker, total: prep.parts.length, posts: prep.unique.length, done: resumeDone, calls: est.calls, costUsd: (cur && resumeDone ? cur.costUsd || 0 : 0), startedAt: new Date().toISOString(), partialTotal: prep.parts.length, partialHash: prep.contentHash, partialSignals: priorPartial || [] };
     store.signalJobs[ticker] = job;
-    await saveStore();
+    if (!await persistOr503(res)) return;
     (async () => {
       const allSignals = job.partialSignals.slice();
       let callsDone = 0;
@@ -569,6 +576,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
           job.done = Math.min(window[0] + usable.length * BATCH_SIZE, prep.parts.length);
           job.partialSignals = allSignals;
           await saveStore();
+          if (storeReadOnly) throw new Error('store_read_only');
           if (firstBad !== -1) throw settled[firstBad].reason;
         }
         const postSignals = postsFromParts(prep, allSignals).map((sig, i) => ({ n: i + 1, ...sig }));
@@ -598,6 +606,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
   // noun-substitution with questions synthesized from the stored signals
   // rollup, each citing real pack posts; links validated against the pack).
   if (p === '/api/analysis/questions/run' && req.method === 'POST') {
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode (corrupt, missing, or superseded on disk). Mutations and paid calls are refused before they happen until an admin completes recovery.' });
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
       return send(res, 403, { error: 'forbidden', detail: 'Question runs require the admin token.' });
     }
@@ -638,7 +647,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
     }
     store.questions = store.questions || {};
     store.questions[ticker] = { ticker, generatedAt: new Date().toISOString(), model: SIGNALS_MODEL, roles: clean };
-    await saveStore();
+    if (!await persistOr503(res)) return;
     return send(res, 200, { ok: true, ticker, counts: Object.fromEntries(Object.entries(clean).map(([k, v]) => [k, v.length])), costUsd: cost });
   }
   // Question answering over stored pack posts (owner-authorized OpenAI).
@@ -649,6 +658,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
   // fabricate a source or a quote. GET is cache-only and public; generation
   // is admin-only POST. Coverage states exactly how many posts were read.
   if (p === '/api/analysis/answer/run' && req.method === 'POST') {
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode (corrupt, missing, or superseded on disk). Mutations and paid calls are refused before they happen until an admin completes recovery.' });
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
       return send(res, 403, { error: 'forbidden', detail: 'Answer runs require the admin token.' });
     }
@@ -665,7 +675,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
     // before the key guard and any paid call): after a run begins, the public
     // route serves a verified answer or an honest 404, never a stale record.
     if (store.answers && store.answers[ticker]) { delete store.answers[ticker][answerKey(role, q)]; }
-    await saveStore();
+    if (!await persistOr503(res)) return; // tombstone must persist BEFORE any paid call, or the stale cache outlives us
     const kres = await openaiKey();
     if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: String(kres.err).slice(0, 80) });
     store.openaiSpend = store.openaiSpend || { confirmedUsd: 0, runs: [] };
@@ -848,7 +858,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
     store.answers = store.answers || {};
     store.answers[ticker] = store.answers[ticker] || {};
     store.answers[ticker][answerKey(role, q)] = rec;
-    await saveStore();
+    if (!await persistOr503(res)) return;
     // A failed verification is an operator-visible error: the cache now holds
     // the fail-closed honest record (never the previous unverified answer), and
     // the run reports failure so it can be retried.
@@ -901,6 +911,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
     return send(res, 200, { packs });
   }
   if (p === '/api/vet/identify') {
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode (corrupt, missing, or superseded on disk). Mutations and paid calls are refused before they happen until an admin completes recovery.' });
     const name = (url.searchParams.get('name') || '').trim().slice(0, 120);
     if (!name) return send(res, 400, { error: 'missing_name', detail: 'Pass ?name=<company>.' });
     if (!allowedDemoCompany(name) && !(process.env.PACK_ADMIN_TOKEN && req.headers['x-admin-token'] === process.env.PACK_ADMIN_TOKEN)) return send(res, 403, { error: 'company_not_in_demo_set', detail: 'This demo is concentrated on five companies with collected evidence: Apple, Microsoft, Amazon, Alphabet, NVIDIA.' });
@@ -930,12 +941,13 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
     try {
       const result = await buildVetIdentify(name);
       store.vetIdentify[idKey] = { at: new Date().toISOString(), result };
-      await saveStore();
+      if (!await persistOr503(res)) return;
       return send(res, 200, result);
     }
     catch (e) { return send(res, 500, { error: 'vet_identify_failed', detail: String(e.message || e) }); }
   }
   if (p === '/api/vet/report') {
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode (corrupt, missing, or superseded on disk). Mutations and paid calls are refused before they happen until an admin completes recovery.' });
     // Reopen a stored report by id: free replay of a completed run, never a re-run.
     const id = (url.searchParams.get('id') || '').trim().slice(0, 32);
     if (id) {
@@ -966,7 +978,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
     try {
       const report = await runVetReportDeduped(cacheKey, () => buildVetReport(name, question, category, { kind: identityKind, name: identityName }));
       const cacheId = putVetReport(store, cacheKey, report);
-      await saveStore();
+      if (!await persistOr503(res)) return;
       return send(res, 200, { ...report, cacheId, cached: false, generatedAt: new Date().toISOString() });
     }
     catch (e) { return send(res, e.status || 500, { error: 'vet_report_failed', detail: String(e.message || e) }); }
@@ -1002,7 +1014,19 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
     if (!c) return send(res, 200, { available: false, detail: 'No Context.dev call has carried credit metadata yet in this process.' });
     return send(res, 200, { available: true, ...c });
   }
-  if (p === '/api/health') { const pc = phoneCaptureStatus(process.env); return send(res, 200, { ...healthProjection({ gateStatus, crs: crsSandboxStatus(), runtimeConfig: runtimeConfigStatus(), seeded: true }), phoneCapture: { state: pc.state, detail: pc.detail } }); }
+  if (p === '/api/health') {
+    const pc = phoneCaptureStatus(process.env);
+    const packCount = Object.keys(store.packs || {}).length;
+    const answerCount = Object.values(store.answers || {}).reduce((n, byKey) => n + Object.keys(byKey || {}).length, 0);
+    const runCount = (store.runs || []).length;
+    const storeEmpty = packCount === 0 && answerCount === 0 && runCount === 0;
+    // A read-only replica with no data (a deploy-handoff loser, a wiped
+    // volume) must NOT receive routed traffic: health is non-200 until it
+    // takes over and reloads the disk winner's truth. Read-only WITH data
+    // (corrupt-aside recovery) still serves reads and stays 200.
+    const unhealthy = storeDivergent || (storeReadOnly && storeEmpty);
+    return send(res, unhealthy ? 503 : 200, { ...healthProjection({ gateStatus, crs: crsSandboxStatus(), runtimeConfig: runtimeConfigStatus(), seeded: true }), phoneCapture: { state: pc.state, detail: pc.detail }, store: { mode: storeDivergent ? 'divergent' : (storeReadOnly ? 'read-only' : (lockHeld ? 'writable' : 'no-lock')), reason: readOnlyReason, packs: packCount, answers: answerCount, runs: runCount, divergent: storeDivergent } });
+  }
 
   const claims = () => {
     const q = (url.searchParams.get('q') || '').slice(0, 120).toLowerCase();
@@ -1082,7 +1106,7 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
     // synchronous fresh run for the admin workflow.
     const cached = store.appleReport && store.appleReport.report;
     if (cached && !url.searchParams.get('refresh')) {
-      if (!appleReportRunning) {
+      if (!appleReportRunning && !storeReadOnly) {
         appleReportRunning = true;
         runReport().then(async (r) => { store.appleReport = { at: new Date().toISOString(), report: r }; await saveStore(); })
           .catch(() => { /* keep serving the last good run */ })
@@ -1090,9 +1114,10 @@ if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: Str
       }
       return send(res, 200, { ...cached, cached: true, generatedAt: store.appleReport.at, refreshing: true });
     }
+    if (storeReadOnly) return send(res, 503, { error: 'store_read_only', detail: 'The evidence store is in read-only recovery mode; a fresh report run is refused until an admin completes recovery.' });
     const report = await runReport();
     store.appleReport = { at: new Date().toISOString(), report };
-    await saveStore();
+    if (!await persistOr503(res)) return;
     return send(res, 200, { ...report, cached: false, generatedAt: store.appleReport.at });
   }
   if (p === '/api/companies/apple/export') {
@@ -1469,8 +1494,136 @@ async function collect(kind) {
 // survive redeploys; without it the store lives on the deployment's local
 // disk and a redeploy resets it.
 const STORE_PATH = join(process.env.DATA_DIR || join(ROOT, 'data'), 'run-store.json');
-let store = { runs: [], items: {} };
-try { store = JSON.parse(await readFile(STORE_PATH, 'utf8')); } catch { /* first boot */ }
+const STORE_MARKER = STORE_PATH + '.initialized';
+// Durability (live incident 2026-10-25 ~09:15 PDT: a boot loaded an empty
+// store, the silent catch hid WHY, and a whole-memory last-writer can
+// silently destroy a newer on-disk store). Rules now:
+//  - parse error: preserve the file as run-store.corrupt-<ts>.json, log
+//    loudly, and enter READ-ONLY mode (all mutating admin routes 503
+//    store_read_only BEFORE any mutation or paid call).
+//  - ENOENT with an existing marker: the store existed before and is now
+//    missing (wiped volume) - same read-only fail-closed.
+//  - ENOENT without marker: first boot OR an unmounted volume (ambiguous) -
+//    loud warning only; first successful save writes the marker.
+//  - every save re-checks the on-disk mtime against our last read/write: a
+//    changed disk file means another process holds newer truth - refuse the
+//    stale overwrite and go read-only instead of last-writer-loses.
+const freshStore = () => ({ runs: [], items: {} });
+let store = freshStore();
+let storeReadOnly = false;
+// Memory held a mutation the disk does not, and disk truth could not be
+// reloaded: fail closed. Health reports divergent and goes non-200.
+let storeDivergent = false;
+// Why read-only: corrupt | missing-after-marker | foreign-lock | lock-lost |
+// conflict | no-lock | divergent. foreign-lock and lock-lost are RETRYABLE
+// (deploy handoff: the old replica releases its lock on SIGTERM); the rest
+// are terminal until an admin completes recovery.
+let readOnlyReason = null;
+let storeDiskMtime = null;
+function setReadOnly(reason) { storeReadOnly = true; readOnlyReason = reason; }
+async function readDiskStore() {
+  const s = JSON.parse(await readFile(STORE_PATH, 'utf8'));
+  let m = null; try { const st = await stat(STORE_PATH); m = st.mtimeMs; } catch {}
+  return { store: s, mtime: m };
+}
+// Pull the on-disk winner's truth into memory. True when memory now matches
+// disk (or a legitimately empty, never-initialized store); false when disk
+// truth cannot be established (unparseable, or vanished after the marker).
+async function reloadDiskTruth() {
+  try { const d = await readDiskStore(); store = d.store; storeDiskMtime = d.mtime; return true; }
+  catch (e) {
+    if (e && e.code === 'ENOENT') {
+      let markerSeen = false; try { await readFile(STORE_MARKER, 'utf8'); markerSeen = true; } catch {}
+      if (!markerSeen) { store = freshStore(); storeDiskMtime = null; return true; }
+    }
+    return false;
+  }
+}
+try {
+  const d = await readDiskStore();
+  store = d.store; storeDiskMtime = d.mtime;
+} catch (e) {
+  if (e && e.code !== 'ENOENT') {
+    const aside = STORE_PATH + '.corrupt-' + Date.now() + '.json';
+    try { await rename(STORE_PATH, aside); } catch {}
+    console.error('STORE CORRUPT: parse failed (' + (e && e.message || e) + '); preserved at ' + aside + '; store is READ-ONLY until admin recovery.');
+    setReadOnly('corrupt');
+  } else {
+    let markerSeen = false;
+    try { await readFile(STORE_MARKER, 'utf8'); markerSeen = true; } catch {}
+    if (markerSeen) {
+      console.error('STORE MISSING but marker exists: the store file existed before and is gone (wiped volume?); store is READ-ONLY until admin recovery.');
+      setReadOnly('missing-after-marker');
+    } else {
+      console.warn('STORE: no existing store and no marker - first boot or VOLUME NOT MOUNTED at ' + STORE_PATH + '; if a volume should be attached, do not treat this as a clean start.');
+    }
+  }
+}
+const LOCK_PATH = STORE_PATH + '.lock';
+const LOCK_STALE_MS = 90_000;
+// Bounded takeover retry for the deploy handoff (reviewer 2026-10-25): a
+// replica read-only behind a foreign/lost lock retries acquisition on this
+// interval; 15-30s in production, overridable for tests.
+const LOCK_RETRY_MS = Math.max(250, +(process.env.STORE_LOCK_RETRY_MS || 20_000));
+let lockHeld = false;
+// Cross-process no-overlap guard (Railway deploy overlap is NOT guaranteed):
+// an atomically-created (wx) lockfile with a 30s heartbeat. A fresh foreign
+// lock means another live process owns the store -> boot READ-ONLY rather
+// than diverge in memory. A stale lock (>90s) is a dead holder - take it over.
+async function takeStoreLock() {
+  if (storeReadOnly && readOnlyReason !== 'foreign-lock' && readOnlyReason !== 'lock-lost') return;
+  const payload = JSON.stringify({ pid: process.pid, at: new Date().toISOString() });
+  try { await writeFile(LOCK_PATH, payload, { flag: 'wx' }); lockHeld = true; return; } catch (e) {
+    if (e && e.code === 'EEXIST') {
+      let stale = true;
+      try { const st = await stat(LOCK_PATH); stale = (Date.now() - st.mtimeMs) > LOCK_STALE_MS; } catch {}
+      if (!stale) {
+        setReadOnly('foreign-lock');
+        console.error('STORE LOCK held by another live process; READ-ONLY (no mutations, no paid calls); retrying acquisition every ' + (LOCK_RETRY_MS / 1000) + 's.');
+        return;
+      }
+      try { await writeFile(LOCK_PATH, payload); lockHeld = true; console.warn('STORE: took over a STALE store lock (previous holder gone).'); } catch {}
+    }
+  }
+}
+await takeStoreLock();
+setInterval(async () => {
+  if (!lockHeld || storeReadOnly) return;
+  try { const now = new Date(); await utimes(LOCK_PATH, now, now); } catch { lockHeld = false; setReadOnly('lock-lost'); console.error('STORE LOCK LOST at heartbeat; store is READ-ONLY.'); }
+}, 30_000).unref();
+// Deploy-handoff takeover: a replica read-only behind a foreign (or lost)
+// lock retries acquisition on a bounded interval. On ACQUIRE it RELOADS the
+// disk winner's truth BEFORE becoming writable - its boot-time memory is
+// never the truth it writes from. If the disk truth is unreadable it
+// releases the lock and stays terminally read-only.
+setInterval(async () => {
+  if (!storeReadOnly || lockHeld) return;
+  if (readOnlyReason !== 'foreign-lock' && readOnlyReason !== 'lock-lost') return;
+  await takeStoreLock();
+  if (!lockHeld) return;
+  if (await reloadDiskTruth()) {
+    storeReadOnly = false; readOnlyReason = null;
+    console.error('STORE: lock acquired after retry; disk winner truth reloaded; store is WRITABLE.');
+  } else {
+    try { await unlink(LOCK_PATH); } catch {}
+    lockHeld = false;
+    setReadOnly('corrupt');
+    console.error('STORE: lock acquired but disk truth unreadable; released lock, staying READ-ONLY until admin recovery.');
+  }
+}, LOCK_RETRY_MS).unref();
+// Railway deploys SIGTERM the outgoing replica: release the OWNED lock so
+// the incoming replica's retry acquires immediately instead of waiting out
+// the 90s staleness window with traffic routed to an empty read-only store.
+let _shuttingDown = false;
+async function releaseLockAndExit(sig) {
+  if (_shuttingDown) return; _shuttingDown = true;
+  console.error('STORE: ' + sig + ' received; releasing store lock and exiting.');
+  try { if (lockHeld) await unlink(LOCK_PATH); } catch {}
+  process.exit(0);
+}
+process.on('SIGTERM', () => { void releaseLockAndExit('SIGTERM'); });
+process.on('SIGINT', () => { void releaseLockAndExit('SIGINT'); });
+
 let _paidGate = null;
 async function paidGate() {
   if (!_paidGate) _paidGate = buildPaidGate({ buildVetIdentify, buildVetReport, env: process.env }).catch(e => { console.error('paid gate init failed:', e && e.message || e); return null; });
@@ -1488,7 +1641,57 @@ function runVetReportDeduped(key, build) {
   return p;
 }
 
-async function saveStore() { try { const tmp = STORE_PATH + '.tmp'; await writeFile(tmp, JSON.stringify(store)); await rename(tmp, STORE_PATH); } catch { /* read-only fs */ } }
+let _saveQueue = Promise.resolve();
+let _tmpCounter = 0;
+async function _saveStoreOnce() {
+  if (storeReadOnly) { console.error('saveStore BLOCKED: store is read-only (' + readOnlyReason + '); refusing to overwrite.'); return false; }
+  // Every persist failure leaves memory holding a mutation the disk does
+  // not: reload the disk winner's truth BEFORE any further public read
+  // serves this memory. If the disk truth is unreadable, fail closed:
+  // memory resets to empty and health reports divergent + non-200.
+  async function failPersist() {
+    if (!(await reloadDiskTruth().catch(() => false))) {
+      store = freshStore(); storeDivergent = true; setReadOnly('divergent');
+      console.error('STORE: persist failed AND disk truth unreadable; memory reset to empty, store DIVERGENT (fail closed).');
+    }
+    return false;
+  }
+  if (!lockHeld) { setReadOnly('no-lock'); console.error('saveStore BLOCKED: this process does not hold the store lock; going READ-ONLY.'); return failPersist(); }
+  try {
+    const before = await stat(STORE_PATH).catch(() => null);
+    if (before && storeDiskMtime == null) {
+      setReadOnly('conflict');
+      console.error('STORE CONFLICT: store file exists but this process never read or created it (another writer created it after our boot). Refusing overwrite; store is READ-ONLY.');
+      return failPersist();
+    }
+    if (before && storeDiskMtime != null && before.mtimeMs !== storeDiskMtime) {
+      setReadOnly('conflict');
+      console.error('STORE CONFLICT: on-disk store changed since our last read/write (another live process holds newer truth). Refusing stale overwrite; store is READ-ONLY.');
+      return failPersist();
+    }
+    if (!before && storeDiskMtime != null) {
+      setReadOnly('conflict');
+      console.error('STORE CONFLICT: on-disk store disappeared under this process. Refusing to recreate over unknown state; store is READ-ONLY.');
+      return failPersist();
+    }
+    store.__v = (store.__v || 0) + 1;
+    const tmp = STORE_PATH + '.' + process.pid + '.' + (++_tmpCounter) + '.tmp';
+    await writeFile(tmp, JSON.stringify(store));
+    await rename(tmp, STORE_PATH);
+    const after = await stat(STORE_PATH).catch(() => null);
+    storeDiskMtime = after ? after.mtimeMs : null;
+    try { await writeFile(STORE_MARKER, new Date().toISOString()); } catch {}
+    return true;
+  } catch (e) { console.error('saveStore FAILED: ' + (e && e.message || e)); return failPersist(); }
+}
+function saveStore() { _saveQueue = _saveQueue.then(_saveStoreOnce); return _saveQueue; }
+// Foreground mutations must never report success the disk does not have:
+// a failed persist is a 503, not ok:true over divergent memory.
+async function persistOr503(res) {
+  const ok = await saveStore();
+  if (!ok) send(res, 503, { error: 'store_not_persisted', detail: 'The mutation could not be durably persisted (store read-only or superseded on disk). Nothing was saved; no success is reported.' });
+  return ok;
+}
 const itemTitle = it => it.form ? (`Form ${it.form}` + (it.description ? ` · ${it.description}` : '')) : (it.title || '');
 const itemKey = (sourceKey, it) => createHash('sha1').update(sourceKey + '|' + (it.link || (itemTitle(it) + '|' + (it.date || '')))).digest('hex').slice(0, 12);
 const STOP = new Set('the a an and or of to in on for with from by at as is are was were be been it its this that these those apple inc company aapl says said new over after before into their they will has have more than'.split(' '));
