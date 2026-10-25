@@ -84,7 +84,7 @@ async function handleApi(req, res, url, ip) {
     L.push('## Claim checks');
     const card = (c, kind) => {
       L.push(`### ${c.claim}`);
-      L.push(`- Kind: ${kind}; Basis: ${c.basis}${c.date ? '; Date: ' + c.date : ''}`);
+      L.push(`- Kind: ${kind}; Basis: ${c.basis}${c.date && !c.basis.includes(c.date) ? '; Date: ' + c.date : ''}`);
       if (c.link) L.push(`- Claim source: ${c.link}`);
       L.push(`- Status: ${c.status}`);
       if (c.passages && c.passages.length) for (const p of c.passages) {
