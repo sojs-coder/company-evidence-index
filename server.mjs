@@ -190,7 +190,7 @@ function parse(kind, raw) {
     const j = JSON.parse(raw);
     const usd = ((j.units && j.units.USD) || []).filter(u => u.fp === 'FY');
     const seen = new Set();
-    return usd.slice().reverse().filter(u => { const k = u.fy + '|' + u.val + '|' + u.end; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 5).map(u => ({ title: `FY${u.fy} revenue $${(u.val / 1e9).toFixed(1)}B`, date: u.end, link: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000320193&type=10-K' }));
+    return usd.slice().reverse().filter(u => { const k = String(u.val); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 5).map(u => ({ title: `FY${String(u.end || '').slice(0, 4)} revenue $${(u.val / 1e9).toFixed(1)}B`, date: u.end, link: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000320193&type=10-K' }));
   }
   if (kind === 'itunes') {
     const j = JSON.parse(raw);
@@ -317,7 +317,7 @@ function validateClaims(report) {
   // Headline checks: company statements -> coverage with echo/separate wording.
   const headlineChecks = nrItems.slice(0, 6).map(h => {
     const ht = new Set(tokens(h.title || ''));
-    const cov = pressItems.filter(it => { const st = new Set(tokens(it.title || '')); const shared = [...ht].filter(w => st.has(w) && w.length > 3); return shared.length >= 2 && shared.some(w => w.length >= 5 || /\d/.test(w)); });
+    const GEN = new Set(['store','available','launch','launches','unveils','announces','worldwide','today','apple','reportedly','update','updates','week','price','prices']);const cov = pressItems.filter(it => { const st = new Set(tokens(it.title || '')); const shared = [...ht].filter(w => st.has(w) && w.length > 3 && !GEN.has(w)); return shared.length >= 2 && shared.some(w => w.length >= 5 || /\d/.test(w)); });
     const seen = new Set();
     const passages = cov.map(it => ({ ...it, echo: jac(it.title, h.title) > 0.55 })).filter(it => { const k = it.title; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
     const separate = passages.filter(p => !p.echo);
