@@ -362,3 +362,12 @@ dialog h2{font-size:28px;margin:10px 0 22px}
   .stream-list .collect-item-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .stream-list .collect-item-title.expanded{display:block;overflow:visible}
 }
+
+/* Phone source graph: name+counts row, full-width bar row (fixed 180/200px tracks overflow) */
+@media(max-width:760px){
+  .util-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name nums" "bars bars" "detail detail";row-gap:5px;column-gap:10px}
+  .util-name{grid-area:name}
+  .util-bars{grid-area:bars}
+  .util-nums{grid-area:nums;text-align:right}
+  .util-detail{grid-area:detail}
+}
