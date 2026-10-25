@@ -5,6 +5,7 @@
 // (docs/auth-backend-spec.md §9). Admin mutations return an honest
 // not-provisioned state instead of a fake gate. Public GETs only.
 import { createServer } from 'node:http';
+import { buildVetIdentify, buildVetReport } from './vet-report.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
@@ -58,6 +59,23 @@ async function handleApi(req, res, url, ip) {
     if (!v.ok) return send(res, 400, { error: 'invalid_request', details: v.errors });
     const r = await submitSbssDecision(body);
     return send(res, r.ok ? 200 : 502, r);
+  }
+  if (p === '/api/vet/identify') {
+    const name = (url.searchParams.get('name') || '').trim().slice(0, 120);
+    if (!name) return send(res, 400, { error: 'missing_name', detail: 'Pass ?name=<company>.' });
+    try { return send(res, 200, await buildVetIdentify(name)); }
+    catch (e) { return send(res, 500, { error: 'vet_identify_failed', detail: String(e.message || e) }); }
+  }
+  if (p === '/api/vet/report') {
+    const name = (url.searchParams.get('name') || '').trim().slice(0, 120);
+    const question = (url.searchParams.get('question') || '').trim().slice(0, 400);
+    const category = (url.searchParams.get('category') || 'general').trim().slice(0, 24);
+    const identityName = (url.searchParams.get('identityName') || '').trim().slice(0, 200);
+    const identityKind = (url.searchParams.get('identityKind') || 'custom').trim().slice(0, 32);
+    if (!name) return send(res, 400, { error: 'missing_name', detail: 'Pass ?name=<company>.' });
+    if (!identityName) return send(res, 400, { error: 'identity_selection_required', detail: 'Select an identity candidate from /api/vet/identify first (identityKind + identityName).' });
+    try { return send(res, 200, await buildVetReport(name, question, category, { kind: identityKind, name: identityName })); }
+    catch (e) { return send(res, e.status || 500, { error: 'vet_report_failed', detail: String(e.message || e) }); }
   }
   if (p === '/api/vet/supplier') {
     const name = (url.searchParams.get('name') || '').trim();
