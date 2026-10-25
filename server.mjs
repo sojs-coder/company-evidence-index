@@ -129,11 +129,14 @@ async function handleApi(req, res, url, ip) {
     const ticker = p.slice('/api/packs/'.length).toUpperCase();
     const pack = store.packs && store.packs[ticker];
     if (!pack) return send(res, 404, { error: 'no_pack', detail: 'No data pack collected for ' + ticker + ' yet.' });
-    return send(res, 200, pack);
+    const { estUsd, ...pub } = pack;
+    return send(res, 200, pub);
   }
   if (p === '/api/packs' && req.method === 'GET') {
-    const packs = Object.values(store.packs || {}).map(({ items, ...meta }) => meta);
-    return send(res, 200, { packs, apifySpend: store.apifySpend || null });
+    // Public: counts and provenance only. Spend/cost fields stay server-side
+    // (private budget ledger in the run store), never on public routes.
+    const packs = Object.values(store.packs || {}).map(({ items, estUsd, ...meta }) => meta);
+    return send(res, 200, { packs });
   }
   if (p === '/api/vet/identify') {
     const name = (url.searchParams.get('name') || '').trim().slice(0, 120);
