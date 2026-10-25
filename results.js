@@ -23,5 +23,4 @@ async function boot(){
   document.querySelector('#results-unresolved').innerHTML=claimTable(byStatus('unresolved'),'Unresolved claims and evidence limits');
   document.querySelector('#results-gaps').innerHTML=cov.sources.filter(s=>s.state!=='checked').map(s=>`<article class="result-block"><div class="result-head"><span class="source-dot gap"></span><span class="mono faint">${esc(s.note)}</span></div><h3 class="result-title">${esc(s.name)}</h3><p class="side-copy">Not collected for this snapshot; related claims stay marked accordingly.</p></article>`).join('');
 }
-document.querySelector('.theme-toggle').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name="theme-color"]').content=dark?'#02205e':'#f5f4f4'});
 boot();

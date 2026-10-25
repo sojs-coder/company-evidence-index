@@ -1,9 +1,6 @@
 // Supplier vetting evidence pack: live fetch from the backend, honest states.
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const money=n=>n==null?'(not recorded)':'$'+Number(n).toLocaleString('en-US',{maximumFractionDigits:0});
-if(localStorage.getItem('cei-theme')==='dark'){document.documentElement.dataset.theme='dark';document.querySelector('meta[name="theme-color"]').content='#02205e'}
-const themeBtn=document.querySelector('.theme-toggle');
-themeBtn&&themeBtn.addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';localStorage.setItem('cei-theme',dark?'dark':'light');document.querySelector('meta[name="theme-color"]').content=dark?'#02205e':'#f5f4f4'});
 function state(el,msg,err){document.querySelector(el).innerHTML=`<p class="state-note${err?' state-error':''}">${esc(msg)}</p>`}
 async function vet(name){
   state('#awards','Fetching live USASpending records. Nothing is substituted.');
