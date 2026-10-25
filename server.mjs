@@ -214,9 +214,9 @@ function parse(kind, raw) {
   }
   // macrumors, ninetofive: RSS item feeds; verge: Atom feed
   const its = items(raw);
-  if (its.length) return its.slice(0, 30).map(it => ({ title: field(it, 'title'), date: field(it, 'pubDate'), link: linkOf(it) }));
+  if (its.length) return its.slice(0, 30).map(it => ({ title: field(it, 'title'), date: field(it, 'pubDate'), link: linkOf(it), context: field(it, 'description').slice(0, 500) }));
   const entries = [...raw.matchAll(/<entry[ >][\s\S]*?<\/entry>/g)].map(m => m[0]);
-  return entries.slice(0, 30).map(it => ({ title: field(it, 'title'), date: field(it, 'published') || field(it, 'updated'), link: linkOf(it) }));
+  return entries.slice(0, 30).map(it => ({ title: field(it, 'title'), date: field(it, 'published') || field(it, 'updated'), link: linkOf(it), context: (field(it, 'summary') || field(it, 'content')).slice(0, 500) }));
 }
 async function collect(kind) {
   const hit = collectCache.get(kind);
@@ -288,8 +288,8 @@ function matchClaims(report) {
 // endpoints are relevant by construction. General feeds are keyword-filtered;
 // the filter is a heuristic, labeled as such on the dashboard.
 const FEED_FILTERED = new Set(['verge', 'ninetofive', 'macrumors']);
-const APPLE_RE = /\bapple\b|iphone|ipad|ios\b|ipados|macos|macbook|airpods|homepod|airtag|icloud|\bsiri\b|vision pro|apple tv|apple music|apple pay|apple watch|app store|tim cook|\baapl\b|imac|mac mini|mac studio|mac pro|watchos|xcode|swiftui|itunes|airtag|keynote|wwdc|cupertino|apple park|apple store|final cut|logic pro|garageband|airplay|carplay|touch id|face id|apple intelligence|apple care|apple one|apple card|apple news|apple fitness|apple arcade|beats|magsafe|genius bar/i;
-function isRelevant(key, text) { return FEED_FILTERED.has(key) ? APPLE_RE.test(text) : true; }
+const APPLE_RE = /\bapple\b|iphone|ipad|\bios\b|ipados|macos|macbook|airpods|homepod|airtag|icloud|\bsiri\b|vision pro|apple tv|apple music|apple pay|apple watch|app store|tim cook|\baapl\b|imac|mac mini|mac studio|mac pro|watchos|xcode|swiftui|itunes|airtag|keynote|wwdc|cupertino|apple park|apple store|final cut|logic pro|garageband|airplay|carplay|touch id|face id|apple intelligence|apple care|apple one|apple card|apple news|apple fitness|apple arcade|\bbeats\b|magsafe|genius bar/i;
+function isRelevant(key, text) { return (FEED_FILTERED.has(key) || QUERY_MATCHED.has(key)) ? APPLE_RE.test(text) : true; }
 const QUERY_MATCHED = new Set(['hackernews', 'hncomments', 'news']);
 function relevanceNote(key, it) {
   const text = itemTitle(it) + ' ' + (it.outlet || '') + ' ' + (it.context || '');
@@ -317,24 +317,25 @@ function validateClaims(report) {
   const figureChecks = ((xbrl && xbrl.allItems) || []).slice(-6).reverse().map(f => {
     const m = (f.title || '').match(/\$([\d.]+)B/);
     const fig = m ? m[1] : null;
-    const hits = fig ? pressItems.filter(it => (it.title || '').includes(fig)) : [];
+    const figRe = fig ? new RegExp('\\b' + fig.replace(/\./g, '\\.') + '(?!\\d)') : null;
+    const withHit = figRe ? pressItems.map(it => { const hay = (it.title || '') + ' ' + (it.context || ''); const hm = hay.match(figRe); return hm ? { ...it, excerpt: hay.slice(Math.max(0, hm.index - 60), hm.index + hm[0].length + 80).trim() } : null; }).filter(Boolean) : [];
     return { claim: `${f.title} (filed to the SEC, XBRL)`, basis: 'SEC XBRL company facts', figure: fig,
-      status: hits.length ? 'cited-in-press' : 'no-press-citation-in-run',
-      passages: hits.slice(0, 5).map(it => ({ title: it.title, link: it.link || '', date: (it.date || '').slice(0, 10), source: it.source })) };
+      status: withHit.length ? 'cited-in-press' : 'no-press-citation-in-run',
+      passages: withHit.slice(0, 5).map(it => ({ title: it.title, link: it.link || '', date: (it.date || '').slice(0, 10), source: it.source, excerpt: it.excerpt })) };
   });
   // Headline checks: company statements -> coverage with echo/separate wording.
   const headlineChecks = nrItems.slice(0, 6).map(h => {
     const ht = new Set(tokens(h.title || ''));
-    const GEN = new Set(['store','available','launch','launches','unveils','announces','worldwide','today','apple','reportedly','update','updates','week','price','prices']);const cov = pressItems.filter(it => { const st = new Set(tokens(it.title || '')); const shared = [...ht].filter(w => st.has(w) && w.length > 3 && !GEN.has(w)); return shared.length >= 2 && shared.some(w => w.length >= 5 || /\d/.test(w)); });
+    const GEN = new Set(['store','available','launch','launches','unveils','announces','worldwide','today','apple','reportedly','update','updates','week','price','prices']);const cov = pressItems.filter(it => { const st = new Set(tokens((it.title || '') + ' ' + (it.context || ''))); const shared = [...ht].filter(w => st.has(w) && w.length > 3 && !GEN.has(w)); return shared.length >= 2 && shared.some(w => w.length >= 5 || /\d/.test(w)); });
     const seen = new Set();
     const passages = cov.map(it => ({ ...it, echo: jac(it.title, h.title) > 0.55 })).filter(it => { const k = it.title; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
     const separate = passages.filter(p => !p.echo);
     return { claim: h.title, basis: 'Apple Newsroom (company statement)', date: (h.date || '').slice(0, 10), link: h.link || '',
       outlets: [...new Set(passages.map(p => p.source))],
       status: !passages.length ? 'no-outside-coverage-in-run' : (separate.length ? 'separate-wording-coverage' : 'echoed-only'),
-      passages: passages.map(p => ({ title: p.title, link: p.link || '', date: (p.date || '').slice(0, 10), source: p.source, wording: p.echo ? 'echo' : 'separate' })) };
+      passages: passages.map(p => ({ title: p.title, link: p.link || '', date: (p.date || '').slice(0, 10), source: p.source, excerpt: (p.context || '').slice(0, 180), wording: p.echo ? 'echo' : 'separate' })) };
   });
-  return { figureChecks, headlineChecks, method: 'Extractive matching over the titles collected in this run: identical figures in press titles, and shared distinctive terms for coverage. Article bodies are not fetched. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected titles" means exactly that - it is not evidence that coverage or a citation does not exist.' };
+  return { figureChecks, headlineChecks, method: 'Extractive matching over titles and feed summaries collected in this run: identical figures (word-boundary matched), and shared distinctive terms for coverage. Full article bodies are not fetched. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.' };
 }
 async function runReport() {
   const runAt = new Date().toISOString();
@@ -342,7 +343,7 @@ async function runReport() {
   const sources = settled.map((r, i) => {
     const d = r.status === 'fulfilled' ? r.value : { mode: 'unavailable', source: SOURCES[i].label, name: SOURCES[i].name, fetchedAt: runAt, detail: String(r.reason), items: [] };
     for (const it of d.items) it.relevance = relevanceNote(SOURCES[i].key, it);
-    const relevant = d.items.filter(it => isRelevant(SOURCES[i].key, itemTitle(it) + ' ' + (it.outlet || '')));
+    const relevant = d.items.filter(it => isRelevant(SOURCES[i].key, itemTitle(it) + ' ' + (it.outlet || '') + ' ' + (it.context || '') + ' ' + (it.matched || '')));
     return { key: SOURCES[i].key, name: d.name, source: d.source, mode: d.mode, fetchedAt: d.fetchedAt, cached: !!d.cached, itemCount: d.items.length, relevantCount: relevant.length, items: d.items.slice(0, 3), allItems: d.items, relevantItems: relevant, detail: d.detail };
   });
   const report = {
