@@ -40,17 +40,17 @@ async function boot(){
   document.querySelectorAll('.util-row').forEach(row=>{const open=()=>{const d=document.getElementById('util-detail-'+row.dataset.idx);const show=d.hidden;d.hidden=!show;row.setAttribute('aria-expanded',String(show))};row.addEventListener('click',open);row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}})});
   if(r.history&&r.history.length)document.querySelector('#run-history').textContent=`${r.history.length} runs on record · ${(p.uniqueItems||0).toLocaleString('en-US')} unique items · store resets on redeploy`;
   if(r.validation){
-    const badge={'cited-in-press':'CITED IN COLLECTED ITEMS','no-press-citation-in-run':'NOT FOUND IN COLLECTED ITEMS','separate-wording-coverage':'DISTINCT WORDING','echoed-only':'SIMILAR WORDING','no-outside-coverage-in-run':'NONE IN COLLECTED ITEMS'};
+    const badge={'cited-in-press':'CITED IN COLLECTED ITEMS','no-press-citation-in-run':'NOT FOUND IN COLLECTED ITEMS','separate-wording-coverage':'DISTINCT WORDING','echoed-only':'SIMILAR WORDING','no-outside-coverage-in-run':'NONE IN COLLECTED ITEMS','different-figure-found':'REVIEW - DIFFERENT FIGURE'};
     const pass=p=>`<li><a class="detail-source" href="${esc(p.link)}" target="_blank" rel="noreferrer">${esc(p.title)}</a><span class="faint">${esc(p.source)} · ${esc(p.date)}${p.wording?' · '+p.wording+' wording':''}</span>${p.excerpt?`<span class="rel-note">"...${esc(p.excerpt)}..."</span>`:''}</li>`;
     const card=(c,kind)=>`<details class="check-card"><summary><span class="check-claim">${esc(c.claim)}</span><span class="check-meta"><span class="mono faint">${esc(kind)} · ${esc(c.basis)}${c.date?' · '+esc(c.date):''}</span><span class="badge-dim">${badge[c.status]||esc(c.status)}</span></span></summary>${c.passages&&c.passages.length?`<ul class="collect-list">${c.passages.map(pass).join('')}</ul>`:'<p class="faint">No matching items collected in this run.</p>'}</details>`;
     const v=r.validation;
-    document.querySelector('#claim-checks').innerHTML=v.figureChecks.map(c=>card(c,'Filed figure')).join('')+v.headlineChecks.map(c=>card(c,'Company statement')).join('');
+    document.querySelector('#claim-checks').innerHTML=v.figureChecks.map(c=>card(c,'Filed figure')).join('')+v.headlineChecks.map(c=>card(c,'Company statement')).join('')+(v.contradictions||[]).map(c=>card(c,'Figure mismatch')).join('');
     document.querySelector('#check-method').textContent=v.method;
     if(v.coverageScore){document.querySelector('#coverage-score').innerHTML=`<div class="metric"><div class="metric-number">${v.coverageScore.score}</div><div class="metric-label">Coverage score</div><div class="metric-note">${esc(v.coverageScore.drivers)}</div></div><p class="faint">${esc(v.coverageScore.scope)}</p>`}
   }
   // Signalor historical mention analytics: static sanitized snapshot, never live-labeled.
   fetch('data/signalor-apple-mentions.json').then(x=>x.ok?x.json():null).then(sg=>{if(!sg)return;
-    document.querySelector('#signalor-freshness').textContent='HISTORICAL · '+sg.freshnessLabel.toUpperCase().replace(/\.$/,'');
+    document.querySelector('#signalor-freshness').textContent=sg.freshnessLabel.toUpperCase().replace(/\.$/,'');
     const st=sg.sentiment,tot=st.total,pc=n=>(n/tot*100).toFixed(1);
     const mxT=Math.max(1,...sg.trends.map(d=>d.total));
     document.querySelector('#signalor-panel').innerHTML=`
