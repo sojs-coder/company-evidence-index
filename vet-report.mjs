@@ -9,6 +9,10 @@
 // public sources.
 
 const STOP_TOKENS = new Set(['inc','llc','ltd','corp','corporation','company','co','the','lp','llp','holdings','technologies','systems']);
+// Generic name tokens: overlap on these alone is not identity evidence
+// (every robotics company shares 'robotics'). Used to hide weak brand
+// candidates before rendering rather than leaning on the disclaimer.
+const GENERIC_TOKENS = new Set(['robotics','technology','technologies','systems','solutions','labs','industries','group','global','international','ai','software','services','research','space','digital','analytics','automation']);
 const nameTokens = (q) => String(q || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t && !STOP_TOKENS.has(t));
 const nameMatches = (candidate, toks) => {
   const rt = new Set(nameTokens(candidate));
@@ -36,6 +40,7 @@ async function ctxCall(path, body, key) {
 // legal recipient names + Context.dev company search when configured.
 async function resolveIdentities(name, queryToks, key, sources) {
   const identities = [];
+  let hiddenWeak = 0;
   // SEC company registry: public companies only, exact-ish ticker/name match.
   try {
     const r = await fetch('https://www.sec.gov/files/company_tickers.json', { headers: { 'user-agent': 'company-evidence-index/1.0 (student hackathon research project)', accept: 'application/json' } });
@@ -61,18 +66,28 @@ async function resolveIdentities(name, queryToks, key, sources) {
       if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
       const j = await r.json();
       const rows = j.results || j.brands || j.data || [];
-      for (const c of (Array.isArray(rows) ? rows : []).slice(0, 5)) {
+      // Relevance gate: a brand candidate must share at least one distinctive
+      // (non-generic) query token with the typed name or its domain; token
+      // overlap on generic words alone ('robotics', 'labs') is not identity
+      // evidence and those candidates are hidden, not disclaimed.
+      const distinctiveQuery = queryToks.filter(t => !GENERIC_TOKENS.has(t));
+      for (const c of (Array.isArray(rows) ? rows : []).slice(0, 8)) {
         const cn = c.name || c.title || c.company;
-        if (cn) identities.push({ kind: 'brand_match', name: cn, domain: c.domain || null, description: c.description || null, basis: 'Context.dev brand registry match', state: nameMatches(cn, queryToks) ? 'registry_match' : 'candidate_match' });
+        if (!cn) continue;
+        const cnToks = nameTokens(cn);
+        const dom = String(c.domain || '').toLowerCase();
+        const shared = queryToks.filter(t => cnToks.includes(t) || (dom && dom.includes(t)));
+        if (distinctiveQuery.length && !shared.some(t => !GENERIC_TOKENS.has(t))) { hiddenWeak++; continue; }
+        identities.push({ kind: 'brand_match', name: cn, domain: c.domain || null, description: c.description || null, basis: 'Context.dev brand registry match', state: nameMatches(cn, queryToks) ? 'registry_match' : 'candidate_match' });
       }
-      sources.push({ key: 'ctx_brand', name: 'Context.dev brand search', url: 'https://www.context.dev/', fetched: Array.isArray(rows) ? Math.min(rows.length, 5) : 0, mode: 'live', creditsCounted: 1 });
+      sources.push({ key: 'ctx_brand', name: 'Context.dev brand search', url: 'https://www.context.dev/', fetched: Array.isArray(rows) ? Math.min(rows.length, 8) : 0, mode: 'live', creditsCounted: 1, detail: hiddenWeak ? hiddenWeak + ' weak match' + (hiddenWeak === 1 ? '' : 'es') + ' hidden: generic-token overlap only' : undefined });
     } catch (e) {
       sources.push({ key: 'ctx_brand', name: 'Context.dev brand search', url: 'https://www.context.dev/', fetched: 0, mode: 'error', detail: String(e.message || e) });
     }
   } else {
     sources.push({ key: 'ctx_brand', name: 'Context.dev brand search', url: 'https://www.context.dev/', fetched: 0, mode: 'not_configured', detail: 'CONTEXT_DEV_API_KEY not set; this connector is off, not failed.' });
   }
-  return identities;
+  return { identities, hiddenWeak };
 }
 
 // Phase 1: identity candidates only. No company-specific synthesis happens
@@ -90,7 +105,9 @@ export async function buildVetIdentify(name) {
       'Absence of a record here is not evidence of absence.'
     ]
   };
-  pack.identities = await resolveIdentities(name, queryToks, key, sources);
+  const rid = await resolveIdentities(name, queryToks, key, sources);
+  pack.identities = rid.identities;
+  if (rid.hiddenWeak) pack.hiddenWeakBrandMatches = rid.hiddenWeak;
 
   // USASpending: federal award history grouped by exact legal recipient name.
   try {
@@ -99,7 +116,7 @@ export async function buildVetIdentify(name) {
       body: JSON.stringify({
         filters: { recipient_search_text: [name], award_type_codes: ['A', 'B', 'C', 'D'] },
         fields: ['Award ID', 'Recipient Name', 'Start Date', 'Award Amount', 'Awarding Agency', 'Description'],
-        limit: 25, sort: 'Start Date', order: 'desc'
+        limit: 100, sort: 'Start Date', order: 'desc'
       })
     });
     if (r.ok) {
@@ -170,7 +187,7 @@ export async function buildVetReport(name, question, categoryKey, identity) {
       body: JSON.stringify({
         filters: { recipient_search_text: [identity.name], award_type_codes: ['A', 'B', 'C', 'D'] },
         fields: ['Award ID', 'Recipient Name', 'Start Date', 'Award Amount', 'Awarding Agency', 'Description'],
-        limit: 25, sort: 'Start Date', order: 'desc'
+        limit: 100, sort: 'Start Date', order: 'desc'
       })
     });
     if (r.ok) {
@@ -184,6 +201,11 @@ export async function buildVetReport(name, question, categoryKey, identity) {
         const rn = String(a['Recipient Name'] || '');
         return exact ? rn.trim().toUpperCase() === identity.name.trim().toUpperCase() : nameMatches(rn, idToks);
       };
+      const rawCount = (j.results || []).length;
+      // Fewer records than the page size means the search's full result set
+      // came back in one page; a full page means this is a sample.
+      const complete = rawCount < 100;
+      pack.awardCoverage = complete ? 'complete_result_set' : 'first_page_sample';
       const awards = (j.results || []).filter(keep).map(a => ({
         awardId: a['Award ID'] || null,
         recipient: a['Recipient Name'] || null,
@@ -198,7 +220,14 @@ export async function buildVetReport(name, question, categoryKey, identity) {
         const total = awards.every(a => a.obligatedAmountUsd != null) ? awards.reduce((n, a) => n + a.obligatedAmountUsd, 0) : null;
         pack.findings.push({
           topic: 'federal_awards',
-          statement: `${identity.name} has ${awards.length} recorded federal contract award${awards.length === 1 ? '' : 's'}${total != null ? ' totaling $' + Math.round(total).toLocaleString('en-US') : ''} in USASpending under this exact legal name.`,
+          statement: (() => {
+            const n = awards.length, pl = n === 1 ? '' : 's';
+            const scope = identity.kind === 'legal_recipient' ? 'under this exact legal name' : 'name-matching the buyer-typed (not registry-verified) name';
+            const totalStr = total != null ? ' totaling $' + Math.round(total).toLocaleString('en-US') : '';
+            return complete
+              ? `USASpending award search ${scope} returned ${n} award record${pl} - the complete result set of that search -${totalStr} across those records.`
+              : `USASpending award search ${scope} returned ${n} matching award record${pl} from the first page of results - a sample, not the full award history -${totalStr} across the returned records.`;
+          })(),
           confidence: 'source-stated',
           source: { name: 'USASpending award search', url: 'https://www.usaspending.gov/' }
         });
@@ -211,7 +240,8 @@ export async function buildVetReport(name, question, categoryKey, identity) {
     sources.push({ key: 'usaspending', name: 'USASpending award search', url: 'https://www.usaspending.gov/', fetched: 0, mode: 'error', detail: String(e.message || e) });
   }
 
-  // NASA NTRS: affiliation-verified citations under the selected legal name.
+  // NASA NTRS: citations whose author-reported affiliation org name matches
+  // the selected name by token overlap. That is not legal-entity verification.
   try {
     const r = await fetch('https://ntrs.nasa.gov/api/citations/search?q=' + encodeURIComponent(identity.name) + '&size=8', { headers: { accept: 'application/json' } });
     if (r.ok) {
@@ -225,15 +255,15 @@ export async function buildVetReport(name, question, categoryKey, identity) {
           id: c.id || null,
           sourceUrl: c.id ? ('https://ntrs.nasa.gov/citations/' + c.id) : null,
           association: matched.length
-            ? { state: 'affiliation_verified', organizations: matched }
+            ? { state: 'author_affiliation_orgname_match', organizations: matched, method: 'organization-name token overlap on author-reported affiliation; not legal-entity verification' }
             : { state: 'search_match', organizations: orgs.slice(0, 3) }
         };
       }).filter(c => c.title && !seen.has(c.title) && seen.add(c.title));
-      const verified = pack.citations.filter(c => c.association.state === 'affiliation_verified');
+      const verified = pack.citations.filter(c => c.association.state === 'author_affiliation_orgname_match');
       if (verified.length) {
         pack.findings.push({
           topic: 'technical_literature',
-          statement: `${verified.length} NASA technical report${verified.length === 1 ? '' : 's'} list an author affiliation matching this legal name.`,
+          statement: `${verified.length} NASA technical report${verified.length === 1 ? '' : 's'} list an author affiliation whose organization name matches this name by token overlap - an author-reported affiliation string, not legal-entity verification.`,
           confidence: 'source-stated',
           source: { name: 'NASA Technical Reports Server', url: 'https://ntrs.nasa.gov/' }
         });
