@@ -321,3 +321,29 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 
 .check-card .collect-list li{display:block;padding:5px 0}
 .check-card .collect-list a{display:inline;white-space:normal}
+
+/* Phone-first report: compact header, stat strip, evidence above the fold */
+@media(max-width:760px){
+  main{padding:20px var(--edge) 56px}
+  .page-kicker{font-size:10px}
+  .dash-head{align-items:flex-start;gap:10px}
+  .dash-title{font-size:24px;line-height:1.15}
+  .dash-badges{padding-bottom:0;gap:6px}
+  .badge-live,.badge-dim{font-size:9px;padding:1px 6px}
+  .metric-row{display:flex;gap:0;overflow-x:auto;margin-top:18px;-webkit-overflow-scrolling:touch}
+  .metric-row .metric{min-width:118px;padding:10px 14px 10px 0;margin-right:14px;border-right:1px solid var(--border)}
+  .metric-row .metric:last-child{border-right:0}
+  .metric-row .metric-number{font-size:22px}
+  .metric-row .metric-label{font-size:9px}
+  .metric-row .metric-note{font-size:9px;line-height:1.4}
+  .type-strip{margin-top:10px;gap:12px;font-size:10px}
+  .bottom-section{margin-top:30px}
+  .section-heading h2{font-size:19px}
+  .stream-head{display:none}
+  .stream-list li{grid-template-columns:minmax(0,1fr) 64px;gap:10px;padding:9px 0}
+  .util-name{font-size:12px}
+  .util-nums{font-size:11px}
+  .check-card summary{flex-direction:column;gap:4px}
+  .hero{margin-bottom:14px}
+  .company-grid{grid-template-columns:1fr}
+}
