@@ -12,7 +12,11 @@
 // counted as posts.
 import { createHash } from 'node:crypto';
 
-export const SIGNALS_MODEL = 'gpt-4o-mini';
+export const SIGNALS_MODEL = 'gpt-6-luna';
+// Per-model list rates (USD per 1M tokens), official OpenAI docs 2026-10-25:
+// https://developers.openai.com/api/docs/models/gpt-6-luna - $0.10 in / $0.50 out.
+export const MODEL_RATES = { 'gpt-6-luna': [0.10, 0.50], 'gpt-4o-mini': [0.15, 0.60] };
+export const costFor = (model, inTok, outTok) => { const r = MODEL_RATES[model] || MODEL_RATES[SIGNALS_MODEL]; return +((inTok * r[0] / 1e6) + (outTok * r[1] / 1e6)).toFixed(6); };
 export const BATCH_SIZE = 40;
 const TEXT_SLICE = 400;
 const CHUNK_OVERLAP = 100;
@@ -92,7 +96,7 @@ export function estimateCost(prep) {
     calls,
     estInputTokens: inTokens,
     estOutputTokens: outTokens,
-    estCostUsd: +((inTokens * 0.15 / 1e6) + (outTokens * 0.60 / 1e6)).toFixed(4)
+    estCostUsd: +costFor(SIGNALS_MODEL, inTokens, outTokens).toFixed(4)
   };
 }
 
