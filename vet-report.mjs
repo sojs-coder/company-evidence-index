@@ -116,7 +116,7 @@ async function resolveIdentities(name, queryToks, key, sources) {
 // sentence end BEFORE the first headline-like ALL-CAPS run; the kept prefix
 // is still verbatim source text. If no clean sentence end exists, drop the
 // passage rather than show contaminated text.
-function cleanPassage(p) {
+export function cleanPassage(p) {
   const m = p.search(/[.!?]\s+[A-Z][A-Z0-9 ,&'()\/-]{17,}[A-Z0-9)](?=\s|$)/);
   if (m === -1) {
     // also catch a passage that STARTS clean but ends mid-headline without prior punctuation
