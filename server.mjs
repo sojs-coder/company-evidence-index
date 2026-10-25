@@ -701,7 +701,12 @@ const COMPETITORS = ['Samsung', 'Google', 'Microsoft', 'Meta', 'Huawei', 'Xiaomi
     const hay = cue.title;
     for (const g of RISK_LEXICON) {
       if (!g.cue.test(hay)) continue;
-      const rf = riskFactors.find(x => g.risk.test(x.title));
+      // Prefer the statement whose category names the same risk area (a
+      // Business Risks statement mentioning "legal" must not stand in for the
+      // Legal and Regulatory Compliance Risks statement).
+      const catWord = g.group.split(' ')[0];
+      const rf = riskFactors.find(x => g.risk.test(x.title) && (x.category || '').toLowerCase().includes(catWord))
+        || riskFactors.find(x => g.risk.test(x.title));
       if (rf) { riskCross.push({ cue, risk: rf, group: g.group }); break; }
     }
   }
