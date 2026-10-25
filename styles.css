@@ -380,3 +380,14 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .trend-day{font:9px var(--font-mono);color:var(--text-faint)}
 .trend-n{font:10px var(--font-mono);color:var(--text)}
 @media(max-width:760px){.trend-chart{gap:4px}.trend-bar{width:18px}}
+
+/* Signalor historical panel */
+.sent-bar{display:flex;height:10px;margin:14px 0 6px;overflow:hidden}
+.sent-pos{background:var(--color-success)}.sent-neu{background:#b9bcc4}.sent-neg{background:#c0392b}
+.util-sw.sent-pos{background:var(--color-success)}.util-sw.sent-neu{background:#b9bcc4}.util-sw.sent-neg{background:#c0392b}
+.signalor-cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:14px 0}
+.sig-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--border-muted);font-size:12px}
+.sig-name{text-transform:capitalize}
+.sig-n{font:11px var(--font-mono);color:var(--text-faint);text-align:right}
+.sig-n b{color:var(--text);font-weight:600}
+@media(max-width:760px){.signalor-cols{grid-template-columns:1fr;gap:8px}}
