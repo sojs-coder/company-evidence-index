@@ -49,16 +49,15 @@ main{max-width:1220px;margin:0 auto;padding:56px var(--edge) 90px}
 .text-button:hover,.icon-link:hover{color:var(--color-brand)}
 
 /* Top bar */
-.wordmark{display:flex;align-items:center;gap:8px;font:600 21px var(--font-heading);letter-spacing:-.2px}
-.mark{display:grid;place-items:center;width:25px;height:25px;border:1px solid var(--color-brand);color:var(--color-brand);font:500 15px var(--font-heading)}
+.wordmark{display:flex;align-items:center;flex-shrink:0;font:600 21px/1 var(--font-heading);letter-spacing:-.2px}
 .wordmark-period,.footer-dot{color:var(--color-brand)}
-.main-nav{height:100%;display:flex;align-items:center;gap:28px}
-.nav-link{height:100%;position:relative;color:var(--text-muted);font-size:13px;padding:0 2px;transition:color var(--t-fast)}
+.main-nav{height:100%;min-width:0;display:flex;align-items:center;gap:24px;overflow-x:auto}
+.nav-link{height:100%;display:inline-flex;align-items:center;flex-shrink:0;position:relative;color:var(--text-muted);font-size:13px;line-height:1;padding:0 2px;white-space:nowrap;transition:color var(--t-fast)}
 .nav-link:hover,.nav-link.active,.theme-toggle:hover,.dialog-close:hover{color:var(--text)}
-.nav-link.active:after{content:"";height:1px;position:absolute;bottom:-1px;left:0;right:0;background:var(--color-brand)}
+.nav-link.active:after{content:"";height:2px;position:absolute;bottom:0;left:0;right:0;background:var(--color-brand)}
 .nav-count,.claim-date{font:10px var(--font-mono);color:var(--text-faint)}
 .nav-count{margin-left:4px}
-.top-actions{margin-left:auto;display:flex;align-items:center;gap:20px}
+.top-actions{margin-left:auto;display:flex;align-items:center;flex-shrink:0;gap:20px}
 .snapshot-state{font-size:12px;color:var(--text-muted)}
 .snapshot-state i,.source-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--color-success)}
 .snapshot-state i{margin-right:7px}
@@ -262,7 +261,7 @@ dialog h2{font-size:28px;margin:10px 0 22px}
   .wordmark{margin-right:auto}
   .top-actions{margin-left:0}
   .snapshot-state{display:inline-flex;align-items:center;font-size:11px}
-  .main-nav{order:3;width:100%;height:42px;justify-content:space-between;gap:8px}
+  .main-nav{order:3;width:100%;height:42px;gap:20px}
   .nav-link{font-size:12px}
   main{padding-top:36px}
   .hero h1{font-size:44px}
