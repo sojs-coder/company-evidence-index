@@ -24,8 +24,8 @@ export function runtimeConfigStatus(env = process.env) {
     configured,
     state: configured ? 'configured' : 'not_configured',
     detail: configured
-      ? 'Runtime-config snapshot credentials present; the requested secret is extracted at startup, held in memory, and never logged. The rest of the envelope is discarded unread-for.'
-      : 'No RUNTIME_CONFIG_URL/RUNTIME_CONFIG_TOKEN in the environment.'
+      ? 'Runtime configuration connected.'
+      : 'Runtime configuration not connected.'
   };
 }
 
