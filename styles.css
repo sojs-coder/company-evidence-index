@@ -315,8 +315,9 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .check-card{border-bottom:1px solid var(--border);padding:12px 0}
 .check-card summary{display:flex;justify-content:space-between;gap:18px;align-items:baseline;cursor:pointer;list-style:none}
 .check-card summary::-webkit-details-marker{display:none}
-.check-claim{font:500 15px var(--font-body);color:var(--text)}
-.check-meta{display:flex;gap:10px;align-items:baseline;flex:none}
+.check-claim{font:500 15px var(--font-body);color:var(--text);flex:1 1 auto;min-width:0}
+.check-meta{display:flex;gap:10px;align-items:baseline;flex:1 1 auto;min-width:0;flex-wrap:wrap;justify-content:flex-end}
+.check-meta .mono{min-width:0;overflow-wrap:anywhere;text-align:right}
 .check-card[open] summary{margin-bottom:10px}
 
 .check-card .collect-list li{display:block;padding:5px 0}
