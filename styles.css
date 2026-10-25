@@ -429,3 +429,8 @@ li.state-note{list-style:none}
 .collect-list--plain .faint{color:var(--text-muted)}
 
 .pack-group{margin-top:12px}
+.id-card{display:block;padding:10px 12px;border:1px solid var(--line,#d8d6d2);border-radius:8px;margin:6px 0;cursor:pointer}
+.id-card:has(input:checked){border-color:currentColor}
+.id-card input{margin-right:8px}
+.quote-block{border-left:3px solid var(--line,#d8d6d2);margin:10px 0;padding:6px 14px}
+.quote-block p{margin:0 0 6px}
