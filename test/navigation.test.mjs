@@ -6,12 +6,10 @@ import { runInNewContext } from 'node:vm';
 const source = await readFile(new URL('../navigation.js', import.meta.url), 'utf8');
 const pages = [
   ['index.html', '/', 'Vet'],
-  ['companies.html', '/companies.html', 'Apple demo'],
-  ['collection.html', '/collection.html', 'Collection'],
+  ['brief.html', '/brief.html', 'Reports'],
   ['packs.html', '/packs.html', 'Mentions'],
-  ['results.html', '/results.html', 'Results'],
-  ['report.html', '/report.html', 'Apple example'],
-  ['supplier.html', '/supplier.html', 'Supplier example']
+  ['collection.html', '/collection.html', 'Collection'],
+  ['results.html', '/results.html', 'Results']
 ];
 
 // Exercise the browser script without adding a DOM dependency to this static app.
@@ -88,8 +86,8 @@ test('theme toggles once and persists across every page', () => {
 });
 
 test('navigation and theme work when browser storage is unavailable', () => {
-  const page = render('/companies.html', new Map(), true);
-  assert.match(page.html, /aria-current="page">Apple demo/);
+  const page = render('/packs.html', new Map(), true);
+  assert.match(page.html, /aria-current="page">Mentions/);
   page.handlers[0]();
   assert.equal(page.document.documentElement.dataset.theme, 'dark');
 });
@@ -119,4 +117,12 @@ test('page-specific counts remain in the content, outside the shared header', as
     const html = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
     assert.match(html, new RegExp(`<main[^>]*>[\\s\\S]*id="${id}"`));
   }
+});
+
+test('Reports link carries the saved company, role and question', () => {
+  const storage = new Map([['cei_flow', '?c=MSFT&role=vendor&q=Is%20it%20worth%20it']]);
+  const page = render('/packs.html', storage);
+  assert.match(page.html, /href="\/brief\.html\?c=MSFT&role=vendor&q=Is%20it%20worth%20it"[^>]*>Reports</);
+  const bad = render('/packs.html', new Map([['cei_flow', '?c=X&role=y&q="><script>']]));
+  assert.match(bad.html, /href="\/brief\.html"[^>]*>Reports</);
 });
