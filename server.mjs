@@ -114,7 +114,15 @@ async function handleApi(req, res, url, ip) {
   }
   if (p === '/api/companies/apple/analysis') {
     const report = await runReport();
-    return send(res, 200, { ...report, analysis: matchClaims(report), validation: validateClaims(report), history: store.runs, storeMode: process.env.DATA_DIR ? 'attached-volume' : 'ephemeral', historyNote: process.env.DATA_DIR ? 'Runs persist to an attached Railway volume and survive redeploys.' : 'Runs persist to disk within this deployment only; a redeploy resets the store.' });
+    const v = validateClaims(report);
+    return send(res, 200, { ...report, analysis: matchClaims(report), validation: v, diligence: buildDiligence(report, v), history: store.runs, storeMode: process.env.DATA_DIR ? 'attached-volume' : 'ephemeral', historyNote: process.env.DATA_DIR ? 'Runs persist to an attached Railway volume and survive redeploys.' : 'Runs persist to disk within this deployment only; a redeploy resets the store.' });
+  }
+  if (p === '/api/companies/apple/memo') {
+    const report = await runReport();
+    const v = validateClaims(report);
+    const md = buildMemo(report, v, buildDiligence(report, v));
+    res.writeHead(200, { 'content-type': 'text/markdown; charset=utf-8', 'cache-control': 'no-store', 'content-disposition': 'attachment; filename="apple-diligence-memo.md"' });
+    return res.end(md);
   }
   const traceMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z0-9_]+)\/trace$/);
   if (traceMatch && ALLOWED[traceMatch[1]]) {
@@ -590,6 +598,90 @@ async function runReport() {
   await saveStore();
   report.persistence = { runs: store.runs.length, uniqueItems: Object.keys(store.items).length, newThisRun: newItems, seenBeforeThisRun: seenBefore, storage: 'on-disk JSON within this deployment', resetsOn: 'redeploy or container replacement' };
   return report;
+}
+
+// ===== Diligence workflow: fundamentals, risk-cued coverage, competitive
+// co-mentions, open questions, cited memo. Extractive over this run's collected
+// records only; no LLM, no invented judgments. Missing evidence is listed, not filled.
+const RISK_RE = /\b(lawsuit|sued|antitrust|fine[ds]?|penalt\w+|recall|layoffs?|laid off|outage|breach|vulnerabilit\w+|exploit\w*|investigation|probe|downgrades?|bans?|banned|tariffs?|settlement|complaint|delayed?|misses|missed|declin\w+|doj|ftc)\b/i;
+const COMPETITORS = ['Samsung', 'Google', 'Microsoft', 'Meta', 'Huawei', 'Xiaomi', 'OpenAI', 'Amazon', 'Nvidia'];
+function buildDiligence(report, v) {
+  const all = [];
+  for (const s of report.sources) for (const it of (s.relevantItems || [])) all.push({ ...it, source: s.name, key: s.key });
+  const concepts = [['xbrl', 'Revenue'], ['xbrl_ni', 'Net income'], ['xbrl_rd', 'R&D expense'], ['xbrl_eps', 'Diluted EPS']];
+  const fyMap = {};
+  for (const [k, label] of concepts) {
+    const src = report.sources.find(x => x.key === k);
+    for (const it of (src && src.allItems) || []) {
+      const fy = (it.title || '').slice(0, 6);
+      if (!/^FY\d{4}$/.test(fy)) continue;
+      (fyMap[fy] = fyMap[fy] || { fy, date: fmtDate(it.date), rows: {} }).rows[label] = { value: (it.title || '').replace(/^FY\d{4}\s*/, ''), concept: it.concept || '', link: it.link || '' };
+    }
+  }
+  const fundamentals = Object.values(fyMap).sort((a, b) => b.fy.localeCompare(a.fy)).slice(0, 2);
+  const riskCues = all.filter(it => RISK_RE.test((it.title || '') + ' ' + (it.context || '')))
+    .sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)).slice(0, 12)
+    .map(it => ({ title: (it.title || '').slice(0, 200), source: it.source, date: fmtDate(it.date), link: it.link || '', cue: (((it.title || '') + ' ' + (it.context || '')).match(RISK_RE) || [])[0] || '' }));
+  const compCounts = {}, compExamples = {};
+  for (const it of all) {
+    const t = (it.title || '') + ' ' + (it.context || '');
+    for (const c of COMPETITORS) if (new RegExp('\\b' + c + '\\b', 'i').test(t)) { compCounts[c] = (compCounts[c] || 0) + 1; if (!compExamples[c]) compExamples[c] = { title: (it.title || '').slice(0, 160), source: it.source, date: fmtDate(it.date), link: it.link || '' }; }
+  }
+  const competitors = Object.entries(compCounts).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count, example: compExamples[name] }));
+  const openQuestions = [];
+  for (const s of report.sources) if (s.mode !== 'live') openQuestions.push({ area: s.name + ' unavailable this run', detail: (s.detail || 'fetch failed').slice(0, 220) });
+  for (const c of [...(v.figureChecks || []), ...(v.headlineChecks || [])]) if (c.status === 'no-press-citation-in-run') openQuestions.push({ area: 'No collected citation this run', detail: c.claim });
+  return { fundamentals, riskCues, competitors, openQuestions: openQuestions.slice(0, 14),
+    labels: { fundamentals: 'Filed SEC XBRL facts (exact us-gaap concept + annual period), latest two fiscal years.',
+      risk: 'Keyword-cued coverage mentioning risk terms in collected items - cues for review, not a risk assessment.',
+      competitors: 'Competitor names co-occurring inside collected Apple coverage - presence of a name, not competitive analysis.',
+      open: 'Evidence this run does not contain. Absence here is not proof the fact or coverage does not exist.' } };
+}
+function buildMemo(report, v, d) {
+  const L = [];
+  const total = report.sources.reduce((n, s) => n + s.itemCount, 0);
+  L.push('# Diligence memo - Apple Inc. (AAPL)');
+  L.push(`Generated ${report.generatedAt} from ${total.toLocaleString('en-US')} collected public records across ${report.liveCount} live sources (${(report.candidateTotal || 0).toLocaleString('en-US')} candidate query-matches counted separately). Run history: ${report.persistence.runs} recorded runs, ${report.persistence.uniqueItems.toLocaleString('en-US')} unique records on file (${report.persistence.storage}).`);
+  L.push('');
+  L.push('Every section cites the collected evidence it rests on. What this run cannot confirm is listed under Open questions - missing evidence is never filled with invented conclusions.');
+  L.push('');
+  L.push('## 1. Fundamentals (filed SEC XBRL facts)');
+  L.push(d.labels.fundamentals); L.push('');
+  for (const fy of d.fundamentals) {
+    L.push(`### ${fy.fy} (annual period ended ${fy.date})`);
+    for (const [label, r] of Object.entries(fy.rows)) L.push(`- ${label}: ${r.value} - us-gaap:${r.concept} - ${r.link}`);
+    L.push('');
+  }
+  L.push('## 2. Coverage trend (collected volume, not total internet volume)');
+  L.push(report.trends.scope); L.push('');
+  for (const day of report.trends.days) L.push(`- ${day.day}: ${day.count} collected items`);
+  L.push('');
+  L.push('## 3. Claim checks (related-evidence coverage, wording level)');
+  L.push(`${v.coverageScore.score}/100 - ${v.coverageScore.drivers}`);
+  L.push(v.coverageScore.scope); L.push('');
+  for (const c of v.figureChecks) L.push(`- [${c.status}] ${c.claim} - ${c.basis}${c.link ? ' - ' + c.link : ''}`);
+  L.push('');
+  for (const c of v.headlineChecks) L.push(`- [${c.status}] ${c.claim}${c.date ? ' (' + c.date + ')' : ''}`);
+  L.push('');
+  L.push('## 4. Risk-cued coverage');
+  L.push(d.labels.risk); L.push('');
+  if (d.riskCues.length) for (const r of d.riskCues) L.push(`- ${r.date} · ${r.source}: "${r.title}" (cue: ${r.cue}) ${r.link}`);
+  else L.push('- No risk-cued items in this run\'s collected coverage.');
+  L.push('');
+  L.push('## 5. Competitive co-mentions');
+  L.push(d.labels.competitors); L.push('');
+  if (d.competitors.length) for (const c of d.competitors) L.push(`- ${c.name}: ${c.count} collected item(s). Example: ${c.example.date} · ${c.example.source}: "${c.example.title}" ${c.example.link}`);
+  else L.push('- No competitor names co-mentioned in this run\'s collected coverage.');
+  L.push('');
+  L.push('## 6. Open questions (missing evidence)');
+  L.push(d.labels.open); L.push('');
+  if (d.openQuestions.length) for (const q of d.openQuestions) L.push(`- ${q.area}: ${q.detail}`);
+  else L.push('- None identified in this run.');
+  L.push('');
+  L.push('## 7. Method and limits');
+  L.push(v.method);
+  L.push('Public sources only; no login-walled or paywalled collection; no LLM in the backend; matching is extractive and quoted. Query/tag-matched items are candidates, counted separately from Apple-specific endpoints. Collection cadence and per-source windows differ; deduplicated records persist on an attached volume across runs.');
+  return L.join('\n');
 }
 
 createServer(async (req, res) => {
