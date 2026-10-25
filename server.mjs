@@ -295,11 +295,12 @@ async function handleApi(req, res, url, ip) {
   // budget ledger); actual token usage is recorded per run.
   async function openaiKey() {
     let k = (process.env.OPENAI_API_KEY || '').trim();
+    let err = 'env_absent';
     if (!k) {
-      const r = await extractBrokeredSecret('OPENAI_API_KEY').catch(() => ({ ok: false }));
-      if (r.ok) k = r.value;
+      const r = await extractBrokeredSecret('OPENAI_API_KEY').catch((e) => ({ ok: false, error: 'throw:' + String(e && e.message || e).slice(0, 60) }));
+      if (r.ok) k = r.value; else err = r.error + (r.httpStatus ? ':' + r.httpStatus : '');
     }
-    return k || null;
+    return { key: k || null, err };
   }
   const OPENAI_CAP_USD = 0.50;
   if (p === '/api/analysis/run' && req.method === 'POST') {
@@ -313,8 +314,9 @@ async function handleApi(req, res, url, ip) {
     if (!ticker || !pack || !pack.items || !pack.items.length) return send(res, 404, { error: 'no_pack', detail: 'No collected pack for this ticker.' });
     store.openaiSpend = store.openaiSpend || { confirmedUsd: 0, runs: [] };
     if (store.openaiSpend.confirmedUsd >= OPENAI_CAP_USD) return send(res, 402, { error: 'budget_cap', detail: 'OpenAI analysis share exhausted.' });
-    const key = await openaiKey();
-    if (!key) return send(res, 503, { error: 'openai_unconfigured' });
+    const kres = await openaiKey();
+    if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: String(kres.err).slice(0, 80) });
+    const key = kres.key;
     const withText = pack.items.filter(i => i.text && String(i.text).trim());
     const byDate = withText.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
     const byEng = withText.slice().sort((a, b) => ((b.likes || b.engagement || 0) - (a.likes || a.engagement || 0)));
