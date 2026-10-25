@@ -28,7 +28,7 @@
   --bg: #f5f4f4;
   --text: #101c36;
   --text-muted: color-mix(in srgb, var(--text) 62%, transparent);
-  --text-faint: color-mix(in srgb, var(--text) 42%, transparent);
+  --text-faint: color-mix(in srgb, var(--text) 56%, transparent);
   --border: color-mix(in srgb, var(--text) 16%, transparent);
   --border-muted: color-mix(in srgb, var(--text) 8%, transparent);
 
@@ -55,7 +55,7 @@
   --bg: #081326;
   --text: #eef4ff;
   --text-muted: color-mix(in srgb, var(--text) 60%, transparent);
-  --text-faint: color-mix(in srgb, var(--text) 38%, transparent);
+  --text-faint: color-mix(in srgb, var(--text) 52%, transparent);
   --border: color-mix(in srgb, var(--text) 24%, transparent);
   --border-muted: color-mix(in srgb, var(--text) 12%, transparent);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
