@@ -59,26 +59,6 @@ async function handleApi(req, res, url, ip) {
     const r = await submitSbssDecision(body);
     return send(res, r.ok ? 200 : 502, r);
   }
-  if (p === '/api/apify-usage') {
-    // Read-only diagnostics: sanitized recent actor-run usage for spend verification.
-    // Returns only run metadata and charge fields - never the token, never the input.
-    try {
-      let token = (process.env.APIFY_API_TOKEN || '').trim();
-      if (!token) {
-        const r = await extractBrokeredSecret('APIFY_API_TOKEN').catch(() => ({ ok: false }));
-        if (r.ok && r.value) token = r.value;
-      }
-      if (!token) return send(res, 200, { state: 'not_configured', detail: 'No Apify token in env or brokered runtime config; usage cannot be read.' });
-      const u = await fetch('https://api.apify.com/v2/actor-runs?limit=10&desc=1', { headers: { authorization: `Bearer ${token}` } });
-      if (u.status === 401) return send(res, 200, { state: 'invalid_token', detail: 'Apify rejected the configured token (401). Local state only; nothing was reported upstream.' });
-      if (!u.ok) return send(res, 200, { state: 'check_failed', detail: `actor-runs list returned HTTP ${u.status}.` });
-      const j = await u.json();
-      const items = (j && j.data && Array.isArray(j.data.items)) ? j.data.items : [];
-      return send(res, 200, { state: 'ok', runs: items.map(r => ({ id: r.id || null, actId: r.actId || null, status: r.status || null, startedAt: r.startedAt || null, finishedAt: r.finishedAt || null, usageTotalUsd: (r.usageTotalUsd != null ? r.usageTotalUsd : null), chargedEventCounts: r.chargedEventCounts || null, computeUnits: (r.stats && r.stats.computeUnits != null ? r.stats.computeUnits : null) })) });
-    } catch (e) {
-      return send(res, 200, { state: 'error', detail: 'usage lookup failed: ' + String(e.message || e) });
-    }
-  }
   if (p === '/api/health') return send(res, 200, { status: 'ok', service: 'company-evidence-index', seeded: true, x402: gateStatus, crs: crsStatus(), runtimeConfig: runtimeConfigStatus() });
 
   const claims = () => {
