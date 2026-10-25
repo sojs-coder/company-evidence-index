@@ -400,3 +400,8 @@ dialog h2{font-size:28px;margin:10px 0 22px}
   .metric-row .metric{min-width:0;flex:1 1 42%;margin-right:0;padding-right:10px}
   .metric-row .metric:nth-child(2n){border-right:0}
 }
+
+.memo-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--border-muted);margin:4px 0 14px}
+.memo-table th,.memo-table td{border-top:1px solid var(--border-muted);padding:8px 12px;text-align:left;vertical-align:top;font-size:12px}
+.memo-table th{font:10px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);border-top:0}
+.memo-sub{margin:16px 0 2px}
