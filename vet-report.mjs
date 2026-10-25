@@ -173,6 +173,33 @@ export async function buildVetIdentify(name) {
     sources.push({ key: 'usaspending', name: 'USASpending award search', url: 'https://www.usaspending.gov/', fetched: 0, mode: 'error', detail: String(e.message || e) });
   }
 
+  // Third-party synthesis: Context.dev Web Answers writes an LLM-generated
+  // summary from public sources it cites. This is a generated synthesis -
+  // NOT extractive evidence and NOT a deterministic check - kept in its own
+  // field, labeled with its method, and rendered separately in the UI.
+  if (key && question) {
+    try {
+      const j = await ctxCall('/web/answers', {
+        mode: 'fast',
+        task: 'Research the company ' + identity.name + ' for this buyer question: ' + question + '. Answer only from public sources you can cite.',
+        json_format: { summary: 'string', evidence_points: ['string'], open_questions: ['string'] }
+      }, key);
+      pack.synthesis = {
+        provider: 'Context.dev Web Answers',
+        method: 'third-party LLM synthesis over cited public sources; generated, not extractive, not deterministic',
+        mode: 'fast',
+        content: j.json_content || null,
+        sources: (Array.isArray(j.sources) ? j.sources : []).map(s => ({ title: s.title || null, url: s.url || s.link || null })).filter(s => s.url),
+        partial: !!j.partial
+      };
+      sources.push({ key: 'ctx_answers', name: 'Context.dev Web Answers (third-party LLM synthesis)', url: 'https://www.context.dev/', fetched: pack.synthesis.sources.length, mode: 'live', creditsCounted: 10, detail: pack.synthesis.partial ? 'partial synthesis' : 'synthesis generated from cited sources' });
+    } catch (e) {
+      sources.push({ key: 'ctx_answers', name: 'Context.dev Web Answers (third-party LLM synthesis)', url: 'https://www.context.dev/', fetched: 0, mode: 'error', detail: String(e.message || e) });
+    }
+  } else {
+    sources.push({ key: 'ctx_answers', name: 'Context.dev Web Answers (third-party LLM synthesis)', url: 'https://www.context.dev/', fetched: 0, mode: key ? 'skipped' : 'not_configured', detail: key ? 'No evaluation question given.' : 'CONTEXT_DEV_API_KEY not set; this connector is off, not failed.' });
+  }
+
   return pack;
 }
 
