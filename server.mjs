@@ -389,14 +389,18 @@ function matchClaims(report) {
 // the filter is a heuristic, labeled as such on the dashboard.
 const FEED_FILTERED = new Set(['verge', 'ninetofive', 'macrumors']);
 const APPLE_RE = /\bapple\b|iphone|ipad|\bios\b|ipados|macos|macbook|airpods|homepod|airtag|icloud|\bsiri\b|vision pro|apple tv|apple music|apple pay|apple watch|app store|tim cook|\baapl\b|imac|mac mini|mac studio|mac pro|watchos|xcode|swiftui|itunes|airtag|keynote|wwdc|cupertino|apple park|apple store|final cut|logic pro|garageband|airplay|carplay|touch id|face id|apple intelligence|apple care|apple one|apple card|apple news|apple fitness|apple arcade|\bbeats\b|magsafe|genius bar/i;
-function isRelevant(key, text) { return (FEED_FILTERED.has(key) || QUERY_MATCHED.has(key)) ? APPLE_RE.test(text) : true; }
+// Confirmed non-company false-positive class: drug-checking result posts where
+// "Apple" is a pill logo, not the company. Excluded from relevant counts,
+// claims and trends; the raw record stays in allItems for audit.
+const NON_COMPANY_RE = /\[Apple\][^\n]{0,160}?(\(\s*\d+\s*mg\s*\)|Detected:|Logo:\s*Apple)/i;
+function isRelevant(key, text) { if (NON_COMPANY_RE.test(text)) return false; return (FEED_FILTERED.has(key) || QUERY_MATCHED.has(key)) ? APPLE_RE.test(text) : true; }
 const QUERY_MATCHED = new Set(['hackernews', 'hncomments', 'news', 'mastodon', 'lemmy']);
 function relevanceNote(key, it) {
   const text = itemTitle(it) + ' ' + (it.outlet || '') + ' ' + (it.context || '');
   if (QUERY_MATCHED.has(key)) {
-    if (it.matched) return `matched passage: "...${it.matched}..."`;
+    if (it.matched) return `candidate (query/tag match, not confirmed company coverage) - matched passage: "...${it.matched}..."`;
     const m = (it.context || text).match(/.{0,60}(apple|iphone|ipad|ios|macbook|airpods|vision pro|apple tv|apple watch|app store|tim cook|aapl|imac|siri).{0,80}/i);
-    return m ? `matched passage: "...${m[0].trim()}..."` : 'returned by source query/tag "Apple"; term not in collected excerpt';
+    return m ? `candidate (query/tag match, not confirmed company coverage) - matched passage: "...${m[0].trim()}..."` : 'candidate - returned by source query/tag "Apple"; term not in collected excerpt, not confirmed company coverage';
   }
   if (FEED_FILTERED.has(key)) { const m = text.match(APPLE_RE); return m ? `keyword: ${m[0]}` : 'no Apple keyword in title'; }
   return 'Apple-specific endpoint';
@@ -548,7 +552,7 @@ async function runReport() {
     const d = r.status === 'fulfilled' ? r.value : { mode: 'unavailable', source: SOURCES[i].label, name: SOURCES[i].name, fetchedAt: runAt, detail: String(r.reason), items: [] };
     for (const it of d.items) it.relevance = relevanceNote(SOURCES[i].key, it);
     const relevant = d.items.filter(it => isRelevant(SOURCES[i].key, itemTitle(it) + ' ' + (it.outlet || '') + ' ' + (it.context || '') + ' ' + (it.matched || '')));
-    return { key: SOURCES[i].key, name: d.name, source: d.source, mode: d.mode, fetchedAt: d.fetchedAt, cached: !!d.cached, itemCount: d.items.length, relevantCount: relevant.length, items: d.items.slice(0, 3), allItems: d.items, relevantItems: relevant, detail: d.detail };
+    return { key: SOURCES[i].key, name: d.name, source: d.source, mode: d.mode, fetchedAt: d.fetchedAt, cached: !!d.cached, itemCount: d.items.length, relevantCount: relevant.length, candidateCount: QUERY_MATCHED.has(SOURCES[i].key) ? relevant.length : 0, items: d.items.slice(0, 3), allItems: d.items, relevantItems: relevant, detail: d.detail };
   });
   // Bounded article-body depth: bodies for the 12 newest collected press items,
   // so claim checks inspect passages, not only titles and summaries.
@@ -570,6 +574,7 @@ async function runReport() {
     trends: { days: trendDays, scope: 'Collected press/forum/social/review items per UTC day. Collection windows differ per source; this is collected volume, not total internet volume.' },
     liveCount: sources.filter(s => s.mode === 'live').length, downCount: sources.filter(s => s.mode !== 'live').length,
     relevantTotal: sources.reduce((n, s) => n + (s.relevantCount || 0), 0),
+    candidateTotal: sources.reduce((n, s) => n + (s.candidateCount || 0), 0),
     sources
   };
   let newItems = 0, seenBefore = 0;
