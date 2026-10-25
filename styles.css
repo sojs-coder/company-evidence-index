@@ -444,7 +444,7 @@ li.state-note{list-style:none}
 #role-ask{position:fixed;inset:0;z-index:9000;background:var(--bg,#f5f4f4);display:flex;align-items:center;justify-content:center;padding:1rem}
 .role-card{max-width:520px;width:100%}
 .role-card h1{font-size:2rem;margin:0 0 1.2rem}
-.role-opt{display:block;width:100%;text-align:left;padding:.9rem 1rem;margin:.5rem 0;border:1px solid var(--border,#ccc);border-radius:10px;background:var(--panel,#fff);cursor:pointer;font:inherit}
+.role-opt{display:block;width:100%;text-align:left;padding:.9rem 1rem;margin:.5rem 0;border:1px solid var(--border,#ccc);border-radius:10px;background:color-mix(in srgb, var(--text) 5%, var(--bg));color:var(--text);cursor:pointer;font:inherit}
 .role-opt strong{display:block;font-size:1.05rem}
 .role-opt span{display:block;color:var(--text-faint,#666);font-size:.85rem;margin-top:.15rem}
 .role-opt:hover{border-color:var(--color-brand-border,#1438dc)}
