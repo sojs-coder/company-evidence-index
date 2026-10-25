@@ -311,3 +311,10 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 @media(max-width:760px){.stream-head,.stream-list li{grid-template-columns:minmax(0,1fr) 76px}.stream-src{display:none}}
 .type-strip{display:flex;gap:22px;flex-wrap:wrap;font:11px var(--font-mono);letter-spacing:.06em;color:var(--text-faint);margin:14px 0 0}
 .type-strip b{color:var(--text);font-weight:500;margin-right:4px}
+.check-list{display:flex;flex-direction:column;border-top:1px solid var(--border)}
+.check-card{border-bottom:1px solid var(--border);padding:12px 0}
+.check-card summary{display:flex;justify-content:space-between;gap:18px;align-items:baseline;cursor:pointer;list-style:none}
+.check-card summary::-webkit-details-marker{display:none}
+.check-claim{font:500 15px var(--font-body);color:var(--text)}
+.check-meta{display:flex;gap:10px;align-items:baseline;flex:none}
+.check-card[open] summary{margin-bottom:10px}
