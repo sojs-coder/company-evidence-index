@@ -1,0 +1,36 @@
+.brief-switch{display:flex;gap:18px;flex-wrap:wrap;margin-top:20px}
+.brief-switch label{display:flex;flex-direction:column;gap:4px;font:500 11px var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.brief-switch select{height:40px;min-width:180px;border:1px solid var(--color-brand-border);background:transparent;color:var(--text);padding:6px 10px;font:14px var(--font-body);text-transform:none;letter-spacing:0}
+.brief-list li{display:block;padding:14px 0;border-top:1px solid var(--border-muted)}
+.brief-list li:first-child{border-top:0}
+.brief-list .b-claim{font-size:15px;line-height:1.45}
+.brief-list .b-meta{font:10.5px var(--font-mono);letter-spacing:.06em;color:var(--text-faint);margin-top:6px}
+.brief-list a{color:var(--color-brand-hover);overflow-wrap:anywhere}
+.brief-list details{margin-top:6px}
+.brief-list summary{cursor:pointer;font-size:13px;color:var(--text-muted)}
+.brief-list blockquote{margin:8px 0 0;padding-left:12px;border-left:2px solid var(--border);font-size:13px;color:var(--text-muted);overflow-wrap:anywhere}
+.pick-roles{border:0;padding:0;margin:0;flex:2 1 340px}
+.pick-roles legend{font:500 11px var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;padding:0}
+.pick-roles label{display:inline-flex;align-items:center;gap:6px;margin-right:16px;min-height:44px;font-size:14px}
+@media(max-width:640px){.metric-row{grid-template-columns:1fr 1fr}.brief-switch select{min-width:140px}}
+.pick-form .pick-roles{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px;border:0;padding:0;margin:0}
+.pick-form .pick-roles legend{width:100%;float:none}
+.pick-form .pick-roles label{display:inline-flex;flex-direction:row;align-items:center;gap:8px;margin:0;min-height:44px;padding:0 14px;border:1px solid var(--color-brand-border);font:14px var(--font-body);letter-spacing:0;text-transform:none;color:var(--text);cursor:pointer}
+.pick-form .pick-roles label:has(input:checked){border-color:var(--color-brand);color:var(--color-brand)}
+.pick-form .pick-roles input[type=radio]{width:auto;height:auto;min-height:0;padding:0;margin:0;accent-color:var(--color-brand)}
+.pick-form .vet-field select{height:44px;border:1px solid var(--color-brand-border);background:transparent;color:var(--text);padding:6px 12px;font:15px var(--font-body)}
+#b-metrics .metric-number,#b-sig .metric-number{font-size:clamp(22px,2.2vw,30px);white-space:nowrap}
+.brief-checks{margin:14px 0 0;padding:0;list-style:none}
+.brief-checks li{padding:10px 0;border-top:1px solid var(--border-muted);font-size:14px;line-height:1.45}
+.brief-checks li:first-child{border-top:0}
+.brief-table-wrap{overflow-x:auto}
+.brief-table{width:100%;border-collapse:collapse;font-size:13px}
+.brief-table th,.brief-table td{text-align:left;padding:10px 12px 10px 0;border-top:1px solid var(--border-muted);white-space:nowrap}
+.brief-table th{font:10.5px var(--font-mono);letter-spacing:.08em;color:var(--text-faint);border-top:0;font-weight:400}
+.brief-table tr.is-current td{color:var(--color-brand)}
+.brief-links{list-style:none;margin:0;padding:0}
+.brief-links li{padding:10px 0;border-top:1px solid var(--border-muted);font-size:14px}
+.brief-links li:first-child{border-top:0}
+.brief-links a{color:var(--color-brand-hover)}
+.brief-links span{display:block;font-size:12px;color:var(--text-faint)}
+@media(max-width:640px){#b-metrics .metric-number,#b-sig .metric-number{font-size:20px}}
