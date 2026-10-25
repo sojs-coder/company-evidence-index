@@ -17,7 +17,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { extname, join, normalize } from 'node:path';
 import { maybeWrapWithX402, x402Status } from './x402-gate.mjs';
-import { SIGNALS_MODEL, BATCH_SIZE, prepareItems, estimateCost, buildBatchPrompt, normalizeBatchSignals, rollupSignals, postsFromParts, resumeCheckpoint, publicSignals, buildQuestionsPrompt } from './signals.mjs';
+import { SIGNALS_MODEL, MODEL_RATES, costFor, BATCH_SIZE, prepareItems, estimateCost, buildBatchPrompt, normalizeBatchSignals, rollupSignals, postsFromParts, resumeCheckpoint, publicSignals, buildQuestionsPrompt } from './signals.mjs';
 import { buildPaidGate } from './paid-gate.mjs';
 import { crsSandboxStatus } from './crs-sandbox.mjs';
 import { fetchPrincipalCreditEvidence, creditEvidenceSection } from './crs-credit-evidence.mjs';
@@ -451,12 +451,12 @@ async function handleApi(req, res, url, ip) {
     const cr = await fetch(OPENAI_BASE + '/chat/completions', {
       method: 'POST',
       headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.2 })
+      body: JSON.stringify({ model: SIGNALS_MODEL, messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.2, reasoning_effort: 'none' })
     });
     if (!cr.ok) return send(res, 502, { error: 'openai_error', detail: 'HTTP ' + cr.status });
     const cj = await cr.json();
     const usage = cj.usage || {};
-    const cost = +(((usage.prompt_tokens || 0) * 0.15 / 1e6) + ((usage.completion_tokens || 0) * 0.60 / 1e6)).toFixed(6);
+    const cost = costFor(SIGNALS_MODEL, usage.prompt_tokens || 0, usage.completion_tokens || 0);
     let parsed = { claims: [], counterclaims: [] };
     try { parsed = JSON.parse(cj.choices[0].message.content); } catch { /* keep empty */ }
     // Deterministic grounding: model cites post NUMBERS; the server maps them
@@ -466,7 +466,7 @@ async function handleApi(req, res, url, ip) {
     const at = new Date().toISOString();
     store.analysis = store.analysis || {};
     store.analysis[ticker] = {
-      ticker, company: pack.company || ticker, generatedAt: at, model: 'gpt-4o-mini',
+      ticker, company: pack.company || ticker, generatedAt: at, model: SIGNALS_MODEL,
       inputItems: posts.length, packItems: pack.items.length,
       claims: ground(parsed.claims), counterclaims: ground(parsed.counterclaims),
       basis: 'Reported claims extracted by OpenAI (third party) from a ' + posts.length + '-post sample of ' + pack.items.length + ' collected public posts. Each claim links to the sampled posts it was extracted from; support counts those cited posts. These are claims found in posts, not verified facts.'
@@ -520,12 +520,12 @@ async function handleApi(req, res, url, ip) {
           const cr = await fetch(OPENAI_BASE + '/chat/completions', {
             method: 'POST',
             headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
-            body: JSON.stringify({ model: SIGNALS_MODEL, messages: [{ role: 'user', content: buildBatchPrompt(pack.company || ticker, ticker, batchTexts, off) }], response_format: { type: 'json_object' }, temperature: 0 })
+            body: JSON.stringify({ model: SIGNALS_MODEL, messages: [{ role: 'user', content: buildBatchPrompt(pack.company || ticker, ticker, batchTexts, off) }], response_format: { type: 'json_object' }, temperature: 0, reasoning_effort: 'none' })
           });
           if (!cr.ok) throw new Error('openai_http_' + cr.status);
           const cj = await cr.json();
           const usage = cj.usage || {};
-          const cost = +(((usage.prompt_tokens || 0) * 0.15 / 1e6) + ((usage.completion_tokens || 0) * 0.60 / 1e6)).toFixed(6);
+          const cost = costFor(SIGNALS_MODEL, usage.prompt_tokens || 0, usage.completion_tokens || 0);
           store.openaiSpend.confirmedUsd = +(store.openaiSpend.confirmedUsd + cost).toFixed(6);
           store.openaiSpend.runs.push({ ticker, kind: 'signals', at: new Date().toISOString(), promptTokens: usage.prompt_tokens || 0, completionTokens: usage.completion_tokens || 0, costUsd: cost });
           let parsed = null;
@@ -587,12 +587,12 @@ async function handleApi(req, res, url, ip) {
     const cr = await fetch(OPENAI_BASE + '/chat/completions', {
       method: 'POST',
       headers: { authorization: 'Bearer ' + kres.value, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: SIGNALS_MODEL, messages: [{ role: 'user', content: qp }] , response_format: { type: 'json_object' }, temperature: 0 })
+      body: JSON.stringify({ model: SIGNALS_MODEL, messages: [{ role: 'user', content: qp }] , response_format: { type: 'json_object' }, temperature: 0, reasoning_effort: 'none' })
     });
     if (!cr.ok) return send(res, 502, { error: 'openai_http_' + cr.status });
     const cj = await cr.json();
     const usage = cj.usage || {};
-    const cost = +(((usage.prompt_tokens || 0) * 0.15 / 1e6) + ((usage.completion_tokens || 0) * 0.60 / 1e6)).toFixed(6);
+    const cost = costFor(SIGNALS_MODEL, usage.prompt_tokens || 0, usage.completion_tokens || 0);
     store.openaiSpend.confirmedUsd = +(store.openaiSpend.confirmedUsd + cost).toFixed(6);
     store.openaiSpend.runs.push({ ticker, kind: 'questions', at: new Date().toISOString(), promptTokens: usage.prompt_tokens || 0, completionTokens: usage.completion_tokens || 0, costUsd: cost });
     let parsed = null;
@@ -669,12 +669,12 @@ async function handleApi(req, res, url, ip) {
     const cr = await fetch(OPENAI_BASE + '/chat/completions', {
       method: 'POST',
       headers: { authorization: 'Bearer ' + kres.key, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: SIGNALS_MODEL, messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0 })
+      body: JSON.stringify({ model: SIGNALS_MODEL, messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0, reasoning_effort: 'none' })
     });
     if (!cr.ok) return send(res, 502, { error: 'openai_http_' + cr.status });
     const cj = await cr.json();
     const usage = cj.usage || {};
-    const cost = +(((usage.prompt_tokens || 0) * 0.15 / 1e6) + ((usage.completion_tokens || 0) * 0.60 / 1e6)).toFixed(6);
+    const cost = costFor(SIGNALS_MODEL, usage.prompt_tokens || 0, usage.completion_tokens || 0);
     store.openaiSpend.confirmedUsd = +(store.openaiSpend.confirmedUsd + cost).toFixed(6);
     store.openaiSpend.runs.push({ ticker, kind: 'answer', role, at: new Date().toISOString(), promptTokens: usage.prompt_tokens || 0, completionTokens: usage.completion_tokens || 0, costUsd: cost });
     let parsed = null;
