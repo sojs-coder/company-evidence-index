@@ -71,7 +71,7 @@ async function handleApi(req, res, url, ip) {
 
   // Live collection (public Apple material only). Real fetches, marked live;
   // failures reported honestly. Host allowlist + caps per spec §4.
-  const collectMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z]+)$/);
+  const collectMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z0-9_]+)$/);
   if (collectMatch && ALLOWED[collectMatch[1]]) return send(res, 200, await collect(collectMatch[1]));
   if (p === '/api/companies/apple/report') return send(res, 200, await runReport());
   if (p === '/api/companies/apple/export') {
@@ -116,7 +116,7 @@ async function handleApi(req, res, url, ip) {
     const report = await runReport();
     return send(res, 200, { ...report, analysis: matchClaims(report), validation: validateClaims(report), history: store.runs, storeMode: process.env.DATA_DIR ? 'attached-volume' : 'ephemeral', historyNote: process.env.DATA_DIR ? 'Runs persist to an attached Railway volume and survive redeploys.' : 'Runs persist to disk within this deployment only; a redeploy resets the store.' });
   }
-  const traceMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z]+)\/trace$/);
+  const traceMatch = p.match(/^\/api\/companies\/apple\/collect\/([a-z0-9_]+)\/trace$/);
   if (traceMatch && ALLOWED[traceMatch[1]]) {
     const d = await collect(traceMatch[1]);
     const escH = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
