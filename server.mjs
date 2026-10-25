@@ -158,6 +158,12 @@ async function cappedFetch(url) {
     return { body, trace: { method: 'GET', url, status: r.status, bytes: buf.byteLength, durationMs: Date.now() - started, excerpt: body.slice(0, 1600) } };
   } finally { clearTimeout(t); }
 }
+async function fetchArticleText(url) {
+  try {
+    const { body } = await cappedFetch(url);
+    return decodeEntities(body.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim().slice(0, 4000);
+  } catch { return ''; }
+}
 const items = xml => [...xml.matchAll(/<item[ >][\s\S]*?<\/item>/g)].map(m => m[0]);
 const decodeEntities = t => t.replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16))).replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;|&nbsp;/g, ' ');
 const field = (item, name) => { const m = item.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`)); return m ? decodeEntities(m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '')).trim() : ''; };
@@ -328,7 +334,7 @@ function validateClaims(report) {
     const m = (f.title || '').match(/\$([\d.]+)B/);
     const fig = m ? m[1] : null;
     const figRe = fig ? new RegExp('\\b' + fig.replace(/\./g, '\\.') + '(?!\\d)') : null;
-    const withHit = figRe ? pressItems.map(it => { const hay = (it.title || '') + ' ' + (it.context || ''); const hm = hay.match(figRe); return hm ? { ...it, excerpt: hay.slice(Math.max(0, hm.index - 60), hm.index + hm[0].length + 80).trim() } : null; }).filter(Boolean) : [];
+    const withHit = figRe ? pressItems.map(it => { const hay = (it.title || '') + ' ' + (it.context || '') + ' ' + (it.body || ''); const hm = hay.match(figRe); return hm ? { ...it, excerpt: hay.slice(Math.max(0, hm.index - 60), hm.index + hm[0].length + 80).trim() } : null; }).filter(Boolean) : [];
     return { claim: `${f.title} (filed to the SEC, XBRL)`, basis: 'SEC XBRL company facts', figure: fig,
       status: withHit.length ? 'cited-in-press' : 'no-press-citation-in-run',
       passages: withHit.slice(0, 5).map(it => ({ title: it.title, link: it.link || '', date: (it.date || '').slice(0, 10), source: it.source, excerpt: it.excerpt })) };
@@ -336,7 +342,7 @@ function validateClaims(report) {
   // Headline checks: company statements -> coverage with echo/separate wording.
   const headlineChecks = nrItems.slice(0, 6).map(h => {
     const ht = new Set(tokens(h.title || ''));
-    const GEN = new Set(['store','available','launch','launches','unveils','announces','worldwide','today','apple','reportedly','update','updates','week','price','prices']);const cov = pressItems.filter(it => { const st = new Set(tokens((it.title || '') + ' ' + (it.context || ''))); const shared = [...ht].filter(w => st.has(w) && w.length > 3 && !GEN.has(w)); return shared.length >= 2 && shared.some(w => w.length >= 5 || /\d/.test(w)); });
+    const GEN = new Set(['store','available','launch','launches','unveils','announces','worldwide','today','apple','reportedly','update','updates','week','price','prices']);const cov = pressItems.filter(it => { const st = new Set(tokens((it.title || '') + ' ' + (it.context || '') + ' ' + (it.body || ''))); const shared = [...ht].filter(w => st.has(w) && w.length > 3 && !GEN.has(w)); return shared.length >= 2 && shared.some(w => w.length >= 5 || /\d/.test(w)); });
     const seen = new Set();
     const passages = cov.map(it => ({ ...it, echo: jac(it.title, h.title) > 0.55 })).filter(it => { const k = it.title; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
     const separate = passages.filter(p => !p.echo);
@@ -352,9 +358,13 @@ function validateClaims(report) {
   const figMention = /\$([\d]{2,3}(?:\.\d)?)\s*(?:B|billion)/g;
   const contradictions = [];
   for (const it of pressItems) {
-    const hay = (it.title || '') + ' ' + (it.context || '');
-    if (!/revenue|sales|quarter|fiscal|annual/i.test(hay)) continue;
+    const hay = (it.title || '') + ' ' + (it.context || '') + ' ' + (it.body || '');
+    if (!/revenue|sales|fiscal|annual/i.test(hay)) continue;
     for (const m of hay.matchAll(figMention)) {
+      // Only annual-scope mentions are comparable to filed annual figures;
+      // quarterly or unscoped figures are not contradiction candidates.
+      const around = hay.slice(Math.max(0, m.index - 120), m.index + m[0].length + 120);
+      if (!/fiscal year|fy\s*'?20\d\d|annual|full[- ]year|year ended/i.test(around)) continue;
       if (!filedFigs.has(m[1])) {
         contradictions.push({ claim: `Collected item cites $${m[1]}B, which matches no filed annual revenue figure (${[...filedFigs].map(f => '$' + f + 'B').join(', ')})`, basis: 'Collected items vs SEC XBRL facts', status: 'different-figure-found',
           passages: [{ title: it.title, link: it.link || '', date: (it.date || '').slice(0, 10), source: it.source, excerpt: hay.slice(Math.max(0, m.index - 60), m.index + m[0].length + 80).trim() }] });
@@ -369,7 +379,7 @@ function validateClaims(report) {
   const denom = figureChecks.length * 2 + headlineChecks.length;
   const score = denom ? Math.round(((figCited * 2 + headCov) / denom) * 100) : 0;
   const coverageScore = { score, drivers: `${figCited} of ${figureChecks.length} filed figures cited (weight 2x), ${headCov} of ${headlineChecks.length} company statements covered`, scope: 'Coverage within items collected this run only. A low score means the collected set lacks corroboration, not that claims are false.' };
-  return { figureChecks, headlineChecks, contradictions, coverageScore, method: 'Extractive matching over titles and feed summaries collected in this run: identical figures (word-boundary matched), and shared distinctive terms for coverage. Full article bodies are not fetched. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.' };
+  return { figureChecks, headlineChecks, contradictions, coverageScore, method: `Extractive matching over titles, feed summaries, and fetched article bodies (${(report.articleBodies || {}).fetched || 0} of ${(report.articleBodies || {}).of || 0} newest press items) collected in this run: identical figures (word-boundary matched), and shared distinctive terms for coverage. Full article bodies are not fetched. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.` };
 }
 async function runReport() {
   const runAt = new Date().toISOString();
@@ -380,12 +390,23 @@ async function runReport() {
     const relevant = d.items.filter(it => isRelevant(SOURCES[i].key, itemTitle(it) + ' ' + (it.outlet || '') + ' ' + (it.context || '') + ' ' + (it.matched || '')));
     return { key: SOURCES[i].key, name: d.name, source: d.source, mode: d.mode, fetchedAt: d.fetchedAt, cached: !!d.cached, itemCount: d.items.length, relevantCount: relevant.length, items: d.items.slice(0, 3), allItems: d.items, relevantItems: relevant, detail: d.detail };
   });
+  // Bounded article-body depth: bodies for the 12 newest collected press items,
+  // so claim checks inspect passages, not only titles and summaries.
+  const PRESS_BODY_KEYS = new Set(['news', 'verge', 'ninetofive', 'macrumors']);
+  const pressPool = [];
+  for (const s of sources) { if (!PRESS_BODY_KEYS.has(s.key)) continue; for (const it of (s.relevantItems || [])) if (it.link) pressPool.push(it); }
+  pressPool.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
+  const bodyTargets = pressPool.slice(0, 12);
+  const bodies = await Promise.allSettled(bodyTargets.map(it => fetchArticleText(it.link)));
+  let bodiesFetched = 0;
+  bodies.forEach((r, i) => { if (r.status === 'fulfilled' && r.value && r.value.length > 200) { bodyTargets[i].body = r.value; bodiesFetched++; } });
   const TREND_KEYS = new Set(['hackernews', 'hncomments', 'reviews', 'mastodon', 'lemmy', 'news', 'verge', 'ninetofive', 'macrumors']);
   const byDay = {};
   for (const s of sources) { if (!TREND_KEYS.has(s.key)) continue; for (const it of (s.relevantItems || [])) { const d = (it.date || '').slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue; byDay[d] = (byDay[d] || 0) + 1; } }
   const trendDays = Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0])).slice(-14).map(([day, count]) => ({ day, count }));
   const report = {
     company: 'Apple Inc. (AAPL)', generatedAt: runAt,
+    articleBodies: { fetched: bodiesFetched, of: bodyTargets.length },
     trends: { days: trendDays, scope: 'Collected press/forum/social/review items per UTC day. Collection windows differ per source; this is collected volume, not total internet volume.' },
     liveCount: sources.filter(s => s.mode === 'live').length, downCount: sources.filter(s => s.mode !== 'live').length,
     relevantTotal: sources.reduce((n, s) => n + (s.relevantCount || 0), 0),
