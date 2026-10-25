@@ -119,11 +119,15 @@ async function handleApi(req, res, url, ip) {
       replies: x.replyCount ?? null
     })).filter(x => x.text);
     store.packs = store.packs || {};
-    store.packs[ticker] = { company, ticker, terms, collectedAt: new Date().toISOString(), itemCount: items.length, estUsd: +(items.length * PER_ITEM_USD).toFixed(4), items };
+    const prev = store.packs[ticker];
+    const seen = new Set((prev ? prev.items : []).map(i => (i.link || '') + '|' + i.text.slice(0, 80)));
+    const fresh = items.filter(i => !seen.has((i.link || '') + '|' + i.text.slice(0, 80))).map(i => ({ ...i, src: 'apify-x' }));
+    const merged = (prev ? prev.items : []).concat(fresh);
+    store.packs[ticker] = { company, ticker, terms, collectedAt: new Date().toISOString(), itemCount: merged.length, estUsd: +((prev ? prev.estUsd : 0) + items.length * PER_ITEM_USD).toFixed(4), sources: (prev ? prev.sources : []).concat([{ source: 'apify-x', at: new Date().toISOString(), collected: items.length, added: fresh.length }]), items: merged };
     store.apifySpend.estimatedUsd = +(store.apifySpend.estimatedUsd + items.length * PER_ITEM_USD).toFixed(4);
     store.apifySpend.runs.push({ ticker, at: store.packs[ticker].collectedAt, items: items.length });
     await saveStore();
-    return send(res, 200, { ok: true, ticker, itemCount: items.length, estCostUsd: store.packs[ticker].estUsd, cumulativeEstUsd: store.apifySpend.estimatedUsd, sample: items.slice(0, 3).map(i => i.text.slice(0, 120)) });
+    return send(res, 200, { ok: true, ticker, collected: items.length, added: fresh.length, packTotal: merged.length, sample: items.slice(0, 3).map(i => i.text.slice(0, 120)) });
   }
   if (p.startsWith('/api/packs/') && req.method === 'GET') {
     const ticker = p.slice('/api/packs/'.length).toUpperCase();
@@ -132,6 +136,43 @@ async function handleApi(req, res, url, ip) {
     const { estUsd, ...pub } = pack;
     return send(res, 200, pub);
   }
+  // Ingest an authorized historical export (e.g. Signalor public-mention
+  // extract handed off by the ops owner). Same admin gate; no spend involved.
+  if (p === '/api/packs/ingest' && req.method === 'POST') {
+    if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
+      return send(res, 403, { error: 'forbidden', detail: 'Pack ingest requires the admin token (PACK_ADMIN_TOKEN).' });
+    }
+    let body;
+    try { body = await readBody(req).then(b => JSON.parse(b)); } catch { return send(res, 400, { error: 'bad_json' }); }
+    const ticker = String(body.ticker || '').toUpperCase().replace(/[^A-Z0-9.-]/g, '');
+    const company = String(body.name || '').slice(0, 120);
+    const src = String(body.source || 'export').slice(0, 60);
+    const rows = Array.isArray(body.items) ? body.items.slice(0, 20000) : [];
+    if (!ticker || !rows.length) return send(res, 400, { error: 'invalid_request', detail: 'ticker and non-empty items[] are required.' });
+    const items = rows.map(x => ({
+      text: String(x.text || '').slice(0, 500),
+      date: String(x.date || ''),
+      link: String(x.link || ''),
+      author: '',
+      likes: null, retweets: null, replies: null,
+      engagement: x.engagement ?? null,
+      platform: String(x.platform || ''),
+      sentiment: x.sentiment ? String(x.sentiment) : null,
+      sentimentConfidence: x.sentimentConfidence != null ? Number(x.sentimentConfidence) : null,
+      hasText: Boolean(String(x.text || '').trim()),
+      src
+    }));
+    store.packs = store.packs || {};
+    const prev = store.packs[ticker];
+    const seen = new Set((prev ? prev.items : []).map(i => (i.link || '') + '|' + i.text.slice(0, 80)));
+    const fresh = items.filter(i => !seen.has((i.link || '') + '|' + i.text.slice(0, 80)));
+    const merged = (prev ? prev.items : []).concat(fresh);
+    const at = new Date().toISOString();
+    store.packs[ticker] = { company: company || (prev && prev.company) || ticker, ticker, terms: prev ? prev.terms : [], collectedAt: at, itemCount: merged.length, estUsd: prev ? prev.estUsd : 0, sources: (prev ? prev.sources : []).concat([{ source: src, at, collected: items.length, added: fresh.length }]), items: merged };
+    await saveStore();
+    return send(res, 200, { ok: true, ticker, source: src, received: items.length, added: fresh.length, packTotal: merged.length, withText: merged.filter(i => i.hasText !== false && i.text).length });
+  }
+
   if (p === '/api/packs' && req.method === 'GET') {
     // Public: counts and provenance only. Spend/cost fields stay server-side
     // (private budget ledger in the run store), never on public routes.
