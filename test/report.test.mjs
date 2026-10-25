@@ -10,12 +10,25 @@ const render=aspects=>context.renderAspectSentiment(aspects);
 
 test('aspect bars share a centered scale and include neutral counts in accessible text',()=>{
   const html=render([{aspect:'price',count:100,negative:45,neutral:30,positive:25}]);
-  assert.match(html,/aspect-negative"><span style="width:45%"/);
-  assert.match(html,/aspect-positive"><span style="width:25%"/);
+  assert.match(html,/class="aspect-negative-bar" x="275" y="9" width="225"/);
+  assert.match(html,/class="aspect-positive-bar" x="500" y="9" width="125"/);
+  assert.match(html,/viewBox="0 0 1000 40"/);
+  assert.match(html,/class="aspect-zero" d="M500 0V40"/);
   assert.match(html,/45 negative, 30 neutral, 25 positive/);
   assert.match(html,/Net sentiment -20 percentage points/);
   assert.match(html,/tabindex="0"/);
   assert.match(html,/100 mentions/);
+});
+
+test('100 percent shares reach the ends of the same fixed axis',()=>{
+  const html=render([
+    {aspect:'Negative',count:10,negative:10,neutral:0,positive:0},
+    {aspect:'Positive',count:10,negative:0,neutral:0,positive:10}
+  ]);
+  assert.match(html,/class="aspect-negative-bar" x="0" y="9" width="500"/);
+  assert.match(html,/class="aspect-positive-bar" x="500" y="9" width="500"/);
+  assert.match(html,/Net sentiment -100 percentage points/);
+  assert.match(html,/Net sentiment \+100 percentage points/);
 });
 
 test('net sentiment shows direction and empty or all-neutral data stays finite',()=>{
