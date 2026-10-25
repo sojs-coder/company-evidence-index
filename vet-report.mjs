@@ -245,7 +245,11 @@ export async function buildVetReport(name, question, categoryKey, identity) {
           topic: 'federal_awards',
           statement: (() => {
             const n = awards.length, pl = n === 1 ? '' : 's';
-            const scope = identity.kind === 'legal_recipient' ? 'under this exact legal name' : 'name-matching the buyer-typed (not registry-verified) name';
+            const scope = {
+              legal_recipient: 'under this exact legal name',
+              public_company: 'name-matching this SEC-registered public-company name',
+              brand_match: 'name-matching this brand-registry name (registry match, not legal-entity resolution)'
+            }[identity.kind] || 'name-matching the buyer-typed (not registry-verified) name';
             const totalStr = total != null ? ' totaling $' + Math.round(total).toLocaleString('en-US') : '';
             return complete
               ? `USASpending award search ${scope} returned ${n} award record${pl} - the complete result set of that search -${totalStr} across those records.`
@@ -399,11 +403,23 @@ export async function buildVetReport(name, question, categoryKey, identity) {
         task: 'Research the company ' + identity.name + ' for this buyer question: ' + question + '. Answer only from public sources you can cite.',
         json_format: { summary: 'string', evidence_points: ['string'], open_questions: ['string'] }
       }, key);
+      const content = j.json_content || null;
+      // A bare URL is not an evidence point: move URL-only entries to the
+      // synthesis source list; they are sources, not analytical content.
+      if (content && Array.isArray(content.evidence_points)) {
+        const kept = [], urlPts = [];
+        for (const p of content.evidence_points) {
+          const s2 = String(p).trim();
+          (/^https?:\/\/\S+$/.test(s2) ? urlPts : kept).push(s2);
+        }
+        content.evidence_points = kept;
+        for (const u of urlPts) j.sources = (Array.isArray(j.sources) ? j.sources : []).concat([u]);
+      }
       pack.synthesis = {
         provider: 'Context.dev Web Answers',
         method: 'third-party LLM synthesis over cited public sources; generated, not extractive, not deterministic',
         mode: 'fast',
-        content: j.json_content || null,
+        content,
         sources: (Array.isArray(j.sources) ? j.sources : []).map(s => {
           if (typeof s === 'string') return s.startsWith('http') ? { title: null, url: s } : null;
           const url = s && (s.url || s.link || s.href || s.source_url);
