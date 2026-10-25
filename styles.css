@@ -427,3 +427,5 @@ li.state-note{list-style:none}
 .collect-list--plain li{grid-template-columns:1fr}
 .collect-list--plain .collect-item-title,.collect-list--plain .faint{grid-column:1}
 .collect-list--plain .faint{color:var(--text-muted)}
+
+.pack-group{margin-top:12px}
