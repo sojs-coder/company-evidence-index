@@ -85,6 +85,7 @@ async function handleApi(req, res, url, ip) {
     const card = (c, kind) => {
       L.push(`### ${c.claim}`);
       L.push(`- Kind: ${kind}; Basis: ${c.basis}${c.date ? '; Date: ' + c.date : ''}`);
+      if (c.link) L.push(`- Claim source: ${c.link}`);
       L.push(`- Status: ${c.status}`);
       if (c.passages && c.passages.length) for (const p of c.passages) {
         L.push(`- ${p.source}, ${p.date}: "${p.title}" ${p.link}`.trim());
@@ -298,9 +299,9 @@ async function collect(kind) {
     return { mode: 'unavailable', source: meta.label, name: meta.name, fetchedAt, detail: String(e.message || e), items: [] };
   }
 }
-// Persistence: JSON store on the deployment's local disk. Survives process
-// restarts inside this deployment; a redeploy or container replacement resets
-// it. No external database is provisioned.
+// Persistence: JSON store. With DATA_DIR set (attached Railway volume) runs
+// survive redeploys; without it the store lives on the deployment's local
+// disk and a redeploy resets it.
 const STORE_PATH = join(process.env.DATA_DIR || join(ROOT, 'data'), 'run-store.json');
 let store = { runs: [], items: {} };
 try { store = JSON.parse(await readFile(STORE_PATH, 'utf8')); } catch { /* first boot */ }
@@ -357,6 +358,30 @@ function relevanceNote(key, it) {
 // run itself, each with its supporting passages, citations and dates.
 // Syndication heuristic: near-identical wording across outlets is marked an
 // echo of the same origin; distinct wording is marked separate coverage.
+// Dates in collected feeds vary (ISO, RSS). Normalize to ISO yyyy-mm-dd;
+// unparseable stays raw and never counts as date-compatible.
+const fmtDate = d => { if (!d) return ''; const t = Date.parse(d); return Number.isNaN(t) ? String(d) : new Date(t).toISOString().slice(0, 10); };
+// Event anchors: 2-3 word phrases from capitalized sequences in a claim
+// ("Formula 1", "Apple TV", "iPhone Duo", "Manufacturing Program"). A passage
+// must share an anchor or several distinctive terms, and be date-compatible.
+const anchorPhrases = title => {
+  const words = String(title || '').replace(/[®™©]/g, '').split(/[^A-Za-z0-9]+/).filter(Boolean);
+  const runs = []; let run = [];
+  for (const w of words) {
+    if (/[A-Z0-9]/.test(w)) run.push(w.toLowerCase());
+    else if (run.length) { runs.push(run); run = []; }
+  }
+  if (run.length) runs.push(run);
+  const out = new Set();
+  for (const r of runs) for (let n = 2; n <= Math.min(3, r.length); n++) for (let i = 0; i + n <= r.length; i++) out.add(r.slice(i, i + n).join(' '));
+  return [...out];
+};
+const DAY = 86400000;
+const dateCompatible = (claimDate, itemDate) => {
+  const c = Date.parse(claimDate || ''), i = Date.parse(itemDate || '');
+  if (Number.isNaN(c) || Number.isNaN(i)) return false;
+  return i >= c - DAY && i <= c + 45 * DAY;
+};
 const jac = (a, b) => { const A = new Set(tokens(a)), B = new Set(tokens(b)); const inter = [...A].filter(w => B.has(w)).length; return inter / Math.max(1, A.size + B.size - inter); };
 function validateClaims(report) {
   const pressKeys = ['news', 'verge', 'ninetofive', 'macrumors', 'hackernews'];
@@ -371,21 +396,30 @@ function validateClaims(report) {
     const fig = m ? m[1] : null;
     const figRe = fig ? new RegExp('\\b' + fig.replace(/\./g, '\\.') + '(?!\\d)') : null;
     const withHit = figRe ? pressItems.map(it => { const hay = (it.title || '') + ' ' + (it.context || '') + ' ' + (it.body || ''); const hm = hay.match(figRe); return hm ? { ...it, excerpt: hay.slice(Math.max(0, hm.index - 60), hm.index + hm[0].length + 80).trim() } : null; }).filter(Boolean) : [];
-    return { claim: `${f.title} (filed to the SEC, XBRL)`, basis: 'SEC XBRL company facts', figure: fig,
+    return { claim: `${f.title} (filed to the SEC, XBRL)`, basis: 'SEC XBRL company facts', figure: fig, link: f.link || '', date: fmtDate(f.date),
       status: withHit.length ? 'cited-in-press' : 'no-press-citation-in-run',
-      passages: withHit.slice(0, 5).map(it => ({ title: it.title, link: it.link || '', date: (it.date || '').slice(0, 10), source: it.source, excerpt: it.excerpt })) };
+      passages: withHit.slice(0, 5).map(it => ({ title: it.title, link: it.link || '', date: fmtDate(it.date), source: it.source, excerpt: it.excerpt })) };
   });
   // Headline checks: company statements -> coverage with echo/separate wording.
   const headlineChecks = nrItems.slice(0, 6).map(h => {
     const ht = new Set(tokens(h.title || ''));
-    const GEN = new Set(['store','available','launch','launches','unveils','announces','worldwide','today','apple','reportedly','update','updates','week','price','prices']);const cov = pressItems.filter(it => { const st = new Set(tokens((it.title || '') + ' ' + (it.context || '') + ' ' + (it.body || ''))); const shared = [...ht].filter(w => st.has(w) && w.length > 3 && !GEN.has(w)); return shared.length >= 2 && shared.some(w => w.length >= 5 || /\d/.test(w)); });
+    const anchors = anchorPhrases(h.title);
+    const GEN = new Set(['store','available','launch','launches','unveils','announces','worldwide','today','apple','reportedly','update','updates','week','price','prices','united','states','american','incredible','possibilities']);
+    const cov = pressItems.filter(it => {
+      if (!dateCompatible(h.date, it.date)) return false;
+      const hayRaw = ((it.title || '') + ' ' + (it.context || '') + ' ' + (it.body || '')).toLowerCase();
+      if (anchors.some(a => hayRaw.includes(a))) return true;
+      const st = new Set(tokens(hayRaw));
+      const shared = [...ht].filter(w => st.has(w) && w.length > 3 && !GEN.has(w));
+      return shared.length >= 3 && shared.some(w => w.length >= 8 || /\d/.test(w));
+    });
     const seen = new Set();
     const passages = cov.map(it => ({ ...it, echo: jac(it.title, h.title) > 0.55 })).filter(it => { const k = it.title; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
     const separate = passages.filter(p => !p.echo);
-    return { claim: h.title, basis: 'Apple Newsroom (company statement)', date: (h.date || '').slice(0, 10), link: h.link || '',
+    return { claim: h.title, basis: 'Apple Newsroom (company statement)', date: fmtDate(h.date), link: h.link || '',
       outlets: [...new Set(passages.map(p => p.source))],
       status: !passages.length ? 'no-outside-coverage-in-run' : (separate.length ? 'separate-wording-coverage' : 'echoed-only'),
-      passages: passages.map(p => ({ title: p.title, link: p.link || '', date: (p.date || '').slice(0, 10), source: p.source, excerpt: (p.context || '').slice(0, 180), wording: p.echo ? 'echo' : 'separate' })) };
+      passages: passages.map(p => ({ title: p.title, link: p.link || '', date: fmtDate(p.date), source: p.source, excerpt: (p.context || '').slice(0, 180), wording: p.echo ? 'echo' : 'separate' })) };
   });
   // Contradiction candidates: collected items citing a different revenue-scale
   // figure than the filed XBRL values. A mismatch can be a different period or
@@ -403,7 +437,7 @@ function validateClaims(report) {
       if (!/fiscal year|fy\s*'?20\d\d|annual|full[- ]year|year ended/i.test(around)) continue;
       if (!filedFigs.has(m[1])) {
         contradictions.push({ claim: `Collected item cites $${m[1]}B, which matches no filed annual revenue figure (${[...filedFigs].map(f => '$' + f + 'B').join(', ')})`, basis: 'Collected items vs SEC XBRL facts', status: 'different-figure-found',
-          passages: [{ title: it.title, link: it.link || '', date: (it.date || '').slice(0, 10), source: it.source, excerpt: hay.slice(Math.max(0, m.index - 60), m.index + m[0].length + 80).trim() }] });
+          passages: [{ title: it.title, link: it.link || '', date: fmtDate(it.date), source: it.source, excerpt: hay.slice(Math.max(0, m.index - 60), m.index + m[0].length + 80).trim() }] });
         break;
       }
     }
@@ -415,7 +449,7 @@ function validateClaims(report) {
   const denom = figureChecks.length * 2 + headlineChecks.length;
   const score = denom ? Math.round(((figCited * 2 + headCov) / denom) * 100) : 0;
   const coverageScore = { score, drivers: `${figCited} of ${figureChecks.length} filed figures cited (weight 2x), ${headCov} of ${headlineChecks.length} company statements covered`, scope: 'Coverage within items collected this run only. A low score means the collected set lacks corroboration, not that claims are false.' };
-  return { figureChecks, headlineChecks, contradictions, coverageScore, method: `Extractive matching over titles, feed summaries, and fetched article bodies (${(report.articleBodies || {}).fetched || 0} of ${(report.articleBodies || {}).of || 0} newest press items) collected in this run: identical figures (word-boundary matched), and shared distinctive terms for coverage. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.` };
+  return { figureChecks, headlineChecks, contradictions, coverageScore, method: `Extractive matching over titles, feed summaries, and fetched article bodies (${(report.articleBodies || {}).fetched || 0} of ${(report.articleBodies || {}).of || 0} newest press items) collected in this run: identical figures (word-boundary matched), and date-compatible passages sharing an event anchor phrase or at least three distinctive terms for coverage. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.` };
 }
 async function runReport() {
   const runAt = new Date().toISOString();
