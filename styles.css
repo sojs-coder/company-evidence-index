@@ -60,7 +60,7 @@ main{max-width:1220px;margin:0 auto;padding:56px var(--edge) 90px}
 .snapshot-state i,.source-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--color-success)}
 .snapshot-state i{margin-right:7px}
 .theme-toggle{font-size:15px;min-width:44px;min-height:44px;justify-content:center;margin:-10px -14px -10px 0}
-.theme-toggle:hover,
+
 /* Hero */
 .hero{margin-top:40px}
 .hero h1{font-size:clamp(44px,6.2vw,84px);font-weight:400;line-height:1.08;letter-spacing:-.01em}
@@ -420,8 +420,9 @@ li.state-note{list-style:none}
 .vet-field{display:flex;flex-direction:column;flex:1 1 220px}
 .vet-field--q{flex:2 1 320px}
 .vet-field label{font:500 11px var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
-.vet-form input,.vet-form textarea{border:1px solid var(--color-brand-border);padding:9px 12px;font:400 14px var(--font-body);color:inherit;background:transparent;min-width:0;width:100%;box-sizing:border-box}
-.vet-form textarea{resize:vertical;min-height:58px;line-height:1.5}
+.vet-form input,.vet-form textarea,.vet-form select,.vet-form .outline-button{box-sizing:border-box;height:44px;font-size:14px;line-height:24px}
+.vet-form input,.vet-form textarea,.vet-form select{border:1px solid var(--color-brand-border);padding:9px 12px;font-family:var(--font-body);font-weight:400;color:inherit;background:transparent;min-width:0;width:100%}
+.vet-form textarea{resize:vertical;min-height:44px}
 .collect-list--plain li{grid-template-columns:1fr}
 .collect-list--plain .collect-item-title,.collect-list--plain .faint{grid-column:1}
 .collect-list--plain .faint{color:var(--text-muted)}
