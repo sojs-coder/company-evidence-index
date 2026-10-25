@@ -131,7 +131,9 @@ export function normalizeBatchSignals(parsed, offset, batchLen) {
 export function reconcileParts(partSignals) {
   const votes = { positive: 0, negative: 0, neutral: 0, mixed: 0 };
   let missing = 0;
-  for (const p of partSignals) { votes[p.sentiment] = (votes[p.sentiment] || 0) + 1; if (p.missing) missing++; }
+  // A missing reading is NOT a neutral reading: failed/absent chunks never
+  // vote, so a data-quality failure cannot dilute sentiment.
+  for (const p of partSignals) { if (p.missing) { missing++; continue; } votes[p.sentiment] = (votes[p.sentiment] || 0) + 1; }
   let sentiment;
   if (votes.positive > 0 && votes.negative > 0) sentiment = 'mixed';
   else { const PRI = { mixed: 0, neutral: 1, positive: 2, negative: 3 }; sentiment = Object.entries(votes).sort((a, b) => b[1] - a[1] || PRI[a[0]] - PRI[b[0]])[0][0]; }
@@ -156,8 +158,10 @@ export function rollupSignals(unique, signals) {
   const aspectMap = new Map();
   let claims = 0, missing = 0;
   for (const s of signals) {
+    // Posts with no successful reading are counted as unclassified, never as
+    // neutral sentiment, and contribute no aspects.
+    if (s.missing) { missing++; continue; }
     sentiment[s.sentiment] = (sentiment[s.sentiment] || 0) + 1;
-    if (s.missing) missing++;
     if (s.claim) claims++;
     const it = unique[s.n - 1] || {};
     for (const a of s.aspects) {
