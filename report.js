@@ -25,7 +25,7 @@ async function boot(){
     ['New this run',(p.newThisRun!=null?p.newThisRun:0).toLocaleString('en-US'),(p.seenBeforeThisRun||0).toLocaleString('en-US')+' repeat sightings this run'],
     ['Runs recorded',(p.runs||1),r.storeMode==='attached-volume'?'attached volume, survives redeploys':'on-disk store, resets on redeploy']
   ].map(([k,v,n])=>`<div class="metric"><p class="metric-label">${k}</p><p class="metric-number">${v}</p><p class="metric-note">${n}</p></div>`).join('');
-  const TYPE={edgar:'Filings',newsroom:'Press',news:'Press',macrumors:'Press',ninetofive:'Press',verge:'Press',hackernews:'Forum stories',hncomments:'Comments',reviews:'Reviews',mastodon:'Social posts',lemmy:'Forum posts',reddit:'Social posts',itunes:'App metadata',pageviews:'Time series',xbrl:'Filed figures',xbrl_ni:'Filed figures',xbrl_rd:'Filed figures',xbrl_eps:'Filed figures',wikipedia:'Reference'};
+  const TYPE={edgar:'Filings',newsroom:'Press',news:'Press',macrumors:'Press',ninetofive:'Press',verge:'Press',hackernews:'Forum stories',hncomments:'Comments',reviews:'Reviews',mastodon:'Social posts',lemmy:'Forum posts',reddit:'Social posts',itunes:'App metadata',pageviews:'Time series',xbrl:'Filed figures',xbrl_ni:'Filed figures',xbrl_rd:'Filed figures',xbrl_eps:'Filed figures',riskfactors:'Filings',wikipedia:'Reference'};
   const byType={};for(const s of r.sources){const t=TYPE[s.key]||'Other';byType[t]=(byType[t]||0)+(s.relevantCount!=null?s.relevantCount:s.itemCount)}
   document.querySelector('#run-summary').insertAdjacentHTML('afterend',`<p class="type-strip">${Object.entries(byType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span><b>${v.toLocaleString('en-US')}</b> ${k}</span>`).join('')}</p>`);
   // Diligence memo summary: fundamentals, risk cues, competitors, open questions.
@@ -42,12 +42,16 @@ async function boot(){
       `<p class="chart-caption">${esc(d.labels.fundamentals)}</p>
       <table class="memo-table"><thead><tr><th>Filed figure</th>${fyHead}</tr></thead><tbody>${fyRows}${deltaRow}</tbody></table>
       <p class="chart-caption">${esc(d.labels.deltas||'')}</p>
-      <p class="overline memo-sub">EVIDENCE BALANCE</p><p class="chart-caption">${esc(d.labels.balance||'')}</p>
-      <ul class="collect-list">${(d.toward||[]).map(t=>`<li><span class="collect-item-title">Toward:</span><span class="faint">${esc(t)}</span></li>`).join('')}${(d.against||[]).map(t=>`<li><span class="collect-item-title">Against / unresolved:</span><span class="faint">${esc(t)}</span></li>`).join('')}</ul>
+      <p class="overline memo-sub">EVIDENCE BALANCE (BUSINESS FACTS)</p><p class="chart-caption">${esc(d.labels.balance||'')}</p>
+      <ul class="collect-list">${(d.toward||[]).map(t=>`<li><span class="collect-item-title">Toward:</span><span class="faint">${esc(t.text||t)}${t.link?` <a class="detail-source" href="${esc(t.link)}" target="_blank" rel="noreferrer">source</a>`:''}</span></li>`).join('')}${(d.against||[]).map(t=>`<li><span class="collect-item-title">Against / unresolved:</span><span class="faint">${esc(t.text||t)}${t.link?` <a class="detail-source" href="${esc(t.link)}" target="_blank" rel="noreferrer">source</a>`:''}</span></li>`).join('')}</ul>
+      <p class="overline memo-sub">FILING-DISCLOSED RISK FACTORS (10-K ITEM 1A)</p><p class="chart-caption">${esc(d.labels.riskFactors||'')}${d.rfMeta?' 10-K accession '+esc(d.rfMeta.accession)+', filed '+esc(d.rfMeta.filed)+'.':''}</p>
+      <ul class="collect-list">${(d.riskFactors||[]).slice(0,8).map(rf=>`<li><span class="collect-item-title">${rf.link?`<a class="detail-source" href="${esc(rf.link)}" target="_blank" rel="noreferrer">${esc(rf.title)}</a>`:esc(rf.title)}</span><span class="faint">${esc(rf.category)}</span></li>`).join('')||'<li class="faint">Not collected this run.</li>'}${(d.riskFactors||[]).length>8?`<li class="faint">+${d.riskFactors.length-8} more disclosed risks in the downloaded memo.</li>`:''}</ul>
+      <p class="overline memo-sub">COVERAGE VS DISCLOSED RISKS</p><p class="chart-caption">${esc(d.labels.riskCross||'')}</p>
+      <ul class="collect-list">${(d.riskCross||[]).map(x=>`<li><span class="collect-item-title">${x.cue.link?`<a class="detail-source" href="${esc(x.cue.link)}" target="_blank" rel="noreferrer">${esc(x.cue.title)}</a>`:esc(x.cue.title)}</span><span class="faint">${esc(x.cue.source)} - shared terms with disclosed risk: ${esc(x.shared.join(', '))}</span></li>`).join('')||'<li class="faint">No collected coverage item matches a disclosed risk factor this run.</li>'}</ul>
       <p class="overline memo-sub">RISK-CUED COVERAGE</p><p class="chart-caption">${esc(d.labels.risk)}</p>
       <ul class="collect-list">${risk||'<li class="faint">No risk-cued items this run.</li>'}</ul>
       <p class="overline memo-sub">RESEARCH QUESTIONS</p>
-      <ul class="collect-list">${(d.researchQuestions||[]).map(q=>`<li><span class="collect-item-title">[${esc(q.status)}] ${esc(q.q)}</span><span class="faint">${esc(q.detail)}</span></li>`).join('')}</ul>
+      <ul class="collect-list">${(d.researchQuestions||[]).map(q=>`<li><span class="collect-item-title">[${esc(q.status)}] ${esc(q.q)}</span><span class="faint">${esc(q.detail)}${q.link?` <a class="detail-source" href="${esc(q.link)}" target="_blank" rel="noreferrer">source</a>`:''}</span></li>`).join('')}</ul>
       <p class="overline memo-sub">APPENDIX: CO-MENTION EXPLORATION</p><p class="chart-caption">${esc(d.labels.competitors)}${d.competitorsOldest?' Oldest collected item dates to '+esc(d.competitorsOldest)+'.':''}</p>
       <p class="type-strip">${comps||'<span class="faint">None this run.</span>'}</p>
       <p class="overline memo-sub">OPEN QUESTIONS (KNOWN GAPS AND MISSING EVIDENCE)</p><p class="chart-caption">${esc(d.labels.open)}</p>
