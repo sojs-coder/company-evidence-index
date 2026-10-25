@@ -32,7 +32,7 @@
     document.body.prepend(el);
   }
   function ask(){
-    if (window.CEI_ROLE.get()) { bar(); return; }
+    if (window.CEI_ROLE.get() || document.body.hasAttribute('data-no-role-gate')) { if (window.CEI_ROLE.get()) bar(); return; }
     const ov = document.createElement('div');
     ov.id = 'role-ask';
     ov.innerHTML = '<div class="role-card"><h1>Who are you?</h1><div class="role-options">' +

@@ -1,20 +1,21 @@
 // All pages share this shell. Keep page-specific data and status in <main>.
 (() => {
+  let flow = '';
+  try { flow = localStorage.getItem('cei_flow') || ''; } catch {}
+  if (!/^\?c=[A-Z]+&role=[a-z]+&q=[A-Za-z0-9%._~*+-]*$/.test(flow)) flow = '';
   const links = [
     ['/', 'Vet'],
-    ['/companies.html', 'Apple demo'],
-    ['/collection.html', 'Collection'],
+    ['/brief.html', 'Reports', '/brief.html' + flow],
     ['/packs.html', 'Mentions'],
-    ['/results.html', 'Results'],
-    ['/report.html', 'Apple example'],
-    ['/supplier.html', 'Supplier example']
+    ['/collection.html', 'Collection'],
+    ['/results.html', 'Results']
   ];
   const path = location.pathname === '/index.html' ? '/' : location.pathname;
   const header = document.querySelector('.topbar');
   header.innerHTML = `
     <a class="wordmark" href="/" aria-label="Open home"><span>open<span class="wordmark-period">.</span></span></a>
     <nav class="main-nav" aria-label="Primary navigation">
-      ${links.map(([href, label]) => `<a class="nav-link${path === href ? ' active' : ''}" href="${href}"${path === href ? ' aria-current="page"' : ''}>${label}</a>`).join('\n      ')}
+      ${links.map(([href, label, to]) => `<a class="nav-link${path === href ? ' active' : ''}" href="${to || href}"${path === href ? ' aria-current="page"' : ''}>${label}</a>`).join('\n      ')}
     </nav>
     <div class="top-actions">
       <span class="snapshot-state">Public sources</span>

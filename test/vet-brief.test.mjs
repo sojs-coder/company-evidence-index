@@ -60,7 +60,7 @@ test('next steps reflect identity, conflicts, collection failures and active len
 });
 
 test('raw records and evidence are available through native disclosure controls',async()=>{
-  const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+  const html=await readFile(new URL('../vet-custom.html',import.meta.url),'utf8');
   for(const id of ['awards-panel','citations-panel','sources-panel']){
     assert.match(html,new RegExp(`<details[^>]+id="${id}"[^>]+hidden>`));
   }

@@ -99,3 +99,51 @@ test('missing signals stay unavailable instead of becoming zero-valued analysis'
   assert.match(wrap.innerHTML,/<strong>—<\/strong><span>Analyzed posts/);
   assert.doesNotMatch(wrap.innerHTML,/class="sig-bar"/);
 });
+
+// CRS panel renders the new backend shape (crs-credit-evidence.mjs):
+// { ok, demonstration, label, evidence } - not the retired scoreSummary/
+// billable/sections envelope.
+const crsDemo = {
+  ok:true, demonstration:true, config:'exp-prequal-vantage4',
+  label:'Principal credit check demonstrated on the CRS sponsor <sandbox> synthetic test persona. Not business credit.',
+  evidence:{
+    score:{ model:'VantageScore 4.0', value:790, minimum:300, maximum:850, percentile:71 },
+    tradelines:{ count:12, openCount:8, balanceTotal:18400, pastDueTotal:0, revolvingUtilizationPercent:8 },
+    riskFlags:[{ flag:'no_derogatory_marks_in_file' }]
+  }
+};
+async function renderCrs(payload) {
+  const wrap = { innerHTML:'' };
+  const context = {
+    document:{ querySelector(s) { return s==='#crs-live'?wrap:null; }, addEventListener(){} },
+    window:{},
+    fetch:async()=>({ json:async()=>payload })
+  };
+  const script = source.replace('\nboot();\nbootCrs();', '\n');
+  await runInNewContext(`${script}\nbootCrs();`, context);
+  return wrap;
+}
+
+test('CRS panel shows the normalized demo score, tradelines, utilization and risk flags', async()=>{
+  const { innerHTML } = await renderCrs(crsDemo);
+  assert.match(innerHTML, /REACHABLE/);
+  assert.match(innerHTML, /790 \(VantageScore 4\.0\)/);
+  assert.match(innerHTML, /12 reported · 8 open/);
+  assert.match(innerHTML, /8%/);
+  assert.match(innerHTML, /No derogatory marks in file/);
+  assert.match(innerHTML, /&lt;sandbox&gt;/, 'label is escaped');
+  assert.doesNotMatch(innerHTML, /scoreSummary|billable|Response sections/);
+});
+
+test('CRS panel states an honest error instead of a fake score', async()=>{
+  const { innerHTML } = await renderCrs({ ok:false, error:'auth_failed' });
+  assert.match(innerHTML, /ERROR/);
+  assert.match(innerHTML, /Credit evidence source auth_failed; demonstration unavailable/);
+  assert.doesNotMatch(innerHTML, /\d{3} \(/);
+});
+
+test('CRS panel without normalized evidence says so instead of rendering zeros', async()=>{
+  const { innerHTML } = await renderCrs({ ok:true, demonstration:true, label:'demo' });
+  assert.match(innerHTML, /no normalized credit evidence for the demo persona/);
+  assert.doesNotMatch(innerHTML, /Demo persona score/);
+});

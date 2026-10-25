@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f5f4f4" />
+  <title>Custom lookup · Company Evidence Index</title>
+  <link rel="stylesheet" href="cal-hacks-tokens.css?v=12" />
+  <link rel="stylesheet" href="styles.css?v=30" />
+</head>
+<body class="vet-page">
+  <header class="topbar"></header>
+  <script src="/navigation.js?v=1"></script>
+  <script src="/role.js?v=1" defer></script>
+  <main id="overview">
+    <div class="dash-head">
+      <div>
+        <h1 class="dash-title">Vet any company</h1>
+      </div>
+    </div>
+    <section class="panel" aria-label="Vetting request">
+      <p class="vet-intro">Name the company. Ask the question you’re deciding on. Get cited evidence, with its limits in plain sight.</p>
+      <form id="vet-form" class="vet-form">
+        <span class="vet-field"><label for="vet-name">Company name</label><input id="vet-name" name="name" type="text" value="Apple" autocomplete="off" list="vet-companies" placeholder="Search by company or ticker" /><datalist id="vet-companies"></datalist></span>
+        <span class="vet-field vet-field--q"><label for="vet-question">Your evaluation question</label><textarea id="vet-question" name="question" rows="2">What are their key strengths and risks?</textarea></span>
+        <button type="submit" id="vet-go" class="outline-button">Find the company</button>
+      </form>
+      <p id="vet-company-status" class="faint" role="status"></p>
+    </section>
+    <section class="panel" aria-label="Identity selection" id="identity-panel" hidden>
+      <div class="section-heading"><div><h2>Which company exactly?</h2></div><span class="badge-dim" id="identity-count"></span></div>
+      <p class="state-note">Select the exact legal entity; name matches may include unrelated companies.</p>
+      <div id="identities"><p class="state-note">Candidates appear here.</p></div>
+    </section>
+    <section class="panel" aria-label="Cited answer" id="answer-panel" hidden>
+      <div class="section-heading"><div><p class="overline">DECISION BRIEF</p><h2 id="answer-title">Your question, answered from sources</h2></div><span class="badge-dim" id="answer-count"></span></div>
+      <div id="decision-brief" aria-live="polite"></div>
+      <details class="report-detail" id="analysis-detail">
+        <summary>Read generated analysis <span>Third-party interpretation, not verified evidence</span></summary>
+        <div id="synthesis"></div>
+      </details>
+      <details class="report-detail">
+        <summary>Inspect source evidence <span>Quoted passages and public-record findings</span></summary>
+        <div id="quotes"><p class="state-note">Quoted passages appear here.</p></div>
+        <div id="findings"></div>
+      </details>
+      <details class="report-detail">
+        <summary>Review uncertainty and conflict checks</summary>
+        <div id="limitations"></div>
+      </details>
+    </section>
+    <details class="panel report-detail" id="awards-panel" hidden>
+      <summary>Federal award records <span id="award-count"></span></summary>
+      <div id="awards"><p class="state-note">Fetched with the report.</p></div>
+    </details>
+    <details class="panel report-detail" id="citations-panel" hidden>
+      <summary>Technical literature <span id="citation-count"></span></summary>
+      <div id="citations"><p class="state-note">Fetched with the report.</p></div>
+    </details>
+    <details class="panel report-detail" id="sources-panel" hidden>
+      <summary>Collection log and methodology</summary>
+      <div id="caveats"></div>
+      <div id="sources"></div>
+    </details>
+  </main>
+  <script src="vet.js?v=5"></script>
+    <script>
+    // Role retention into the vet flow: the role changes the evaluation
+    // question asked, not the evidence or standards behind the report.
+    document.addEventListener('DOMContentLoaded', () => {
+      const map = {
+        customer: 'What should I check before buying from them?',
+        vendor: 'Is this company worth pursuing, and what is the opening?',
+        investor: 'What deserves diligence, and what challenges their story?',
+        scout: 'How does this company compare to peers?'
+      };
+      const apply = () => {
+        const r = window.CEI_ROLE && window.CEI_ROLE.get();
+        if (!r || !map[r]) return;
+        const ta = document.querySelector('#vet-question');
+        const lab = document.querySelector('label[for="vet-question"]');
+        if (lab) lab.textContent = 'Evaluation question (' + r + ' lens)';
+        if (ta && !ta.dataset.touched) ta.value = map[r];
+        if (ta) ta.addEventListener('input', () => { ta.dataset.touched = '1'; }, { once: true });
+      };
+      apply();
+      document.addEventListener('cei-role', apply);
+    });
+  </script>
+</body>
+</html>
