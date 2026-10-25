@@ -438,3 +438,6 @@ li.state-note{list-style:none}
 .quote-block p{margin:0 0 6px}
 .id-card .collect-item-title{display:block}
 .id-card .faint{display:block;margin-top:2px}
+.sig-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:.75rem 0 .35rem;background:var(--border,#ddd)}
+.sig-seg.pos{background:#2f9e6e}.sig-seg.mix{background:#c9a227}.sig-seg.neu{background:#8a8f98}.sig-seg.neg{background:#c0453d}
+.sig-legend{font-size:.72rem;letter-spacing:.02em;margin:0 0 .5rem}
