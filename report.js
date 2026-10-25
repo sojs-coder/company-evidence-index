@@ -23,7 +23,7 @@ async function boot(){
     ['Items this run',total.toLocaleString('en-US'),(r.relevantTotal||total).toLocaleString('en-US')+' Apple-relevant'],
     ['Records on file',(p.uniqueItems||total).toLocaleString('en-US'),'deduplicated within each source'],
     ['New this run',(p.newThisRun!=null?p.newThisRun:0).toLocaleString('en-US'),(p.seenBeforeThisRun||0).toLocaleString('en-US')+' repeat sightings this run'],
-    ['Runs recorded',(p.runs||1),'on-disk store, resets on redeploy']
+    ['Runs recorded',(p.runs||1),r.storeMode==='attached-volume'?'attached volume, survives redeploys':'on-disk store, resets on redeploy']
   ].map(([k,v,n])=>`<div class="metric"><p class="metric-label">${k}</p><p class="metric-number">${v}</p><p class="metric-note">${n}</p></div>`).join('');
   const TYPE={edgar:'Filings',newsroom:'Press',news:'Press',macrumors:'Press',ninetofive:'Press',verge:'Press',hackernews:'Forum stories',hncomments:'Comments',reviews:'Reviews',mastodon:'Social posts',lemmy:'Forum posts',itunes:'App metadata',pageviews:'Time series',xbrl:'Time series',wikipedia:'Reference'};
   const byType={};for(const s of r.sources){const t=TYPE[s.key]||'Other';byType[t]=(byType[t]||0)+(s.relevantCount!=null?s.relevantCount:s.itemCount)}
