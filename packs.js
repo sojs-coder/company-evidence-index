@@ -83,14 +83,25 @@ async function bootCrs(){
   const wrap=document.querySelector('#crs-live'); if(!wrap) return;
   let d=null; try{d=await fetch('/api/credit/sandbox-demo').then(r=>r.json())}catch(e){}
   if(!d){wrap.innerHTML='<p class="state-note">CRS sandbox status unavailable.</p>';return}
-  const score=d.scoreSummary&&d.scoreSummary.score!=null?`<li><span class="collect-item-title">Demo score</span><span class="mono faint">${esc(String(d.scoreSummary.score))} (${esc(d.scoreSummary.model||'model')})</span></li>`:'<li><span class="faint">The sandbox returns section metadata for the demo persona, no score value.</span></li>';
+  // New backend shape (crs-credit-evidence.mjs): { ok, demonstration, label, evidence }
+  const ev=d.evidence||null;
+  const scoreRow=ev&&ev.score&&ev.score.value!=null?`<li><span class="collect-item-title">Demo persona score</span><span class="mono faint">${esc(String(ev.score.value))} (${esc(ev.score.model||'model')})</span></li>`:'';
+  const tl=ev&&ev.tradelines&&ev.tradelines.count!=null?`<li><span class="collect-item-title">Tradelines</span><span class="mono faint">${esc(String(ev.tradelines.count))} reported · ${esc(String(ev.tradelines.openCount!=null?ev.tradelines.openCount:0))} open</span></li>`:'';
+  const util=ev&&ev.tradelines&&ev.tradelines.revolvingUtilizationPercent!=null?`<li><span class="collect-item-title">Revolving utilization</span><span class="mono faint">${esc(String(ev.tradelines.revolvingUtilizationPercent))}%</span></li>`:'';
+  const FLAGS={'no_derogatory_marks_in_file':'No derogatory marks in file','bankruptcy_on_file':'Bankruptcy on file','collections_on_file':'Collections on file','charge_offs_on_file':'Charge-offs on file','late_payments_recorded':'Late payments recorded','elevated_revolving_utilization':'Elevated revolving utilization','past_due_balance':'Past-due balance'};
+  const flags=ev&&Array.isArray(ev.riskFlags)&&ev.riskFlags.length?`<li><span class="collect-item-title">Risk flags</span><span class="mono faint">${esc(ev.riskFlags.map(f=>FLAGS[f.flag]||f.flag).join('; '))}</span></li>`:'';
+  const empty=d.ok&&!scoreRow?'<li><span class="faint">The sandbox returned no normalized credit evidence for the demo persona.</span></li>':'';
+  const err=!d.ok?`<li><span class="faint">Credit evidence source ${esc(d.error||'error')}; demonstration unavailable.</span></li>`:'';
   wrap.innerHTML=`<article class="collect-card">
     <div class="collect-head"><h2>CRS sandbox</h2><span class="collect-badge ${d.ok?'live':'down'}">${d.ok?'REACHABLE':'ERROR'}</span></div>
     <p class="side-copy">${esc(d.label||'')}</p>
     <ul class="collect-list">
-      <li><span class="collect-item-title">Response sections</span><span class="mono faint">${esc(String((d.sections||[]).length))}</span></li>
-      ${d.billable!=null?`<li><span class="collect-item-title">Billable</span><span class="mono faint">${esc(String(d.billable))}</span></li>`:''}
-      ${score}
+      ${scoreRow}
+      ${tl}
+      ${util}
+      ${flags}
+      ${empty}
+      ${err}
     </ul></article>`;
 }
 boot();
