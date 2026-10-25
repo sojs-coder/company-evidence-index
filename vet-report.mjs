@@ -404,7 +404,11 @@ export async function buildVetReport(name, question, categoryKey, identity) {
         method: 'third-party LLM synthesis over cited public sources; generated, not extractive, not deterministic',
         mode: 'fast',
         content: j.json_content || null,
-        sources: (Array.isArray(j.sources) ? j.sources : []).map(s => ({ title: s.title || null, url: s.url || s.link || null })).filter(s => s.url),
+        sources: (Array.isArray(j.sources) ? j.sources : []).map(s => {
+          if (typeof s === 'string') return s.startsWith('http') ? { title: null, url: s } : null;
+          const url = s && (s.url || s.link || s.href || s.source_url);
+          return url ? { title: (s.title || s.name || null), url } : null;
+        }).filter(Boolean),
         partial: !!j.partial
       };
       sources.push({ key: 'ctx_answers', name: 'Context.dev Web Answers (third-party LLM synthesis)', url: 'https://www.context.dev/', fetched: pack.synthesis.sources.length, mode: 'live', creditsCounted: 10, detail: pack.synthesis.partial ? 'partial synthesis' : 'synthesis generated from cited sources' });
