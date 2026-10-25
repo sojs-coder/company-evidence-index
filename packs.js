@@ -32,4 +32,20 @@ async function boot(){
   }).join('');
 }
 document.querySelector('.theme-toggle').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name="theme-color"]').content=dark?'#02205e':'#f5f4f4'});
+
+async function bootCrs(){
+  const wrap=document.querySelector('#crs-live'); if(!wrap) return;
+  let d=null; try{d=await fetch('/api/credit/sandbox-demo').then(r=>r.json())}catch(e){}
+  if(!d){wrap.innerHTML='<p class="state-note">CRS sandbox status unavailable.</p>';return}
+  const score=d.scoreSummary&&d.scoreSummary.score!=null?`<li><span class="collect-item-title">Demo score</span><span class="mono faint">${esc(String(d.scoreSummary.score))} (${esc(d.scoreSummary.model||'model')})</span></li>`:'<li><span class="faint">The sandbox returns section metadata for the demo persona, no score value.</span></li>';
+  wrap.innerHTML=`<article class="collect-card">
+    <div class="collect-head"><h2>CRS sandbox</h2><span class="collect-badge ${d.ok?'live':'down'}">${d.ok?'REACHABLE':'ERROR'}</span></div>
+    <p class="side-copy">${esc(d.label||'')}</p>
+    <ul class="collect-list">
+      <li><span class="collect-item-title">Response sections</span><span class="mono faint">${esc(String((d.sections||[]).length))}</span></li>
+      <li><span class="collect-item-title">Billable</span><span class="mono faint">${esc(String(d.billable))}</span></li>
+      ${score}
+    </ul></article>`;
+}
 boot();
+bootCrs();
