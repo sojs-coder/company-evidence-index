@@ -9,6 +9,23 @@ function itemLine(i){
 }
 function failAll(msg){for(const sel of ['#run-summary','#memo-body','#evidence-stream','#run-graph','#claim-checks','#trend-chart']){const el=document.querySelector(sel);if(el)el.innerHTML=sel==='#evidence-stream'?`<li class="state-note state-error">${msg}</li>`:`<p class="state-note state-error">${msg}</p>`}}
 function enableDownloads(){for(const id of ['download-memo','export-citations']){const a=document.getElementById(id);if(a){a.classList.remove('is-disabled');a.removeAttribute('aria-disabled')}}}
+function renderAspectSentiment(aspects){
+  return aspects.map(a=>{
+    const share=n=>a.count?n/a.count*100:0;
+    const net=Math.round(share(a.positive)-share(a.negative));
+    const counts=`${a.negative.toLocaleString('en-US')} negative, ${a.neutral.toLocaleString('en-US')} neutral, ${a.positive.toLocaleString('en-US')} positive`;
+    const score=`${net>0?'+':''}${net}`;
+    return `<li class="aspect-sentiment-row">
+      <div><span class="sig-name">${esc(a.aspect)}</span><span class="aspect-mentions">${a.count.toLocaleString('en-US')} mentions</span></div>
+      <div class="aspect-diverging" role="img" tabindex="0" aria-label="${esc(a.aspect)}: ${esc(counts)}. Net sentiment ${score} percentage points." title="${esc(counts)}">
+        <span class="aspect-half aspect-negative"><span style="width:${share(a.negative)}%"></span></span>
+        <span class="aspect-half aspect-positive"><span style="width:${share(a.positive)}%"></span></span>
+        <span class="aspect-counts">${esc(counts)}</span>
+      </div>
+      <span class="aspect-net ${net>0?'positive':net<0?'negative':'neutral'}" title="Positive share minus negative share (percentage points)">${score}<span class="aspect-unit"> pp</span></span>
+    </li>`;
+  }).join('')||'<li class="state-note">No matching aspects.</li>';
+}
 async function boot(){
   let r;
   try{r=await fetch('/api/companies/apple/analysis').then(x=>{if(!x.ok)throw new Error('HTTP '+x.status);return x.json()})}
@@ -96,9 +113,20 @@ async function boot(){
         <div><p class="overline">PLATFORMS</p>${sg.platformMix.map(p=>`<div class="sig-row"><span class="sig-name">${esc(p.platform)}</span><span class="sig-n"><b>${p.count.toLocaleString('en-US')}</b> · ${p.percentage.toFixed(1)}%</span></div>`).join('')}</div>
         <div><p class="overline">TOP ASPECTS BY MENTIONS</p>${sg.aspects.slice(0,10).map(a=>`<div class="sig-row"><span class="sig-name">${esc(a.aspect)}</span><span class="sig-n"><b>${a.count.toLocaleString('en-US')}</b> · ${a.negative.toLocaleString('en-US')} neg / ${a.positive.toLocaleString('en-US')} pos</span></div>`).join('')}</div>
       </div>
+      <section class="aspect-sentiment" aria-labelledby="aspect-sentiment-title">
+        <div class="section-heading"><div><p class="overline">DRIVERS</p><h2 id="aspect-sentiment-title">Aspect sentiment</h2></div></div>
+        <label class="aspect-search-label" for="aspect-search">Search top aspects</label>
+        <input id="aspect-search" class="aspect-search" type="search" placeholder="Search aspects" aria-controls="aspect-sentiment-list">
+        <div class="aspect-legend"><p class="util-legend"><span><i class="util-sw aspect-negative-swatch"></i>Negative share ←</span><span>→ Positive share<i class="util-sw aspect-positive-swatch"></i></span></p><p class="chart-caption">Neutral share not drawn · counts on hover or focus · net in percentage points</p></div>
+        <ul id="aspect-sentiment-list" class="aspect-sentiment-list">${renderAspectSentiment(sg.aspects.slice(0,10))}</ul>
+      </section>
       <p class="overline">MENTIONS PER DAY</p>
       <div class="trend-chart">${sg.trends.map(d=>`<div class="trend-col" title="${esc(d.date)}: ${d.total.toLocaleString('en-US')} mentions"><span class="trend-bar${d.total===0?' zero':''}" style="height:${d.total===0?0:Math.max(6,Math.round(d.total/mxT*64))}px"></span><span class="trend-day">${esc(d.date.slice(5))}</span></div>`).join('')}</div>
       <p class="chart-caption">${esc(sg.provenance)} Aggregates are historical and do not update with live runs. Aspect tags and sentiment are platform classifications, not verified claims.</p>`;
+    document.querySelector('#aspect-search').addEventListener('input',e=>{
+      const query=e.target.value.trim().toLowerCase();
+      document.querySelector('#aspect-sentiment-list').innerHTML=renderAspectSentiment(sg.aspects.slice(0,10).filter(a=>a.aspect.toLowerCase().includes(query)));
+    });
   }).catch(()=>{});
   if(r.trends&&r.trends.days&&r.trends.days.length){const mx=Math.max(1,...r.trends.days.map(d=>d.count));document.querySelector('#trend-chart').innerHTML=r.trends.days.map(d=>`<div class="trend-col" title="${esc(d.day)}: ${d.count.toLocaleString('en-US')} collected items"><span class="trend-bar${d.count===0?' zero':''}" style="height:${d.count===0?0:Math.max(6,Math.round(d.count/mx*64))}px"></span><span class="trend-day">${esc(d.day.slice(5))}</span><span class="trend-n">${d.count.toLocaleString('en-US')}</span></div>`).join('')+`<p class="faint">${esc(r.trends.scope)}</p>`}
   document.querySelector('#foot-note').textContent='Items are deduplicated within each source; the same story syndicated across outlets can appear once per source. '+(r.storeMode==='attached-volume'?'The run store lives on an attached volume and survives redeploys.':'The on-disk store resets when the service redeploys.');
