@@ -397,18 +397,23 @@ async function handleApi(req, res, url, ip) {
     }
     store.signalJobs = store.signalJobs || {};
     const cur = store.signalJobs[ticker];
+    if ((store.signals || {})[ticker] && !body.force) return send(res, 409, { error: 'already_done', detail: 'Signals already exist for ' + ticker + '. Pass force:true to regenerate.' });
     if (cur && cur.status === 'running' && !body.force) return send(res, 409, { error: 'already_running', detail: 'A signals job is already running for ' + ticker + '. Pass force:true to restart after an interrupted deploy.' });
     const kres = await openaiKey();
     if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: String(kres.err).slice(0, 80) });
     const key = kres.key;
-    const job = { status: 'running', ticker, total: prep.unique.length, done: 0, calls: est.calls, costUsd: 0, startedAt: new Date().toISOString() };
+    // Resume from checkpoint when the SAME input set was partially processed
+    // before an interrupt (deploy/host restart): paid batch results persist.
+    const priorPartial = (cur && Array.isArray(cur.partialSignals) && cur.partialTotal === prep.unique.length) ? cur.partialSignals : null;
+    const resumeDone = priorPartial ? priorPartial.length : 0;
+    const job = { status: 'running', ticker, total: prep.unique.length, done: resumeDone, calls: est.calls, costUsd: (cur && resumeDone ? cur.costUsd || 0 : 0), startedAt: new Date().toISOString(), partialTotal: prep.unique.length, partialSignals: priorPartial || [] };
     store.signalJobs[ticker] = job;
     await saveStore();
     (async () => {
-      const allSignals = [];
+      const allSignals = job.partialSignals.slice();
       let callsDone = 0;
       try {
-        for (let off = 0; off < prep.unique.length; off += BATCH_SIZE) {
+        for (let off = resumeDone; off < prep.unique.length; off += BATCH_SIZE) {
           store.openaiSpend = store.openaiSpend || { confirmedUsd: 0, runs: [] };
           if (store.openaiSpend.confirmedUsd >= OPENAI_CAP_USD) throw new Error('runaway_guard:' + store.openaiSpend.confirmedUsd);
           const batchTexts = prep.texts.slice(off, off + BATCH_SIZE);
@@ -429,6 +434,7 @@ async function handleApi(req, res, url, ip) {
           callsDone++;
           job.done = Math.min(off + BATCH_SIZE, prep.unique.length);
           job.costUsd = +(job.costUsd + cost).toFixed(6);
+          job.partialSignals = allSignals;
           if (callsDone % 25 === 0) await saveStore();
           await new Promise(r => setTimeout(r, 120));
         }
@@ -442,6 +448,8 @@ async function handleApi(req, res, url, ip) {
         };
         job.status = 'done';
         job.finishedAt = new Date().toISOString();
+        delete job.partialSignals;
+        delete job.partialTotal;
         await saveStore();
       } catch (e) {
         job.status = 'failed';
