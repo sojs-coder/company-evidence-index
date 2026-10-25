@@ -66,8 +66,12 @@ async function handleApi(req, res, url, ip) {
   }
 
   // Per-company public-mention data packs (X/Twitter via Apify actor).
-  // Admin-gated (PACK_ADMIN_TOKEN), hard spend guard against the nightly
-  // $10 total Apify cap (user approval 2026-10-25 00:36, incl. $0.008 prior).
+  // Admin-gated (PACK_ADMIN_TOKEN), hard spend guard. User voice 2026-10-25
+  // 00:40 (iMessage): "total overall expenditure out of approved budget is
+  // $10 ... do whatever you need to within that ... ask me for another 10
+  // once that expires" - ONE $10 across ALL paid work (Apify + OpenAI +
+  // infra). Apify share bounded at $5 here to preserve analysis headroom;
+  // $0.008 already spent on the first verified scrape.
   // Public posts only; no login/private data.
   if (p === '/api/packs/collect' && req.method === 'POST') {
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
@@ -83,8 +87,8 @@ async function handleApi(req, res, url, ip) {
     const PER_ITEM_USD = 0.0004; // apidojo/tweet-scraper: "$0.40 per 1000 tweets" (actor description, verified 2026-10-25) and corroborated by a measured $0.008/20-item run
     const estUsd = maxItems * PER_ITEM_USD;
     store.apifySpend = store.apifySpend || { confirmedUsd: 0.008, estimatedUsd: 0, runs: [] };
-    if (store.apifySpend.confirmedUsd + store.apifySpend.estimatedUsd + estUsd > 9.5) {
-      return send(res, 429, { error: 'spend_guard', detail: 'Refusing run: projected Apify spend would exceed the nightly $10 total cap.', projectedUsd: +(store.apifySpend.confirmedUsd + store.apifySpend.estimatedUsd + estUsd).toFixed(3) });
+    if (store.apifySpend.confirmedUsd + store.apifySpend.estimatedUsd + estUsd > 5.0) {
+      return send(res, 429, { error: 'spend_guard', detail: 'Refusing run: projected Apify spend would exceed its $5 share of the $10 total build budget.', projectedUsd: +(store.apifySpend.confirmedUsd + store.apifySpend.estimatedUsd + estUsd).toFixed(3) });
     }
     let token = (process.env.APIFY_API_TOKEN || '').trim();
     if (!token) {
