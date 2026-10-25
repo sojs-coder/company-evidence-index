@@ -18,7 +18,6 @@ async function boot(){
   try{r=await fetch('/api/companies/apple/analysis').then(x=>{if(!x.ok)throw new Error('HTTP '+x.status);return x.json()})}
   catch(e){failAll('The run failed to start; nothing is substituted. Retry in a moment - a cold start can take up to about 80 seconds.');return}
   enableDownloads();
-  document.querySelector('#run-stamp').textContent=new Date(r.generatedAt).toUTCString().slice(5,25).toUpperCase()+' UTC';
   const total=r.sources.reduce((n,s)=>n+s.itemCount,0);
   const p=r.persistence||{};
   const cached=r.sources.filter(s=>s.cached).length;
