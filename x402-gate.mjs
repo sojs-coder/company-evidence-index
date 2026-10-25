@@ -18,13 +18,13 @@ const DATA_PATH = /^\/api\/(?!health$)/; // every API route except /api/health c
 
 export function x402Status(env = process.env) {
   if (env.X402_ENABLED !== 'true') {
-    return { state: 'disabled', detail: 'x402 paid access is built but switched off. All endpoints are free. Activation needs the user decisions: price per endpoint, receiving wallet, CDP facilitator credentials, and the go-ahead.' };
+    return { state: 'disabled', detail: 'Paid access is off; endpoints are free.' };
   }
   const missing = ['CDP_API_KEY_ID', 'CDP_API_KEY_SECRET', 'X402_PAY_TO'].filter(k => !env[k] || !env[k].trim());
   if (missing.length) {
-    return { state: 'closed', detail: `X402_ENABLED=true but missing env: ${missing.join(', ')}. Failing CLOSED: data routes return 503 until fixed.` };
+    return { state: 'closed', detail: 'Paid access is enabled but its configuration is incomplete; data routes fail closed (503) with no data.' };
   }
-  return { state: 'enabling', detail: 'x402 gate requested; SDK wiring activates at startup. Testnet (Base Sepolia) unless X402_NETWORK says otherwise.' };
+  return { state: 'enabling', detail: 'Paid access activates at startup.' };
 }
 
 function closedHandler(handler) {
