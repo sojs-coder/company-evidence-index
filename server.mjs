@@ -257,9 +257,15 @@ function parse(kind, raw) {
     const metric = kind === 'xbrl_ni' ? 'net income' : kind === 'xbrl_rd' ? 'R&D expense' : isShares ? 'diluted EPS' : 'revenue';
     const tag = j.tag || (kind === 'xbrl_ni' ? 'NetIncomeLoss' : kind === 'xbrl_rd' ? 'ResearchAndDevelopmentExpense' : isShares ? 'EarningsPerShareDiluted' : 'RevenueFromContractWithCustomerExcludingAssessedTax');
     const fmt = v => isShares ? '$' + Number(v).toFixed(2) : '$' + (v / 1e9).toFixed(1) + 'B';
-    const rows = ((j.units && (j.units[isShares ? 'USD/shares' : 'USD'] || j.units.USD)) || []).filter(u => u.fp === 'FY');
-    const seen = new Set();
-    return rows.slice().reverse().filter(u => { const k = String(u.val); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 5).map(u => ({ title: `FY${String(u.end || '').slice(0, 4)} ${metric} ${fmt(u.val)}`, date: u.end, concept: tag, link: `https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/${tag}.json` }));
+    const unit = isShares ? 'USD/shares' : 'USD';
+    // Annual audit: FY flag + 10-K form + ~1-year period, deduped by period end
+    // preferring the latest-filed accession (amendments win over originals).
+    const rows = ((j.units && (j.units[unit] || j.units.USD)) || []).filter(u => u.fp === 'FY' && u.form === '10-K' && u.start && u.end)
+      .filter(u => { const days = (Date.parse(u.end) - Date.parse(u.start)) / 864e5; return days > 300 && days < 400; });
+    const byEnd = new Map();
+    for (const u of rows) { const prev = byEnd.get(u.end); if (!prev || String(u.filed) > String(prev.filed)) byEnd.set(u.end, u); }
+    return [...byEnd.values()].sort((a, b) => String(b.end).localeCompare(String(a.end))).slice(0, 5)
+      .map(u => ({ title: `FY${String(u.end).slice(0, 4)} ${metric} ${fmt(u.val)}`, date: u.end, concept: tag, unit, rawVal: u.val, accession: u.accn, filed: u.filed, link: `https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/${tag}.json` }));
   }
   if (kind === 'itunes') {
     const j = JSON.parse(raw);
@@ -464,7 +470,7 @@ function validateClaims(report) {
       const figRe = fig ? new RegExp('\\b' + fig.replace(/\./g, '\\.') + '(?!\\d)') : null;
       const withHit = figRe ? pressItems.map(it => { const hay = (it.title || '') + ' ' + (it.context || '') + ' ' + cleanBody(it.body); const hm = hay.match(figRe); return hm ? { ...it, excerpt: hay.slice(Math.max(0, hm.index - 60), hm.index + hm[0].length + 80).trim() } : null; }).filter(Boolean) : [];
       figureChecks.push({ claim: `${t} (filed to the SEC, XBRL)`, basis: 'SEC XBRL company facts, us-gaap:' + (f.concept || 'RevenueFromContractWithCustomerExcludingAssessedTax') + ', annual period ended ' + fmtDate(f.date), figure: fig, link: f.link || '', date: fmtDate(f.date),
-        status: withHit.length ? 'cited-in-press' : 'no-press-citation-in-run',
+        status: withHit.length ? 'cited-in-press' : 'no-additional-press-match-in-run',
         passages: withHit.slice(0, 5).map(it => ({ title: it.title, link: it.link || '', date: fmtDate(it.date), source: it.source, excerpt: it.excerpt })) });
     }
   }
@@ -603,7 +609,7 @@ async function runReport() {
 // ===== Diligence workflow: fundamentals, risk-cued coverage, competitive
 // co-mentions, open questions, cited memo. Extractive over this run's collected
 // records only; no LLM, no invented judgments. Missing evidence is listed, not filled.
-const RISK_RE = /\b(lawsuit|sued|antitrust|fine[ds]?|penalt\w+|recall|layoffs?|laid off|outage|breach|vulnerabilit\w+|exploit\w*|investigation|probe|downgrades?|bans?|banned|tariffs?|settlement|complaint|delayed?|misses|missed|declin\w+|doj|ftc)\b/i;
+const RISK_RE = /\b(lawsuit|sued|antitrust|fined|regulatory fine|penalt\w+|recall|layoffs?|laid off|outage|data breach|security breach|vulnerabilit\w+|exploit\w*|investigation|probe|downgrades?|banned|tariffs?|settlement|complaint|delayed|delays|misses|missed|declin\w+|doj|ftc)\b/i;
 const COMPETITORS = ['Samsung', 'Google', 'Microsoft', 'Meta', 'Huawei', 'Xiaomi', 'OpenAI', 'Amazon', 'Nvidia'];
 function buildDiligence(report, v) {
   const all = [];
@@ -615,27 +621,68 @@ function buildDiligence(report, v) {
     for (const it of (src && src.allItems) || []) {
       const fy = (it.title || '').slice(0, 6);
       if (!/^FY\d{4}$/.test(fy)) continue;
-      (fyMap[fy] = fyMap[fy] || { fy, date: fmtDate(it.date), rows: {} }).rows[label] = { value: (it.title || '').replace(/^FY\d{4}\s*(revenue|net income|R&D expense|diluted EPS)\s*/i, ''), concept: it.concept || '', link: it.link || '' };
+      (fyMap[fy] = fyMap[fy] || { fy, date: fmtDate(it.date), rows: {} }).rows[label] = { value: (it.title || '').replace(/^FY\d{4}\s*(revenue|net income|R&D expense|diluted EPS)\s*/i, ''), raw: it.rawVal, unit: it.unit || '', accession: it.accession || '', filed: it.filed || '', concept: it.concept || '', link: it.link || '' };
     }
   }
   const fundamentals = Object.values(fyMap).sort((a, b) => b.fy.localeCompare(a.fy)).slice(0, 2);
-  const riskCues = all.filter(it => RISK_RE.test((it.title || '') + ' ' + (it.context || '')))
-    .sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)).slice(0, 12)
-    .map(it => ({ title: (it.title || '').slice(0, 200), source: it.source, date: fmtDate(it.date), link: it.link || '', cue: (((it.title || '') + ' ' + (it.context || '')).match(RISK_RE) || [])[0] || '', candidate: /^candidate/.test(it.relevance || '') }));
+  // Computed year-over-year interpretation over the cited filed figures.
+  const deltas = [];
+  if (fundamentals.length >= 2) {
+    const [cur, prev] = fundamentals;
+    for (const m of concepts.map(c => c[1])) {
+      const a = cur.rows[m] && cur.rows[m].raw, b = prev.rows[m] && prev.rows[m].raw;
+      if (a != null && b != null && b !== 0) deltas.push({ metric: m, cur: cur.rows[m].value, prev: prev.rows[m].value, pct: ((a - b) / Math.abs(b) * 100).toFixed(1), unit: cur.rows[m].unit });
+    }
+  }
+  // Risk-cued coverage: confirmed-relevant items only (candidates excluded).
+  const confirmed = all.filter(it => !/^candidate/.test(it.relevance || ''));
+  const riskCues = confirmed.filter(it => RISK_RE.test((it.title || '') + ' ' + (it.context || '')))
+    .sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)).slice(0, 10)
+    .map(it => ({ title: (it.title || '').slice(0, 200), source: it.source, date: fmtDate(it.date), link: it.link || '', cue: (((it.title || '') + ' ' + (it.context || '')).match(RISK_RE) || [])[0] || '' }));
+  // Co-mention exploration appendix (all collected items incl. candidates and old stories).
   const compCounts = {}, compExamples = {};
+  let oldest = null;
   for (const it of all) {
     const t = (it.title || '') + ' ' + (it.context || '');
-    for (const c of COMPETITORS) if (new RegExp('\\b' + c + '\\b', 'i').test(t)) { compCounts[c] = (compCounts[c] || 0) + 1; if (!compExamples[c]) compExamples[c] = { title: (it.title || '').slice(0, 160), source: it.source, date: fmtDate(it.date), link: it.link || '' }; }
+    const dte = fmtDate(it.date);
+    if (dte && (!oldest || dte < oldest)) oldest = dte;
+    for (const c of COMPETITORS) if (new RegExp('\\b' + c + '\\b', 'i').test(t)) { compCounts[c] = (compCounts[c] || 0) + 1; if (!compExamples[c]) compExamples[c] = { title: (it.title || '').slice(0, 160), source: it.source, date: dte, link: it.link || '' }; }
   }
   const competitors = Object.entries(compCounts).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count, example: compExamples[name] }));
-  const openQuestions = [];
+  // Evidence balance: what collected evidence leans toward vs against, each cited.
+  const toward = [], against = [];
+  const growing = deltas.filter(d => parseFloat(d.pct) > 0).map(d => d.metric);
+  const shrinking = deltas.filter(d => parseFloat(d.pct) < 0).map(d => d.metric);
+  if (growing.length) toward.push(`Filed figures up year over year: ${growing.join(', ')} (computed from SEC XBRL citations in Fundamentals)`);
+  if (shrinking.length) against.push(`Filed figures down year over year: ${shrinking.join(', ')} (computed from SEC XBRL citations in Fundamentals)`);
+  const covered = (v.headlineChecks || []).filter(c => c.status === 'related-separate-wording' || c.status === 'echoed-only');
+  for (const c of covered.slice(0, 3)) toward.push(`Company statement has related outside coverage: "${c.claim}" (${c.status})`);
+  const tensions = [];
+  for (const c of v.headlineChecks) for (const p of (c.passages || [])) if (p.tension) tensions.push({ claim: c.claim, p });
+  for (const t of tensions) against.push(`Possible tension on "${t.claim}": ${t.p.source}, ${t.p.date}: "${t.p.title}" ${t.p.link}`);
+  for (const r of riskCues.slice(0, 3)) against.push(`Risk-cued coverage: ${r.date} · ${r.source}: "${r.title}" (cue: ${r.cue}) ${r.link}`);
+  const uncovered = (v.headlineChecks || []).filter(c => c.status === 'no-outside-coverage-in-run');
+  for (const c of uncovered.slice(0, 3)) against.push(`Company statement with no outside coverage collected: "${c.claim}"`);
+  // Research questions with resolution status.
+  const researchQuestions = [];
+  for (const f of (v.figureChecks || [])) researchQuestions.push({ q: `What is the filed ${(/FY\d{4} [a-z& ]+/i.exec(f.claim) || [f.claim])[0].replace(' (filed to the SEC, XBRL)', '')}?`, status: 'resolved-primary-source', detail: `${f.basis} - ${f.link}` });
+  for (const c of (v.headlineChecks || [])) researchQuestions.push({ q: `Is there coverage beyond company channels of: ${c.claim}?`, status: c.status === 'no-outside-coverage-in-run' ? 'open-no-coverage-collected' : 'resolved-' + c.status, detail: (c.passages && c.passages[0]) ? `${c.passages[0].source}: "${c.passages[0].title}" ${c.passages[0].link}` : 'no collected passage' });
+  const knownGaps = [
+    { area: 'X/Twitter coverage', detail: 'User-requested in the product vision. Official pay-per-use API documented at https://docs.x.com/x-api/getting-started/pricing, but no X account access is configured; sign-in, Developer Agreement acceptance and credit purchase are the user\'s decisions.' },
+    { area: 'Employee commentary', detail: 'No compliant public source with verified employee self-attribution is integrated; Blind/Glassdoor are login-walled (out of scope). HN/Mastodon/Reddit are unknown-speaker commentary, not employee sources.' },
+    { area: 'Fresh Signalor mention analytics', detail: 'Dashboard panel is a historical aggregate through 2026-10-20, not live; refresh depends on Signalor pipeline work outside this project.' },
+    { area: 'Cal Hacks provided API layer', detail: 'Named in the product vision; no API details have been provided.' },
+    { area: 'Filing-level risk-factor review', detail: 'This run reads filed XBRL figures only; 10-K risk-factor text is not yet collected or reviewed.' }
+  ];
+  const openQuestions = [...knownGaps];
   for (const s of report.sources) if (s.mode !== 'live') openQuestions.push({ area: s.name + ' unavailable this run', detail: (s.detail || 'fetch failed').slice(0, 220) });
-  for (const c of [...(v.figureChecks || []), ...(v.headlineChecks || [])]) if (c.status === 'no-press-citation-in-run') openQuestions.push({ area: 'No collected citation this run', detail: c.claim });
-  return { fundamentals, riskCues, competitors, openQuestions: openQuestions.slice(0, 14),
-    labels: { fundamentals: 'Filed SEC XBRL facts (exact us-gaap concept + annual period), latest two fiscal years.',
-      risk: 'Keyword-cued coverage mentioning risk terms in collected items - cues for review, not a risk assessment.',
-      competitors: 'Competitor names co-occurring inside collected Apple coverage - presence of a name, not competitive analysis.',
-      open: 'Evidence this run does not contain. Absence here is not proof the fact or coverage does not exist.' } };
+  return { fundamentals, deltas, riskCues, competitors, competitorsOldest: oldest, toward, against, researchQuestions, openQuestions,
+    labels: { fundamentals: 'Filed SEC XBRL facts (exact us-gaap concept, USD unit, 10-K form, annual period), deduped by period end preferring the latest-filed accession.',
+      deltas: 'Year-over-year arithmetic on the cited filed figures above - computed values, not independent estimates.',
+      risk: 'Keyword-cued coverage in confirmed-relevant items (query-match candidates excluded) - cues for review, not a risk assessment.',
+      balance: 'What the collected evidence leans toward and against - wording-level collected evidence, not an investment recommendation.',
+      competitors: 'Exploration appendix: name co-occurrence across ALL collected items (any date, including older stories and candidate query-matches) - raw co-occurrence, not current competitive analysis.',
+      open: 'Known missing coverage and unavailable sources. Absence here is not proof a fact or coverage does not exist.' } };
 }
 function buildMemo(report, v, d) {
   const L = [];
@@ -643,60 +690,63 @@ function buildMemo(report, v, d) {
   L.push('# Diligence memo - Apple Inc. (AAPL)');
   L.push(`Generated ${report.generatedAt} from ${total.toLocaleString('en-US')} collected public records across ${report.liveCount} live sources (${(report.candidateTotal || 0).toLocaleString('en-US')} candidate query-matches counted separately). Run history: ${report.persistence.runs} recorded runs, ${report.persistence.uniqueItems.toLocaleString('en-US')} unique records on file (${report.persistence.storage}).`);
   L.push('');
-  L.push('Every section cites the collected evidence it rests on. What this run cannot confirm is listed under Open questions - missing evidence is never filled with invented conclusions.');
+  L.push('Every section cites the collected evidence it rests on. What this run cannot confirm is listed under Open questions - missing evidence is never filled with invented conclusions. Nothing here is an investment recommendation.');
   L.push('');
   L.push('## 1. Fundamentals (filed SEC XBRL facts)');
   L.push(d.labels.fundamentals); L.push('');
   for (const fy of d.fundamentals) {
     L.push(`### ${fy.fy} (annual period ended ${fy.date})`);
-    for (const [label, r] of Object.entries(fy.rows)) L.push(`- ${label}: ${r.value} - us-gaap:${r.concept} - ${r.link}`);
+    for (const [label, r] of Object.entries(fy.rows)) L.push(`- ${label}: ${r.value} - us-gaap:${r.concept} (${r.unit}) - accession ${r.accession}, filed ${r.filed} - ${r.link}`);
     L.push('');
   }
-  L.push('## 2. Coverage trend (collected volume, not total internet volume)');
-  L.push(report.trends.scope); L.push('');
-  for (const day of report.trends.days) L.push(`- ${day.day}: ${day.count} collected items`);
+  L.push('## 2. Financial interpretation (computed)');
+  L.push(d.labels.deltas); L.push('');
+  if (d.deltas.length) for (const x of d.deltas) L.push(`- ${x.metric}: ${x.cur} vs ${x.prev} - ${x.pct}% YoY (${x.unit})`);
+  else L.push('- Not enough annual periods collected to compute.');
   L.push('');
-  L.push('## 3. Claim checks (related-evidence coverage, wording level)');
+  L.push('## 3. Evidence balance');
+  L.push(d.labels.balance); L.push('');
+  L.push('Leans toward:'); for (const t of d.toward) L.push(`- ${t}`);
+  L.push(''); L.push('Leans against / unresolved:'); for (const a of d.against) L.push(`- ${a}`);
+  L.push('');
+  L.push('## 4. Claim checks (related-evidence coverage, wording level)');
   L.push(`${v.coverageScore.score}/100 - ${v.coverageScore.drivers}`);
   L.push(v.coverageScore.scope); L.push('');
   for (const c of v.figureChecks) L.push(`- [${c.status}] ${c.claim} - ${c.basis}${c.link ? ' - ' + c.link : ''}`);
   L.push('');
   for (const c of v.headlineChecks) L.push(`- [${c.status}] ${c.claim}${c.date ? ' (' + c.date + ')' : ''}`);
   L.push('');
-  // Counter-evidence: tension-flagged passages and figure mismatches are
-  // presented, not hidden - they are what a reviewer should look at first.
-  const tensions = [];
-  for (const c of v.headlineChecks) for (const p of (c.passages || [])) if (p.tension) tensions.push({ claim: c.claim, p });
-  L.push('## 4. Counter-evidence and unresolved checks');
-  L.push('Passages flagged possible tension (negation/failure wording near the matched span - related evidence for review, never counted as coverage) and figures without collected citation.');
+  const tensions2 = [];
+  for (const c of v.headlineChecks) for (const p of (c.passages || [])) if (p.tension) tensions2.push({ claim: c.claim, p });
+  L.push('## 5. Counter-evidence and unresolved checks');
+  L.push('Passages flagged possible tension (negation/failure wording near the matched span - related evidence for review, never counted as coverage), figure mismatches, and checks without additional press match (the primary SEC citation stands in Fundamentals).');
   L.push('');
-  if (tensions.length) for (const t of tensions) L.push(`- TENSION on "${t.claim}": ${t.p.source}, ${t.p.date}: "${t.p.title}" ${t.p.link}${t.p.excerpt ? '\n  Passage: "...' + t.p.excerpt + '..."' : ''}`);
+  if (tensions2.length) for (const t of tensions2) L.push(`- TENSION on "${t.claim}": ${t.p.source}, ${t.p.date}: "${t.p.title}" ${t.p.link}${t.p.excerpt ? '\n  Passage: "...' + t.p.excerpt + '..."' : ''}`);
   else L.push('- No tension-flagged passages this run.');
   for (const c of (v.contradictions || [])) L.push(`- FIGURE MISMATCH CANDIDATE: ${c.claim} - ${c.basis}`);
-  const noCite = [...v.figureChecks, ...v.headlineChecks].filter(c => c.status === 'no-press-citation-in-run').length;
-  L.push(`- ${noCite} checked claim(s) have no citation in collected items this run (see Open questions).`);
   L.push('');
-  L.push('## 5. Risk-cued coverage');
+  L.push('## 6. Risk-cued coverage');
   L.push(d.labels.risk); L.push('');
-  if (d.riskCues.length) for (const r of d.riskCues) L.push(`- ${r.date} · ${r.source}: "${r.title}" (cue: ${r.cue}${r.candidate ? ', candidate query-match only' : ''}) ${r.link}`);
-  else L.push('- No risk-cued items in this run\'s collected coverage.');
+  if (d.riskCues.length) for (const r of d.riskCues) L.push(`- ${r.date} · ${r.source}: "${r.title}" (cue: ${r.cue}) ${r.link}`);
+  else L.push('- No risk-cued items in confirmed-relevant coverage this run.');
   L.push('');
-  L.push('## 6. Competitive co-mentions');
-  L.push(d.labels.competitors); L.push('');
-  if (d.competitors.length) for (const c of d.competitors) L.push(`- ${c.name}: ${c.count} collected item(s). Example: ${c.example.date} · ${c.example.source}: "${c.example.title}" ${c.example.link}`);
-  else L.push('- No competitor names co-mentioned in this run\'s collected coverage.');
+  L.push('## 7. Research questions and resolution status');
+  for (const q of d.researchQuestions) L.push(`- [${q.status}] ${q.q} - ${q.detail}`);
   L.push('');
-  L.push('## 7. Open questions (missing evidence)');
+  L.push('## 8. Open questions (known gaps)');
   L.push(d.labels.open); L.push('');
-  if (d.openQuestions.length) for (const q of d.openQuestions) L.push(`- ${q.area}: ${q.detail}`);
-  else L.push('- None identified in this run.');
+  for (const q of d.openQuestions) L.push(`- ${q.area}: ${q.detail}`);
   L.push('');
-  L.push('## 8. Method and limits');
+  L.push('## Appendix. Co-mention exploration');
+  L.push(d.labels.competitors + (d.competitorsOldest ? ` Oldest collected item dates back to ${d.competitorsOldest}.` : '')); L.push('');
+  if (d.competitors.length) for (const c of d.competitors) L.push(`- ${c.name}: ${c.count} collected item(s). Example: ${c.example.date} · ${c.example.source}: "${c.example.title}" ${c.example.link}`);
+  else L.push('- None this run.');
+  L.push('');
+  L.push('## Method and limits');
   L.push(v.method);
-  L.push('Public sources only; no login-walled or paywalled collection; no LLM in the backend; matching is extractive and quoted. Query/tag-matched items are candidates, counted separately from Apple-specific endpoints. Collection cadence and per-source windows differ; deduplicated records persist on an attached volume across runs.');
+  L.push('Public sources only; no login-walled or paywalled collection; no LLM in the backend; matching is extractive and quoted. Query/tag-matched items are candidates, counted separately and excluded from risk cues. Collection cadence and per-source windows differ; deduplicated records persist on an attached volume across runs.');
   return L.join('\n');
 }
-
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
