@@ -104,7 +104,7 @@ test('spend is ledgered per run', async () => {
   const r = await fetch(BASE + '/api/analysis/answer/run', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-token': TOKEN }, body: JSON.stringify({ ticker: 'TEST', role: 'investor', q: 'What challenges the growth story here?' }) });
   assert.equal(r.status, 200);
   const j = await r.json();
-  assert.equal(j.costUsd, +((1000 * 0.15 / 1e6) + (200 * 0.60 / 1e6)).toFixed(6));
+  assert.equal(j.costUsd, +((1000 * 0.10 / 1e6) + (200 * 0.50 / 1e6)).toFixed(6)); // gpt-6-luna rates
 });
 
 test('unverified phone-capture items never enter the answer input', async () => {
