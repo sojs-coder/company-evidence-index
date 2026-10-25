@@ -13,7 +13,6 @@ async function vet(name){
   let r;
   try{r=await fetch('/api/vet/supplier?name='+encodeURIComponent(name)).then(x=>{if(!x.ok)throw new Error('HTTP '+x.status);return x.json()})}
   catch(e){state('#awards','The lookup failed ('+(e.message||e)+'). Nothing is substituted.',true);state('#citations','Not attempted after the failure.',true);return}
-  document.getElementById('run-stamp').textContent='FETCHED '+new Date(r.fetchedAt).toUTCString().slice(17,25)+' UTC';
   const groups=r.recipientGroups&&r.recipientGroups.length?r.recipientGroups:[{recipient:'(recipient not recorded)',awardCount:r.awards.length,totalObligatedUsd:null,awards:r.awards}];
   document.getElementById('award-count').textContent=r.awards.length+' RECORDS · '+groups.length+' LEGAL NAME'+(groups.length===1?'':'S');
   const verified=r.citations.filter(c=>c.association&&c.association.state==='affiliation_verified');

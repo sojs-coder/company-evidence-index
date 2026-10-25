@@ -17,7 +17,6 @@ async function identify(name){
   let r;
   try{r=await fetch('/api/vet/identify?name='+encodeURIComponent(name)).then(x=>{if(!x.ok)throw new Error('HTTP '+x.status);return x.json()})}
   catch(e){state('#identities','Identity lookup failed ('+(e.message||e)+'). Nothing is substituted.',true);return}
-  document.getElementById('run-stamp').textContent='FETCHED '+new Date(r.fetchedAt).toUTCString().slice(17,25)+' UTC';
   const ids=r.identities;
   document.getElementById('identity-count').textContent=ids.length+' CANDIDATES';
   const card=(c,i)=>`<label class="id-card"><input type="radio" name="identity" value="${i}" /><span class="collect-item-title">${esc(c.name)}</span><span class="faint">${esc(KIND[c.kind]||c.kind)}${c.domain?' · '+esc(c.domain):''}${c.ticker?' · '+esc(c.ticker):''}${c.exchange?' · '+esc(c.exchange):''}${c.awardCount!=null?' · '+c.awardCount+' awards':''}</span></label>`;

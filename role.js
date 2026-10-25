@@ -9,6 +9,12 @@
     investor: { label: 'An investor',line: 'See claims, counterclaims, and what deserves diligence.' },
     scout:    { label: 'A scout',    line: 'Compare companies by coverage and conversation themes.' }
   };
+  const ICONS = {
+    customer: '<path d="M6 7h12l1 13H5L6 7Z"/><path d="M9 7V6a3 3 0 0 1 6 0v1"/>',
+    vendor: '<path d="M3 10h18l-2-6H5l-2 6Z"/><path d="M3 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M5 13v7h14v-7M10 20v-5h4v5"/>',
+    investor: '<path d="M4 4v16h16M8 15l4-5 4 2 4-6M16 6h4v4"/>',
+    scout: '<circle cx="12" cy="12" r="9"/><path d="m16 8-2 6-6 2 2-6 6-2Z"/>'
+  };
   const KEY = 'cei_role';
   window.CEI_ROLE = {
     get: () => { try { return sessionStorage.getItem(KEY) || ''; } catch { return ''; } },
@@ -29,11 +35,13 @@
     if (window.CEI_ROLE.get()) { bar(); return; }
     const ov = document.createElement('div');
     ov.id = 'role-ask';
-    ov.innerHTML = '<div class="role-card"><h1>Who are you?</h1>' +
+    ov.innerHTML = '<div class="role-card"><h1>Who are you?</h1><div class="role-options">' +
       Object.entries(ROLES).map(([k, r]) =>
-        '<button type="button" class="role-opt" data-role="' + k + '"><strong>' + r.label + '</strong><span>' + r.line + '</span></button>'
+        '<button type="button" class="role-opt" data-role="' + k + '">' +
+        '<svg class="role-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + ICONS[k] + '</svg>' +
+        '<strong>' + r.label + '</strong><span>' + r.line + '</span></button>'
       ).join('') +
-      '<p class="role-note">Your choice only changes how the evidence is organized. Same posts, same sources, same standards.</p></div>';
+      '</div><p class="role-note">Your choice only changes how the evidence is organized. Same posts, same sources, same standards.</p></div>';
     ov.addEventListener('click', (e) => {
       const b = e.target.closest('.role-opt');
       if (!b) return;
