@@ -29,7 +29,6 @@
       </div>
     </div>
     <section class="panel" aria-label="Vetting request">
-      <p class="state-note">For anyone who needs to vet a company before trusting it. Name the company, ask the question you are actually deciding on, pick the exact legal entity, and get a report of cited evidence with its limits stated. Public records only; nothing is fabricated, and no verdict is sold.</p>
       <form id="vet-form" class="vet-form">
         <span class="vet-field"><label for="vet-name">Company name</label><input id="vet-name" name="name" type="text" value="Honeybee Robotics" autocomplete="off" /></span>
         <span class="vet-field vet-field--q"><label for="vet-question">Your evaluation question</label><textarea id="vet-question" name="question" rows="2">Do they have flight heritage for Mars rover mechanisms?</textarea></span>
@@ -44,12 +43,12 @@
     </section>
     <section class="panel" aria-label="Identity selection" id="identity-panel" hidden>
       <div class="section-heading"><div><p class="overline">STEP 1</p><h2>Which company exactly?</h2></div><span class="badge-dim" id="identity-count"></span></div>
-      <p class="state-note">Registry name matches, not resolved entities. Distinct legal entities can share name tokens; acquisitions and subsidiaries are not resolved automatically. Select one before any company-specific report.</p>
+      <p class="state-note">Select the exact legal entity; name matches may include unrelated companies.</p>
       <div id="identities"><p class="state-note">Candidates appear here.</p></div>
     </section>
     <section class="panel" aria-label="Cited answer" id="answer-panel" hidden>
       <div class="section-heading"><div><p class="overline">STEP 2 · CITED ANSWER</p><h2 id="answer-title">Your question, answered from sources</h2></div><span class="badge-dim" id="answer-count"></span></div>
-      <p class="state-note">Extractive prototype: passages are quoted verbatim from the cited pages and findings are stated from their named sources. A labeled third-party synthesis may appear below; it is generated, not extractive. No verdict on whether the company deserves trust.</p>
+      <p class="state-note">Source quotes and findings, with any AI-generated summary labeled separately.</p>
       <div id="quotes"><p class="state-note">Quoted passages appear here.</p></div>
       <div id="findings"></div>
       <div id="limitations"></div>
