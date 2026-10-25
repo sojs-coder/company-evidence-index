@@ -63,7 +63,7 @@ async function boot(){
     })():`<p class="state-note">Sentiment analysis is not available for this pack. Collected posts are not counted as analyzed.</p>`;
     const coverage=sig?.coverage;
     return `<article class="company-detail" data-company="${esc(p.ticker)}"${p.ticker!==selectedTicker?' hidden':''}>
-      <header class="company-masthead"><p class="overline">COMPANY SIGNAL / ${String(index+1).padStart(2,'0')}</p><h2>${esc(p.company||p.ticker)} <em>${esc(p.ticker)}</em></h2><p class="small-note">Collected ${esc(new Date(p.collectedAt).toUTCString())}</p></header>
+      <header class="company-masthead"><p class="overline">COMPANY SIGNAL / ${String(index+1).padStart(2,'0')}</p><h2>${esc(p.company||p.ticker)} <span class="ticker">${esc(p.ticker)}</span></h2><p class="small-note">Collected ${esc(new Date(p.collectedAt).toUTCString())}</p></header>
       <nav class="detail-nav" aria-label="${esc(p.ticker)} sections"><a href="#signal-${index}">Signal</a><a href="#claims-${index}">Claims &amp; counterclaims</a><a href="#sources-${index}">Sources &amp; coverage</a></nav>
       <section id="signal-${index}" class="detail-section"><p class="overline">THE COLLECTED PICTURE</p><h3 class="position-heading">Current position</h3>
       <div class="mention-metrics"><div><strong>${number(p.itemCount)}</strong><span>Collected posts</span></div><div><strong>${coverage?number(coverage.analyzed):'—'}</strong><span>Analyzed posts</span></div><div><strong>${number((p.sources||[]).length)}</strong><span>Collection sources</span></div><div><strong>${sig?number((sig.topAspects||[]).length):'—'}</strong><span>Reported aspects</span></div></div>

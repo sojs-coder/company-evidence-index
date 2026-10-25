@@ -4,6 +4,23 @@ import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 
 const source = await readFile(new URL('../packs.js', import.meta.url), 'utf8');
+const html = await readFile(new URL('../packs.html', import.meta.url), 'utf8');
+const css = await readFile(new URL('../mentions.css', import.meta.url), 'utf8');
+
+test('mentions inherit the shared page shell and theme tokens', () => {
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /name="theme-color" content="#f5f4f4"/);
+  assert.match(html, /href="cal-hacks-tokens\.css\?v=\d+"/);
+  assert.match(html, /href="styles\.css\?v=\d+"/);
+  assert.match(html, /class="hero">\s*<h1>Public mentions<\/h1>/);
+  assert.match(html, /class="snapshot-banner" role="note"/);
+  assert.doesNotMatch(html, /data-(?:default-theme|dark-color|light-color)/);
+  // Local CSS must compose the workspace, not create another design system.
+  assert.doesNotMatch(css, /--[\w-]+\s*:/);
+  assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/i);
+  assert.doesNotMatch(css, /\.mentions-page\s+(?:main|\.topbar|\.hero|\.small-note)\s*\{/);
+});
+
 const packs = [
   { ticker:'AAPL', company:'Apple <Inc>', itemCount:7000, sources:[], collectedAt:'2026-10-25' },
   { ticker:'MSFT', company:'Microsoft', itemCount:2834, sources:[], collectedAt:'2026-10-25' }
