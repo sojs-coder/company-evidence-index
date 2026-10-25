@@ -65,6 +65,81 @@ async function handleApi(req, res, url, ip) {
     return send(res, r.ok ? 200 : (r.error === 'not_configured' ? 200 : 502), r);
   }
 
+  // Shared pack merge: dedupe by link+text head, per-item source tag,
+  // sources audit list. Used by collect / ingest / sweeper / recover.
+  function mergeIntoPack(ticker, company, terms, items, src, estUsdAdd) {
+    store.packs = store.packs || {};
+    const prev = store.packs[ticker];
+    const seen = new Set((prev ? prev.items : []).map(i => (i.link || '') + '|' + i.text.slice(0, 80)));
+    const fresh = items.filter(i => !seen.has((i.link || '') + '|' + i.text.slice(0, 80))).map(i => ({ ...i, src }));
+    const merged = (prev ? prev.items : []).concat(fresh);
+    const at = new Date().toISOString();
+    store.packs[ticker] = { company: company || (prev && prev.company) || ticker, ticker, terms: (terms && terms.length ? terms : (prev ? prev.terms : [])), collectedAt: at, itemCount: merged.length, estUsd: +(((prev && prev.estUsd) || 0) + (estUsdAdd || 0)).toFixed(4), sources: (prev ? prev.sources : []).concat([{ source: src, at, collected: items.length, added: fresh.length }]), items: merged };
+    return { added: fresh.length, packTotal: merged.length };
+  }
+  async function apifyToken() {
+    let token = (process.env.APIFY_API_TOKEN || '').trim();
+    if (!token) {
+      const r = await extractBrokeredSecret('APIFY_API_TOKEN').catch(() => ({ ok: false }));
+      if (r.ok) token = r.value;
+    }
+    return token || null;
+  }
+  async function apifyGet(pathname, token) {
+    const r = await fetch('https://api.apify.com' + pathname, { headers: { authorization: `Bearer ${token}` } });
+    if (!r.ok) return { ok: false, status: r.status };
+    return { ok: true, json: await r.json() };
+  }
+  // Sweeper: finishes async actor runs without any client waiting. When a
+  // run SUCCEEDs, its dataset items (free read) merge into the pack and the
+  // ledger swaps the launch estimate for the actual charge.
+  async function sweepPendingRuns() {
+    const pend = store.pendingRuns || {};
+    const ids = Object.keys(pend);
+    if (!ids.length) return;
+    const token = await apifyToken();
+    if (!token) return;
+    for (const runId of ids) {
+      try {
+        const st = await apifyGet('/v2/actor-runs/' + runId, token);
+        if (!st.ok) continue;
+        const run = st.json.data || st.json;
+        if (run.status === 'SUCCEEDED') {
+          const items = await apifyGet(`/v2/datasets/${run.defaultDatasetId}/items?clean=true&limit=3000`, token);
+          const rows = Array.isArray(items.json) ? items.json : [];
+          const mapped = rows.map(x => ({
+            text: String(x.text || x.full_text || x.title || '').slice(0, 500),
+            date: x.createdAt || x.created_at || '',
+            link: x.url || x.twitterUrl || '',
+            author: (x.author && (x.author.userName || x.author.username)) || '',
+            likes: x.likeCount ?? x.favoriteCount ?? null,
+            retweets: x.retweetCount ?? null,
+            replies: x.replyCount ?? null
+          })).filter(x => x.text);
+          const p = pend[runId];
+          mergeIntoPack(p.ticker, p.company, p.terms, mapped, 'apify-x', 0);
+          const actual = run.usageTotalUsd != null ? run.usageTotalUsd : null;
+          if (actual != null && store.apifySpend) {
+            store.apifySpend.estimatedUsd = +(store.apifySpend.estimatedUsd - p.estUsd).toFixed(4);
+            store.apifySpend.confirmedUsd = +(store.apifySpend.confirmedUsd + actual).toFixed(4);
+          }
+          const rec = store.apifySpend.runs.find(r => r.runId === runId);
+          if (rec) { rec.status = 'SUCCEEDED'; rec.items = mapped.length; rec.chargedUsd = actual; }
+          delete store.pendingRuns[runId];
+          await saveStore();
+        } else if (['FAILED', 'ABORTED', 'TIMED-OUT'].includes(run.status)) {
+          const p = pend[runId];
+          if (store.apifySpend) store.apifySpend.estimatedUsd = +(store.apifySpend.estimatedUsd - p.estUsd).toFixed(4);
+          const rec = store.apifySpend && store.apifySpend.runs.find(r => r.runId === runId);
+          if (rec) rec.status = run.status;
+          delete store.pendingRuns[runId];
+          await saveStore();
+        }
+      } catch { /* next sweep */ }
+    }
+  }
+  setInterval(() => { sweepPendingRuns().catch(() => {}); }, 45_000).unref();
+
   // Per-company public-mention data packs (X/Twitter via Apify actor).
   // Admin-gated (PACK_ADMIN_TOKEN), hard spend guard. User voice 2026-10-25
   // 00:40 (iMessage): "total overall expenditure out of approved budget is
@@ -84,51 +159,66 @@ async function handleApi(req, res, url, ip) {
     const terms = Array.isArray(body.terms) ? body.terms.map(t => String(t).slice(0, 120)).filter(Boolean).slice(0, 5) : [];
     const maxItems = Math.min(Math.max(parseInt(body.maxItems, 10) || 2000, 1), 3000);
     if (!ticker || !terms.length) return send(res, 400, { error: 'invalid_request', detail: 'ticker and non-empty terms[] are required.' });
-    const PER_ITEM_USD = 0.0004; // apidojo/tweet-scraper: "$0.40 per 1000 tweets" (actor description, verified 2026-10-25) and corroborated by a measured $0.008/20-item run
-    const estUsd = maxItems * PER_ITEM_USD;
+    const PER_ITEM_USD = 0.0004; // apidojo/tweet-scraper, verified against actual charges (NVDA run rJP6gKx07NqMZ7Hky: 1,992 items, $0.7968)
+    const estUsd = +(maxItems * PER_ITEM_USD).toFixed(4);
     store.apifySpend = store.apifySpend || { confirmedUsd: 0.008, estimatedUsd: 0, runs: [] };
     if (store.apifySpend.confirmedUsd + store.apifySpend.estimatedUsd + estUsd > 5.0) {
       return send(res, 429, { error: 'spend_guard', detail: 'Refusing run: projected Apify spend would exceed its $5 share of the $10 total build budget.', projectedUsd: +(store.apifySpend.confirmedUsd + store.apifySpend.estimatedUsd + estUsd).toFixed(3) });
     }
-    let token = (process.env.APIFY_API_TOKEN || '').trim();
-    if (!token) {
-      const r = await extractBrokeredSecret('APIFY_API_TOKEN').catch(() => ({ ok: false }));
-      if (r.ok) token = r.value;
-    }
+    const token = await apifyToken();
     if (!token) return send(res, 200, { ok: false, error: 'not_configured', detail: 'No Apify token in env or brokered runtime config.' });
     const actorId = process.env.APIFY_PACK_ACTOR || 'apidojo~tweet-scraper';
     const input = { searchTerms: terms, maxItems, sort: 'Latest', tweetLanguage: 'en', start: new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10) };
-    const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), 300_000);
-    let rows;
-    try {
-      const r = await fetch(`https://api.apify.com/v2/acts/${encodeURIComponent(actorId)}/run-sync-get-dataset-items`, {
-        method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(input), signal: ac.signal
-      });
-      clearTimeout(t);
-      if (!r.ok) return send(res, 502, { ok: false, error: 'apify_http_' + r.status });
-      rows = await r.json();
-    } catch (e) { clearTimeout(t); return send(res, 502, { ok: false, error: 'apify_fetch_failed', detail: String(e && e.message || e) }); }
-    const items = (Array.isArray(rows) ? rows : []).map(x => ({
+    // ASYNC launch: returns a run id immediately; the sweeper finalizes the
+    // pack when the run succeeds. No client wait, no lost results.
+    const r = await fetch(`https://api.apify.com/v2/acts/${encodeURIComponent(actorId)}/runs`, {
+      method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(input)
+    });
+    if (!r.ok) return send(res, 502, { ok: false, error: 'apify_http_' + r.status });
+    const run = (await r.json()).data;
+    store.pendingRuns = store.pendingRuns || {};
+    store.pendingRuns[run.id] = { ticker, company, terms, maxItems, startedAt: run.startedAt || new Date().toISOString(), estUsd };
+    store.apifySpend.estimatedUsd = +(store.apifySpend.estimatedUsd + estUsd).toFixed(4);
+    store.apifySpend.runs.push({ runId: run.id, ticker, at: new Date().toISOString(), estUsd, status: 'RUNNING' });
+    await saveStore();
+    sweepPendingRuns().catch(() => {}); // opportunistic immediate check
+    return send(res, 202, { ok: true, runId: run.id, ticker, estCostUsd: estUsd, note: 'Async run launched; pack finalizes automatically when the actor run succeeds.' });
+  }
+
+  // Admin-only recovery: a run that SUCCEEDED but whose pack never stored
+  // (client disconnect / redeploy) - re-read its dataset (free) and merge.
+  if (p === '/api/packs/recover' && req.method === 'POST') {
+    if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
+      return send(res, 403, { error: 'forbidden' });
+    }
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { return send(res, 400, { error: 'bad_json' }); }
+    const runId = String(body.runId || '');
+    const ticker = String(body.ticker || '').toUpperCase().replace(/[^A-Z0-9.-]/g, '');
+    const company = String(body.name || '').slice(0, 120);
+    if (!runId || !ticker) return send(res, 400, { error: 'invalid_request', detail: 'runId and ticker required.' });
+    const token = await apifyToken();
+    if (!token) return send(res, 200, { ok: false, error: 'not_configured' });
+    const st = await apifyGet('/v2/actor-runs/' + runId, token);
+    if (!st.ok) return send(res, 502, { ok: false, error: 'apify_http_' + st.status });
+    const run = st.json.data || st.json;
+    if (run.status !== 'SUCCEEDED') return send(res, 409, { ok: false, error: 'run_not_succeeded', status: run.status });
+    const items = await apifyGet(`/v2/datasets/${run.defaultDatasetId}/items?clean=true&limit=3000`, token);
+    const rows = Array.isArray(items.json) ? items.json : [];
+    const mapped = rows.map(x => ({
       text: String(x.text || x.full_text || x.title || '').slice(0, 500),
       date: x.createdAt || x.created_at || '',
       link: x.url || x.twitterUrl || '',
-      author: (x.author && (x.author.userName || x.author.username)) || x.author || '',
+      author: (x.author && (x.author.userName || x.author.username)) || '',
       likes: x.likeCount ?? x.favoriteCount ?? null,
       retweets: x.retweetCount ?? null,
       replies: x.replyCount ?? null
     })).filter(x => x.text);
-    store.packs = store.packs || {};
-    const prev = store.packs[ticker];
-    const seen = new Set((prev ? prev.items : []).map(i => (i.link || '') + '|' + i.text.slice(0, 80)));
-    const fresh = items.filter(i => !seen.has((i.link || '') + '|' + i.text.slice(0, 80))).map(i => ({ ...i, src: 'apify-x' }));
-    const merged = (prev ? prev.items : []).concat(fresh);
-    store.packs[ticker] = { company, ticker, terms, collectedAt: new Date().toISOString(), itemCount: merged.length, estUsd: +((prev ? prev.estUsd : 0) + items.length * PER_ITEM_USD).toFixed(4), sources: (prev ? prev.sources : []).concat([{ source: 'apify-x', at: new Date().toISOString(), collected: items.length, added: fresh.length }]), items: merged };
-    store.apifySpend.estimatedUsd = +(store.apifySpend.estimatedUsd + items.length * PER_ITEM_USD).toFixed(4);
-    store.apifySpend.runs.push({ ticker, at: store.packs[ticker].collectedAt, items: items.length });
+    const r = mergeIntoPack(ticker, company, [], mapped, 'apify-x', 0);
     await saveStore();
-    return send(res, 200, { ok: true, ticker, collected: items.length, added: fresh.length, packTotal: merged.length, sample: items.slice(0, 3).map(i => i.text.slice(0, 120)) });
+    return send(res, 200, { ok: true, ticker, runId, recovered: mapped.length, added: r.added, packTotal: r.packTotal, chargedUsd: run.usageTotalUsd ?? null });
   }
+
   // Admin-only: recent Apify run outcomes (status/items/charge) so a missing
   // pack is diagnosed from the actor side before any re-launch - never a
   // blind duplicate. Sanitized; no token, no account metadata.
@@ -169,7 +259,7 @@ async function handleApi(req, res, url, ip) {
       return send(res, 403, { error: 'forbidden', detail: 'Pack ingest requires the admin token (PACK_ADMIN_TOKEN).' });
     }
     let body;
-    try { body = await readBody(req).then(b => JSON.parse(b)); } catch { return send(res, 400, { error: 'bad_json' }); }
+    try { body = await readBody(req, 12_000_000).then(b => JSON.parse(b)); } catch { return send(res, 400, { error: 'bad_json' }); }
     const ticker = String(body.ticker || '').toUpperCase().replace(/[^A-Z0-9.-]/g, '');
     const company = String(body.name || '').slice(0, 120);
     const src = String(body.source || 'export').slice(0, 60);
