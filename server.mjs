@@ -397,7 +397,7 @@ async function handleApi(req, res, url, ip) {
     }
     store.signalJobs = store.signalJobs || {};
     const cur = store.signalJobs[ticker];
-    if (cur && cur.status === 'running') return send(res, 409, { error: 'already_running', detail: 'A signals job is already running for ' + ticker + '.' });
+    if (cur && cur.status === 'running' && !body.force) return send(res, 409, { error: 'already_running', detail: 'A signals job is already running for ' + ticker + '. Pass force:true to restart after an interrupted deploy.' });
     const kres = await openaiKey();
     if (!kres.key) return send(res, 503, { error: 'openai_unconfigured', detail: String(kres.err).slice(0, 80) });
     const key = kres.key;
