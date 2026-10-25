@@ -3,6 +3,23 @@
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));// " intentional
 const SRC_LABEL={'signalor-historical-export':s=>`Signalor mention archive - historical posts through Oct 20, imported ${esc((s.at||'').slice(0,10))}`,'apify-x':s=>`Fresh X/Twitter collection on ${esc((s.at||'').slice(0,10))}`};
 const srclist=s=>{const f=SRC_LABEL[s.source];return `<li><span class="collect-item-title">${f?f(s):esc(s.source)}</span><span class="faint">${esc(String(s.added))} added</span></li>`};
+const q=(t)=>'What evidence supports: \u201c'+t.slice(0,110)+'\u201d?';
+const aspectRow=(a)=>`<li><span class="collect-item-title">${esc(a.aspect)}</span><span class="mono faint">${esc(String(a.count))} posts · ${esc(String(a.positive))}+ / ${esc(String(a.negative))}-</span></li>${(a.examples||[]).slice(0,2).map(e=>`<li><span class="collect-item-title">${e.link?`<a class="detail-source" href="${esc(e.link)}" target="_blank" rel="noreferrer">${esc(e.text)}</a>`:esc(e.text)}</span></li>`).join('')}`;
+function roleLens(role,sig,a){
+  if(!sig)return '';
+  const asp=sig.topAspects||[];
+  const neg=asp.filter(x=>x.negative>0).sort((x,y)=>y.negative-x.negative);
+  const pos=asp.filter(x=>x.positive>0).sort((x,y)=>y.positive-x.positive);
+  const claims=(a&&a.claims)||[],counter=(a&&a.counterclaims)||[];
+  if(role==='customer')return `<p class="overline">REPORTED PROBLEMS</p><ul class="collect-list">${neg.slice(0,5).map(aspectRow).join('')||'<li><span class="faint">No negative-aspect clusters in the analyzed posts.</span></li>'}</ul>
+    <p class="overline">WORTH CHECKING BEFORE YOU BUY</p><ul class="collect-list">${neg.slice(0,3).map(x=>`<li><span class="collect-item-title">${esc(q(x.aspect+' ('+x.negative+' reported posts)'))}</span></li>`).join('')||'<li><span class="faint">Nothing flagged by the analyzed posts.</span></li>'}</ul>`;
+  if(role==='vendor')return `<p class="overline">WHAT PEOPLE PRAISE</p><ul class="collect-list">${pos.slice(0,5).map(aspectRow).join('')||'<li><span class="faint">No positive-aspect clusters in the analyzed posts.</span></li>'}</ul>
+    <p class="overline">POSSIBLE CONVERSATION OPENINGS</p><ul class="collect-list">${pos.slice(0,3).map(x=>`<li><span class="collect-item-title">People are talking about ${esc(x.aspect)} (${esc(String(x.positive))} positive of ${esc(String(x.count))} posts) - a topic, not a qualified lead.</span></li>`).join('')||'<li><span class="faint">No opening topics in the analyzed posts.</span></li>'}</ul>`;
+  if(role==='investor')return `<p class="overline">DILIGENCE LEADS (REPORTED, NOT VERIFIED)</p><ul class="collect-list">${claims.slice(0,4).map(c=>`<li><span class="collect-item-title">${esc(q(c.text))}</span><span class="mono faint">${esc(String(c.support??''))} cited posts</span></li>`).join('')||'<li><span class="faint">No claims extracted yet.</span></li>'}</ul>
+    <p class="overline">CHALLENGES TO THE STORY</p><ul class="collect-list">${counter.slice(0,4).map(c=>`<li><span class="collect-item-title">${esc(c.text)}</span><span class="mono faint">${esc(String(c.support??''))} cited posts</span></li>${postLinks(c)}`).join('')||'<li><span class="faint">No counterclaims extracted yet.</span></li>'}</ul>
+    ${neg.length?`<p class="overline">NEGATIVE CLUSTERS</p><ul class="collect-list">${neg.slice(0,4).map(aspectRow).join('')}</ul>`:''}`;
+  return '';
+}
 const postLinks=c=>(c.posts||[]).map(p=>`<li><span class="collect-item-title">${p.link?`<a class="detail-source" href="${esc(p.link)}" target="_blank" rel="noreferrer">${esc(p.text.slice(0,140))}${p.text.length>140?'…':''}</a>`:esc(p.text.slice(0,140))}</span></li>`).join('');
 const claimList=(arr,empty)=>arr&&arr.length?arr.map(c=>`<li><span class="collect-item-title">${esc(c.text)}</span><span class="mono faint">${esc(String(c.support??''))} cited post${c.support===1?'':'s'}</span></li>${postLinks(c)}`).join(''):`<li><span class="faint">${esc(empty)}</span></li>`;
 async function boot(){
@@ -17,7 +34,12 @@ async function boot(){
   packs.sort((a,b)=>b.itemCount-a.itemCount);
   document.querySelector('#packs-count').textContent=`${packs.length} PACKS LIVE`;
   if(!packs.length){wrap.innerHTML='<p class="state-note">No packs collected yet.</p>';return}
-  wrap.innerHTML=packs.map(p=>{
+  const scoutOn=window.CEI_ROLE&&window.CEI_ROLE.get()==='scout';
+  const scoutStrip=scoutOn?`<article class="collect-card"><div class="section-heading"><div><p class="overline">SCOUT VIEW · COVERAGE-AWARE COMPARISON</p><h2>Companies side by side</h2></div></div>
+    <p class="small-note">Collection sizes and sources differ per company (different scrape caps and archive coverage) - this compares what was collected, not market share, demand, or a fair ranking.</p>
+    <ul class="collect-list">${packs.map(p=>{const sg=signals[p.ticker];const c=sg&&sg.coverage?sg.coverage:null;const st=sg?sg.sentiment:null;
+      return `<li><span class="collect-item-title">${esc(p.company||p.ticker)}</span><span class="mono faint">${c?esc(String(c.analyzed))+' analyzed / '+esc(String(c.collected))+' collected':esc(String(p.itemCount))+' posts (signals pending)'}${st?' · '+esc(String(st.positive))+'+ '+esc(String(st.negative))+'-':''}${sg&&sg.topAspects&&sg.topAspects[0]?' · top: '+esc(sg.topAspects[0].aspect):''}</span></li>`}).join('')}</ul></article>`:'';
+  wrap.innerHTML=scoutStrip+packs.map(p=>{
     const a=analysis[p.ticker];
     const sources=(p.sources||[]).map(srclist).join('');
     const claimPanel=a?`
@@ -43,6 +65,7 @@ async function boot(){
       <div class="collect-head"><h2>${esc(p.company||p.ticker)} <span class="mono faint">${esc(p.ticker)}</span></h2><span class="collect-badge live">${esc(String(p.itemCount))} POSTS</span></div>
       <p class="small-note">Collected ${esc(new Date(p.collectedAt).toUTCString())}. Provenance:</p>
       <ul class="collect-list">${sources}</ul>
+      ${roleLens(window.CEI_ROLE?window.CEI_ROLE.get():'',sig,a)}
       ${sigCard}
       ${claimPanel}
     </article>`;
