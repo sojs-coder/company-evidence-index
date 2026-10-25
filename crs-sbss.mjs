@@ -18,12 +18,8 @@ export function crsStatus(env = process.env) {
   const configured = Boolean(env.CRS_API_KEY && env.CRS_API_KEY.trim());
   return {
     configured,
-    baseUrl: env.CRS_API_BASE || CRS_SANDBOX_BASE,
-    sandbox: (env.CRS_API_BASE || CRS_SANDBOX_BASE) === CRS_SANDBOX_BASE,
     state: configured ? 'configured' : 'not_configured',
-    detail: configured
-      ? 'Bearer token present; requests go to the configured CRS base URL (sandbox unless overridden).'
-      : 'No CRS_API_KEY in the environment. CRS portal signup and CRS-side risk-model provisioning are user decisions; no account was created from code.'
+    detail: configured ? 'Credit evidence source connected.' : 'Credit evidence source not connected.'
   };
 }
 
