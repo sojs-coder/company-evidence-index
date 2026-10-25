@@ -1,19 +1,17 @@
-import test from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import vm from 'node:vm';
+import { runInNewContext } from 'node:vm';
+
+const source = await readFile(new URL('../collection.js', import.meta.url), 'utf8');
+const now = Date.parse('2026-10-25T12:00:00Z');
 
 test('collection merges sources chronologically and keeps gaps in the same stream', async () => {
-  const script = await readFile(new URL('../collection.js', import.meta.url), 'utf8');
   const stream = { setAttribute(name, value) { this[name] = value; } };
   const count = {};
-  const nodes = {
-    '#collect-live': stream,
-    '#collect-count': count,
-    '.theme-toggle': { addEventListener() {} },
-  };
-  const context = vm.createContext({
-    document: { querySelector: selector => nodes[selector] },
+  await runInNewContext(source, {
+    document: { querySelector: selector => selector === '#collect-live' ? stream : count },
+    setInterval() {},
     fetch: async url => {
       const key = url.split('/').at(-1);
       if (key === 'news') throw new Error('offline');
@@ -28,8 +26,6 @@ test('collection merges sources chronologically and keeps gaps in the same strea
       return { ok: true, json: async () => ({ mode: 'live', items }) };
     },
   });
-  // The page's final boot() expression returns its loading promise.
-  await vm.runInContext(script, context);
   assert.equal(count.textContent, '11 OF 13 SOURCES REPORTING LIVE');
   assert.equal(stream['aria-busy'], 'false');
   const html = stream.innerHTML;
@@ -45,4 +41,48 @@ test('collection merges sources chronologically and keeps gaps in the same strea
   assert.match(html, /OpenSecrets/);
   assert.match(html, /Google Patents/);
   assert.doesNotMatch(html, /collect-card|<article/);
+});
+
+test('collection formats relative times across units and handles future dates', () => {
+  const context = { Intl, Date };
+  runInNewContext(source.replace(/boot\(\);\s*$/, ''), context);
+  for (const [seconds, expected] of [
+    [-12, '12 seconds ago'],
+    [-780, '13 minutes ago'],
+    [-3600, '1 hour ago'],
+    [-86400, '1 day ago'],
+    [-2592000, '1 month ago'],
+    [-31536000, '1 year ago'],
+    [60, 'in 1 minute']
+  ]) {
+    context.timestamp = now + seconds * 1000;
+    context.now = now;
+    assert.equal(runInNewContext('relativeTime(timestamp,now)', context), expected);
+  }
+});
+
+test('collection renders exact timestamps, gaps, sorted rows, and refreshed labels', async () => {
+  const wrap = { innerHTML: '', setAttribute() {}, querySelectorAll: () => [] };
+  let refresh;
+  const context = {
+    Intl, Date,
+    document: { querySelector: selector => selector === '#collect-live' ? wrap : {} },
+    fetch: async () => ({
+      ok: true,
+      json: async () => ({ mode: 'live', items: [
+        { date: '2026-10-25T11:59:48Z', title: 'Older' },
+        { date: '2026-10-25T12:00:00Z', title: 'Newer' },
+        { date: 'invalid', title: 'Unknown date' }
+      ] })
+    }),
+    setInterval: callback => { refresh = callback; }
+  };
+  await runInNewContext(source, context);
+  assert.match(wrap.innerHTML, /<time datetime="2026-10-25T11:59:48.000Z" title="[^"]+">/);
+  assert.ok(wrap.innerHTML.indexOf('Newer') < wrap.innerHTML.indexOf('Older'));
+  assert.match(wrap.innerHTML, /collection-date">—<\/span>/);
+  const time = { dateTime: new Date(Date.now() - 12000).toISOString() };
+  wrap.querySelectorAll = () => [time];
+  refresh();
+  assert.equal(time.textContent, '12 seconds ago');
 });

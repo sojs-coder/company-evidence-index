@@ -215,7 +215,7 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 /* --- Collection + Results pages --- */
 .collection-stream{margin:18px 0;border-block:1px solid var(--border);overflow-x:auto;font:400 12px/1.6 var(--font-mono)}
 .collection-stream ul{list-style:none;margin:0;padding:0}
-.collection-line{display:grid;grid-template-columns:10ch 22ch minmax(24ch,1fr) 20ch;gap:2ch;align-items:center;min-width:86ch;padding:9px 0;border-bottom:1px solid var(--border-muted)}
+.collection-line{display:grid;grid-template-columns:20ch 22ch minmax(24ch,1fr) 20ch;gap:2ch;align-items:center;min-width:96ch;padding:9px 0;border-bottom:1px solid var(--border-muted)}
 .collection-line>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .collection-columns{font-weight:500;color:var(--text-faint)}
 .collection-title a{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
