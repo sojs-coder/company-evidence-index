@@ -403,6 +403,7 @@ function relevanceNote(key, it) {
     return m ? `candidate (query/tag match, not confirmed company coverage) - matched passage: "...${m[0].trim()}..."` : 'candidate - returned by source query/tag "Apple"; term not in collected excerpt, not confirmed company coverage';
   }
   if (FEED_FILTERED.has(key)) { const m = text.match(APPLE_RE); return m ? `keyword: ${m[0]}` : 'no Apple keyword in title'; }
+  if (key === 'reddit') return 'topic community r/apple - Apple-topic by membership, not statement-specific relevance';
   return 'Apple-specific endpoint';
 }
 // Claim checks (extractive, no LLM): concrete company claims drawn from the
