@@ -15,7 +15,7 @@ const pages = [
 ];
 
 // Exercise the browser script without adding a DOM dependency to this static app.
-function render(pathname, storage = new Map(), blockedStorage = false) {
+function render(pathname, storage = new Map(), blockedStorage = false, dataset = {}) {
   const handlers = [];
   const attributes = {};
   const button = {
@@ -28,7 +28,7 @@ function render(pathname, storage = new Map(), blockedStorage = false) {
   };
   const meta = {};
   const document = {
-    documentElement: { dataset: {} },
+    documentElement: { dataset: { ...dataset } },
     querySelector: selector => selector === '.topbar' ? header : meta
   };
   runInNewContext(source, {
@@ -92,6 +92,19 @@ test('navigation and theme work when browser storage is unavailable', () => {
   assert.match(page.html, /aria-current="page">Apple demo/);
   page.handlers[0]();
   assert.equal(page.document.documentElement.dataset.theme, 'dark');
+});
+
+test('page theme defaults and browser colors respect an explicit saved preference', () => {
+  const dataset = { defaultTheme: 'dark', darkColor: '#181714', lightColor: '#f1ede4' };
+  const page = render('/packs.html', new Map(), false, dataset);
+  assert.equal(page.document.documentElement.dataset.theme, 'dark');
+  assert.equal(page.meta.content, '#181714');
+  page.handlers[0]();
+  assert.equal(page.meta.content, '#f1ede4');
+  const saved = render('/packs.html', new Map([['cei-theme', 'light']]), false, dataset);
+  assert.equal(saved.document.documentElement.dataset.theme, 'light');
+  const blocked = render('/packs.html', new Map(), true, dataset);
+  assert.equal(blocked.document.documentElement.dataset.theme, 'dark');
 });
 
 test('page scripts cannot register a second theme handler', async () => {

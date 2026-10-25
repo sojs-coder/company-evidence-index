@@ -26,11 +26,15 @@
   const button = header.querySelector('.theme-toggle');
   function applyTheme(theme) {
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#02205e' : '#f5f4f4';
+    const colors = document.documentElement.dataset;
+    document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? (colors.darkColor || '#02205e') : (colors.lightColor || '#f5f4f4');
     button.setAttribute('aria-pressed', String(theme === 'dark'));
   }
-  let theme = 'light';
-  try { theme = localStorage.getItem('cei-theme') === 'dark' ? 'dark' : 'light'; } catch {}
+  let theme = document.documentElement.dataset.defaultTheme || 'light';
+  try {
+    const saved = localStorage.getItem('cei-theme');
+    if (saved === 'light' || saved === 'dark') theme = saved;
+  } catch {}
   applyTheme(theme);
   button.addEventListener('click', () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';

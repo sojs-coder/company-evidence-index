@@ -1,30 +1,33 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-default-theme="dark" data-dark-color="#181714" data-light-color="#f1ede4">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#f5f4f4" />
+  <meta name="theme-color" content="#181714" />
   <title>Public mentions · Company Evidence Index</title>
   <link rel="stylesheet" href="cal-hacks-tokens.css?v=10" />
   <link rel="stylesheet" href="styles.css?v=28" />
+  <link rel="stylesheet" href="mentions.css?v=1" />
 </head>
-<body>
+<body class="mentions-page">
   <header class="topbar"></header>
   <script src="/navigation.js?v=1"></script>
   <script src="/role.js?v=1" defer></script>
   <main id="overview">
-    <section class="hero">
-      <h1>Public mentions</h1>
+    <section class="hero mentions-hero">
+      <p class="overline">THE CONVERSATION INDEX</p>
+      <h1>Public conversation.<br><em>Closer inspection.</em></h1>
+      <p class="lede">Explore what people are saying about a company. Trace the signal back to the source.</p>
       <p id="packs-count" class="small-note" role="status">Loading mention packs…</p>
     </section>
-    <p class="data-note" role="note">PUBLIC POSTS ABOUT COMPANIES · AI-GENERATED SUMMARIES LABELED SEPARATELY</p>
-    <section id="packs-live" class="collect-grid" aria-label="Mention packs"></section>
+    <div class="coverage-notice" role="note"><span class="overline">A NOTE ON COVERAGE</span><p>Collection sizes, scrape caps, and archive coverage differ by company. These are collected conversations, not market share, demand, or a fair ranking. AI readings are not verified facts.</p></div>
+    <section id="packs-live" class="mentions-workspace" aria-label="Mention packs" aria-busy="true"></section>
     <section class="bottom-section">
       <div class="section-heading"><div><p class="overline">SPONSOR INTEGRATION</p><h2>Credit sandbox</h2></div></div>
       <div id="crs-live" class="collect-grid"></div>
     </section>
   </main>
   <footer><span>OPEN <span class="footer-dot">·</span> COMPANY EVIDENCE INDEX</span><span>PUBLIC SOURCES ONLY</span><span>Public sources only <span class="footer-dot">·</span> No investment recommendation</span></footer>
-  <script src="packs.js?v=2"></script>
+  <script src="packs.js?v=3"></script>
 </body>
 </html>

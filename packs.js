@@ -22,6 +22,8 @@ function roleLens(role,sig,a){
 }
 const postLinks=c=>(c.posts||[]).map(p=>`<li><span class="collect-item-title">${p.link?`<a class="detail-source" href="${esc(p.link)}" target="_blank" rel="noreferrer">${esc(p.text.slice(0,140))}${p.text.length>140?'…':''}</a>`:esc(p.text.slice(0,140))}</span></li>`).join('');
 const claimList=(arr,empty)=>arr&&arr.length?arr.map(c=>`<li><span class="collect-item-title">${esc(c.text)}</span><span class="mono faint">${esc(String(c.support??''))} cited post${c.support===1?'':'s'}</span></li>${postLinks(c)}`).join(''):`<li><span class="faint">${esc(empty)}</span></li>`;
+const number=n=>Number(n||0).toLocaleString('en-US');
+let selectedTicker='';
 async function boot(){
   const wrap=document.querySelector('#packs-live');
   let packs=[],analysis={};
@@ -32,14 +34,12 @@ async function boot(){
   const signals={};
   await Promise.all(packs.map(async p=>{try{const r=await fetch('/api/packs/'+encodeURIComponent(p.ticker)+'/signals');if(r.ok)signals[p.ticker]=await r.json()}catch(e){}}));
   packs.sort((a,b)=>b.itemCount-a.itemCount);
-  document.querySelector('#packs-count').textContent=`${packs.length} PACKS LIVE`;
-  if(!packs.length){wrap.innerHTML='<p class="state-note">No packs collected yet.</p>';return}
-  const scoutOn=window.CEI_ROLE&&window.CEI_ROLE.get()==='scout';
-  const scoutStrip=scoutOn?`<article class="collect-card"><div class="section-heading"><div><p class="overline">SCOUT VIEW · COVERAGE-AWARE COMPARISON</p><h2>Companies side by side</h2></div></div>
-    <p class="small-note">Collection sizes and sources differ per company (different scrape caps and archive coverage) - this compares what was collected, not market share, demand, or a fair ranking.</p>
-    <ul class="collect-list">${packs.map(p=>{const sg=signals[p.ticker];const c=sg&&sg.coverage?sg.coverage:null;const st=sg?sg.sentiment:null;
-      return `<li><span class="collect-item-title">${esc(p.company||p.ticker)}</span><span class="mono faint">${c?esc(String(c.analyzed))+' analyzed / '+esc(String(c.collected))+' collected':esc(String(p.itemCount))+' posts (signals pending)'}${st?' · '+esc(String(st.positive))+'+ '+esc(String(st.negative))+'-':''}${sg&&sg.topAspects&&sg.topAspects[0]?' · top: '+esc(sg.topAspects[0].aspect):''}</span></li>`}).join('')}</ul></article>`:'';
-  wrap.innerHTML=scoutStrip+packs.map(p=>{
+  document.querySelector('#packs-count').textContent=`${packs.length} company packs · ${number(packs.reduce((n,p)=>n+p.itemCount,0))} collected posts`;
+  wrap.setAttribute('aria-busy','false');
+  if(!packs.length){wrap.innerHTML='<p class="state-note">No mention packs available. The collection may be empty or unavailable. Reload to try again.</p>';return}
+  if(!packs.some(p=>p.ticker===selectedTicker))selectedTicker=packs[0].ticker;
+  const selector=`<aside class="company-selector"><div class="selector-heading"><p class="overline">COMPANY INDEX</p><span class="mono faint">${String(packs.length).padStart(2,'0')}</span></div><div class="company-options" role="group" aria-label="Select a company">${packs.map(p=>`<button type="button" class="company-option" data-ticker="${esc(p.ticker)}" aria-pressed="${p.ticker===selectedTicker}"><span class="option-ticker">${esc(p.ticker)}</span><span class="option-name">${esc(p.company||p.ticker)}</span><span class="option-count">${number(p.itemCount)} collected <span aria-hidden="true">↗</span></span></button>`).join('')}</div><p class="small-note">One evidence base.<br>Different decision lenses.</p></aside>`;
+  wrap.innerHTML=selector+`<div class="company-details">`+packs.map((p,index)=>{
     const a=analysis[p.ticker];
     const sources=(p.sources||[]).map(srclist).join('');
     const claimPanel=a?`
@@ -56,20 +56,28 @@ async function boot(){
       return `
       <div class="section-heading"><div><p class="overline">FULL-PACK AI SIGNALS · EVERY POST</p><h2>Sentiment &amp; aspects</h2></div><span class="badge-dim">${esc(sig.model)} · ${esc(String(c.analyzed))}/${esc(String(c.collected))} posts</span></div>
       <p class="small-note">${esc(sig.basis)}</p>
-      <div class="sig-bar">${bar(st.positive,'pos')}${bar(st.mixed,'mix')}${bar(st.neutral,'neu')}${bar(st.negative,'neg')}</div>
+      <div class="sig-bar" role="img" aria-label="${esc(String(st.positive||0))} positive, ${esc(String(st.mixed||0))} mixed, ${esc(String(st.neutral||0))} neutral, ${esc(String(st.negative||0))} negative posts">${bar(st.positive,'pos')}${bar(st.mixed,'mix')}${bar(st.neutral,'neu')}${bar(st.negative,'neg')}</div>
       <p class="mono faint sig-legend">${esc(String(st.positive||0))} positive · ${esc(String(st.mixed||0))} mixed · ${esc(String(st.neutral||0))} neutral · ${esc(String(st.negative||0))} negative · ${esc(String(sig.claimPosts||0))} with a reported claim</p>
       <p class="overline">TOP ASPECTS</p><ul class="collect-list">${aspects||'<li><span class="faint">No aspects extracted.</span></li>'}</ul>
       <p class="small-note">Coverage: ${esc(String(c.analyzed))} unique posts analyzed (deduplicated from ${esc(String(c.collected))} collected; ${esc(String(c.dupes))} duplicates and ${esc(String(c.noText))} without text skipped). Generated ${esc(new Date(sig.generatedAt).toUTCString())}. Model readings of post text, not verified facts.</p>`
-    })():(sig===undefined?'':"");
-    return `<article class="collect-card">
-      <div class="collect-head"><h2>${esc(p.company||p.ticker)} <span class="mono faint">${esc(p.ticker)}</span></h2><span class="collect-badge live">${esc(String(p.itemCount))} POSTS</span></div>
-      <p class="small-note">Collected ${esc(new Date(p.collectedAt).toUTCString())}. Provenance:</p>
-      <ul class="collect-list">${sources}</ul>
+    })():`<p class="state-note">Sentiment analysis is not available for this pack. Collected posts are not counted as analyzed.</p>`;
+    const coverage=sig?.coverage;
+    return `<article class="company-detail" data-company="${esc(p.ticker)}"${p.ticker!==selectedTicker?' hidden':''}>
+      <header class="company-masthead"><p class="overline">COMPANY SIGNAL / ${String(index+1).padStart(2,'0')}</p><h2>${esc(p.company||p.ticker)} <em>${esc(p.ticker)}</em></h2><p class="small-note">Collected ${esc(new Date(p.collectedAt).toUTCString())}</p></header>
+      <nav class="detail-nav" aria-label="${esc(p.ticker)} sections"><a href="#signal-${index}">Signal</a><a href="#claims-${index}">Claims &amp; counterclaims</a><a href="#sources-${index}">Sources &amp; coverage</a></nav>
+      <section id="signal-${index}" class="detail-section"><p class="overline">THE COLLECTED PICTURE</p><h3 class="position-heading">Current position</h3>
+      <div class="mention-metrics"><div><strong>${number(p.itemCount)}</strong><span>Collected posts</span></div><div><strong>${coverage?number(coverage.analyzed):'—'}</strong><span>Analyzed posts</span></div><div><strong>${number((p.sources||[]).length)}</strong><span>Collection sources</span></div><div><strong>${sig?number((sig.topAspects||[]).length):'—'}</strong><span>Reported aspects</span></div></div>
       ${roleLens(window.CEI_ROLE?window.CEI_ROLE.get():'',sig,a)}
-      ${sigCard}
-      ${claimPanel}
+      ${sigCard}</section>
+      <section id="claims-${index}" class="detail-section">${claimPanel}</section>
+      <section id="sources-${index}" class="detail-section"><p class="overline">PROVENANCE</p><h3 class="position-heading">Sources &amp; coverage</h3><ul class="collect-list">${sources}</ul><p class="small-note">Counts reflect this collection only. Historical imports and fresh collections have different date ranges. Missing evidence is not evidence of absence.</p></section>
     </article>`;
-  }).join('');
+  }).join('')+'</div>';
+  wrap.querySelectorAll('.company-option').forEach(button=>button.addEventListener('click',()=>{
+    selectedTicker=button.dataset.ticker;
+    wrap.querySelectorAll('.company-option').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+    wrap.querySelectorAll('.company-detail').forEach(panel=>panel.hidden=panel.dataset.company!==selectedTicker);
+  }));
 }
 async function bootCrs(){
   const wrap=document.querySelector('#crs-live'); if(!wrap) return;
@@ -87,3 +95,4 @@ async function bootCrs(){
 }
 boot();
 bootCrs();
+document.addEventListener('cei-role',boot);
