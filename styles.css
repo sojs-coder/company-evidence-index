@@ -419,3 +419,8 @@ li.state-note{list-style:none}
 .state-error{color:var(--color-danger,#b3261e)}
 .text-button.is-disabled{opacity:.45;pointer-events:none;cursor:default}
 .trend-bar.zero{background:transparent;border-bottom:2px dotted var(--text-faint)}
+
+.vet-form{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:14px}
+.vet-field{display:flex;flex-direction:column}
+.vet-field label{font:500 11px var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
+.vet-form input{border:1px solid var(--color-brand-border);padding:9px 12px;font:400 14px var(--font-body);color:inherit;background:transparent;min-width:260px}
