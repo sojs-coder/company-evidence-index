@@ -922,7 +922,7 @@ async function buildSupplierPack(name) {
     caveats: [
       'Contract history shows an agency agreed to buy from this supplier; it does not by itself establish reliability, quality, or qualification.',
       'Award amounts are obligations as recorded in USASpending at query time; always read them with their start date and description.',
-      'Records are exact name matches, not entity resolution: subsidiaries, acquisitions and name variants are missed, and absence of a record here is not evidence of absence.'
+      'Records are candidate name matches requiring identity confirmation, not entity resolution: distinct legal entities can share name tokens; subsidiaries, acquisitions and name variants are missed; absence of a record here is not evidence of absence.'
     ],
     plannedConnectors: [
       { key: 'Deep web research', state: 'not included', detail: 'Full-page research, structured extraction and change monitoring. Not included in this pack.' },
