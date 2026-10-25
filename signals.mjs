@@ -21,9 +21,11 @@ export const BATCH_SIZE = 40;
 const TEXT_SLICE = 400;
 const CHUNK_OVERLAP = 100;
 
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
 function sanitize(text) {
   return String(text)
-    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
+    .replace(LONE_SURROGATE, '')
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
     .replace(/\s+/g, ' ').trim();
 }
@@ -45,7 +47,7 @@ export function splitChunks(text) {
       if (si >= TEXT_SLICE - 200) end = start + si + 1;
       else { const wi = win.lastIndexOf(' '); if (wi >= TEXT_SLICE - 120) end = start + wi; }
     }
-    chunks.push(t.slice(start, end));
+    chunks.push(t.slice(start, end).replace(LONE_SURROGATE, ''));
     if (end >= t.length) break;
     start = end - CHUNK_OVERLAP;
   }
