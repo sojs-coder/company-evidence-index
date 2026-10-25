@@ -34,3 +34,4 @@
 .brief-links a{color:var(--color-brand-hover)}
 .brief-links span{display:block;font-size:12px;color:var(--text-faint)}
 @media(max-width:640px){#b-metrics .metric-number,#b-sig .metric-number{font-size:20px}}
+.credit-demo{margin-top:20px;border:1px solid var(--color-brand-border);padding:12px 16px}.credit-demo summary{cursor:pointer;font-size:13px;color:var(--text-muted)}.credit-tag{font:10.5px var(--font-mono);letter-spacing:.08em;color:var(--color-brand);margin:12px 0 4px}
