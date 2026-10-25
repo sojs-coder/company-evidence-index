@@ -1,0 +1,454 @@
+{
+  "brand": {
+    "name": "Apple"
+  },
+  "dataThrough": "2026-10-20",
+  "freshnessLabel": "Historical data through Oct 20, 2026 - not live.",
+  "source": "Signalor public brand analytics over public web mentions",
+  "provenance": "Aggregates over public-source mentions (YouTube, Reddit, Hacker News, TikTok, and other public platforms) via Signalor public brand analytics API. Counts and scores only - no verbatim text, no author data.",
+  "generatedAt": "2026-10-24T18:08:00-07:00",
+  "sentiment": {
+    "positive": 6827,
+    "neutral": 25259,
+    "negative": 5713,
+    "total": 37799,
+    "averageScore": 0.029471679144950923,
+    "sourceMetadata": {
+      "includesYoutubeData": true,
+      "includedPlatforms": [
+        "blog",
+        "forum",
+        "hackernews",
+        "instagram",
+        "other",
+        "reddit",
+        "tiktok",
+        "twitter",
+        "youtube"
+      ],
+      "mixedPlatformMetric": true,
+      "label": "Cross-platform metric including YouTube and other sources.",
+      "relevanceScoredRate": 0.7499933860684145
+    }
+  },
+  "platformMix": [
+    {
+      "platform": "youtube",
+      "count": 17121,
+      "percentage": 45.29484907008122,
+      "metricLabel": "YouTube-only metric."
+    },
+    {
+      "platform": "reddit",
+      "count": 8656,
+      "percentage": 22.900076721606393,
+      "metricLabel": "reddit-only metric."
+    },
+    {
+      "platform": "hackernews",
+      "count": 2761,
+      "percentage": 7.304426043017011,
+      "metricLabel": "hackernews-only metric."
+    },
+    {
+      "platform": "tiktok",
+      "count": 1774,
+      "percentage": 4.693245853064896,
+      "metricLabel": "tiktok-only metric."
+    },
+    {
+      "platform": "other",
+      "count": 7487,
+      "percentage": 19.807402312230483,
+      "metricLabel": "other-only metric."
+    }
+  ],
+  "aspectCount": 19965,
+  "trends": [
+    {
+      "date": "2026-09-25",
+      "positive": 67,
+      "neutral": 175,
+      "negative": 67,
+      "total": 309,
+      "sentimentScore": 0
+    },
+    {
+      "date": "2026-09-26",
+      "positive": 87,
+      "neutral": 731,
+      "negative": 172,
+      "total": 990,
+      "sentimentScore": -0.08585858585858586
+    },
+    {
+      "date": "2026-09-27",
+      "positive": 77,
+      "neutral": 667,
+      "negative": 140,
+      "total": 884,
+      "sentimentScore": -0.07126696832579185
+    },
+    {
+      "date": "2026-09-28",
+      "positive": 91,
+      "neutral": 642,
+      "negative": 178,
+      "total": 911,
+      "sentimentScore": -0.09549945115257959
+    },
+    {
+      "date": "2026-09-29",
+      "positive": 56,
+      "neutral": 658,
+      "negative": 181,
+      "total": 895,
+      "sentimentScore": -0.13966480446927373
+    },
+    {
+      "date": "2026-09-30",
+      "positive": 93,
+      "neutral": 802,
+      "negative": 155,
+      "total": 1050,
+      "sentimentScore": -0.05904761904761905
+    },
+    {
+      "date": "2026-10-01",
+      "positive": 57,
+      "neutral": 316,
+      "negative": 69,
+      "total": 442,
+      "sentimentScore": -0.027149321266968326
+    },
+    {
+      "date": "2026-10-02",
+      "positive": 9,
+      "neutral": 45,
+      "negative": 11,
+      "total": 65,
+      "sentimentScore": -0.03076923076923077
+    },
+    {
+      "date": "2026-10-03",
+      "positive": 16,
+      "neutral": 50,
+      "negative": 11,
+      "total": 77,
+      "sentimentScore": 0.06493506493506493
+    },
+    {
+      "date": "2026-10-04",
+      "positive": 47,
+      "neutral": 237,
+      "negative": 45,
+      "total": 329,
+      "sentimentScore": 0.0060790273556231
+    },
+    {
+      "date": "2026-10-05",
+      "positive": 43,
+      "neutral": 226,
+      "negative": 46,
+      "total": 315,
+      "sentimentScore": -0.009523809523809525
+    },
+    {
+      "date": "2026-10-06",
+      "positive": 27,
+      "neutral": 229,
+      "negative": 36,
+      "total": 292,
+      "sentimentScore": -0.030821917808219176
+    },
+    {
+      "date": "2026-10-07",
+      "positive": 31,
+      "neutral": 349,
+      "negative": 31,
+      "total": 411,
+      "sentimentScore": 0
+    },
+    {
+      "date": "2026-10-08",
+      "positive": 27,
+      "neutral": 233,
+      "negative": 19,
+      "total": 279,
+      "sentimentScore": 0.02867383512544803
+    },
+    {
+      "date": "2026-10-09",
+      "positive": 31,
+      "neutral": 371,
+      "negative": 46,
+      "total": 448,
+      "sentimentScore": -0.033482142857142856
+    },
+    {
+      "date": "2026-10-10",
+      "positive": 11,
+      "neutral": 146,
+      "negative": 14,
+      "total": 171,
+      "sentimentScore": -0.017543859649122806
+    },
+    {
+      "date": "2026-10-11",
+      "positive": 34,
+      "neutral": 343,
+      "negative": 35,
+      "total": 412,
+      "sentimentScore": -0.0024271844660194173
+    },
+    {
+      "date": "2026-10-12",
+      "positive": 31,
+      "neutral": 378,
+      "negative": 53,
+      "total": 462,
+      "sentimentScore": -0.047619047619047616
+    },
+    {
+      "date": "2026-10-13",
+      "positive": 25,
+      "neutral": 707,
+      "negative": 79,
+      "total": 811,
+      "sentimentScore": -0.06658446362515413
+    },
+    {
+      "date": "2026-10-14",
+      "positive": 27,
+      "neutral": 522,
+      "negative": 63,
+      "total": 612,
+      "sentimentScore": -0.058823529411764705
+    },
+    {
+      "date": "2026-10-15",
+      "positive": 35,
+      "neutral": 479,
+      "negative": 69,
+      "total": 583,
+      "sentimentScore": -0.058319039451114926
+    },
+    {
+      "date": "2026-10-16",
+      "positive": 26,
+      "neutral": 511,
+      "negative": 53,
+      "total": 590,
+      "sentimentScore": -0.04576271186440678
+    },
+    {
+      "date": "2026-10-17",
+      "positive": 18,
+      "neutral": 339,
+      "negative": 28,
+      "total": 385,
+      "sentimentScore": -0.025974025974025976
+    },
+    {
+      "date": "2026-10-18",
+      "positive": 19,
+      "neutral": 201,
+      "negative": 31,
+      "total": 251,
+      "sentimentScore": -0.04780876494023904
+    },
+    {
+      "date": "2026-10-19",
+      "positive": 6,
+      "neutral": 111,
+      "negative": 9,
+      "total": 126,
+      "sentimentScore": -0.023809523809523808
+    },
+    {
+      "date": "2026-10-20",
+      "positive": 0,
+      "neutral": 3,
+      "negative": 2,
+      "total": 5,
+      "sentimentScore": -0.4
+    }
+  ],
+  "aspects": [
+    {
+      "aspect": "price",
+      "positive": 573,
+      "neutral": 1136,
+      "negative": 1545,
+      "count": 3254
+    },
+    {
+      "aspect": "battery life",
+      "positive": 1074,
+      "neutral": 319,
+      "negative": 385,
+      "count": 1778
+    },
+    {
+      "aspect": "performance",
+      "positive": 1285,
+      "neutral": 199,
+      "negative": 249,
+      "count": 1733
+    },
+    {
+      "aspect": "design",
+      "positive": 1022,
+      "neutral": 294,
+      "negative": 196,
+      "count": 1512
+    },
+    {
+      "aspect": "camera",
+      "positive": 753,
+      "neutral": 319,
+      "negative": 161,
+      "count": 1233
+    },
+    {
+      "aspect": "features",
+      "positive": 343,
+      "neutral": 175,
+      "negative": 275,
+      "count": 793
+    },
+    {
+      "aspect": "display",
+      "positive": 472,
+      "neutral": 126,
+      "negative": 47,
+      "count": 645
+    },
+    {
+      "aspect": "value",
+      "positive": 339,
+      "neutral": 84,
+      "negative": 194,
+      "count": 617
+    },
+    {
+      "aspect": "usability",
+      "positive": 262,
+      "neutral": 33,
+      "negative": 251,
+      "count": 546
+    },
+    {
+      "aspect": "quality",
+      "positive": 271,
+      "neutral": 41,
+      "negative": 155,
+      "count": 467
+    },
+    {
+      "aspect": "customer service",
+      "positive": 122,
+      "neutral": 121,
+      "negative": 219,
+      "count": 462
+    },
+    {
+      "aspect": "compatibility",
+      "positive": 157,
+      "neutral": 107,
+      "negative": 161,
+      "count": 425
+    },
+    {
+      "aspect": "privacy",
+      "positive": 134,
+      "neutral": 64,
+      "negative": 207,
+      "count": 405
+    },
+    {
+      "aspect": "durability",
+      "positive": 232,
+      "neutral": 51,
+      "negative": 110,
+      "count": 393
+    },
+    {
+      "aspect": "ecosystem",
+      "positive": 222,
+      "neutral": 80,
+      "negative": 78,
+      "count": 380
+    },
+    {
+      "aspect": "siri",
+      "positive": 103,
+      "neutral": 144,
+      "negative": 110,
+      "count": 357
+    },
+    {
+      "aspect": "availability",
+      "positive": 70,
+      "neutral": 138,
+      "negative": 146,
+      "count": 354
+    },
+    {
+      "aspect": "storage",
+      "positive": 126,
+      "neutral": 108,
+      "negative": 72,
+      "count": 306
+    },
+    {
+      "aspect": "battery",
+      "positive": 92,
+      "neutral": 120,
+      "negative": 68,
+      "count": 280
+    },
+    {
+      "aspect": "build quality",
+      "positive": 225,
+      "neutral": 18,
+      "negative": 17,
+      "count": 260
+    },
+    {
+      "aspect": "apple intelligence",
+      "positive": 79,
+      "neutral": 102,
+      "negative": 78,
+      "count": 259
+    },
+    {
+      "aspect": "other",
+      "positive": 54,
+      "neutral": 35,
+      "negative": 166,
+      "count": 255
+    },
+    {
+      "aspect": "reliability",
+      "positive": 98,
+      "neutral": 10,
+      "negative": 146,
+      "count": 254
+    },
+    {
+      "aspect": "iphone",
+      "positive": 78,
+      "neutral": 146,
+      "negative": 21,
+      "count": 245
+    },
+    {
+      "aspect": "innovation",
+      "positive": 89,
+      "neutral": 30,
+      "negative": 107,
+      "count": 226
+    }
+  ]
+}
