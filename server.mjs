@@ -347,6 +347,21 @@ async function handleApi(req, res, url, ip) {
     await saveStore();
     return send(res, 200, { ok: true, ticker, inputItems: posts.length, claims: store.analysis[ticker].claims.length, counterclaims: store.analysis[ticker].counterclaims.length, costUsd: cost });
   }
+  // Admin-only broker shape diagnostic: key NAMES only, never values.
+  if (p === '/api/analysis/broker-diag' && req.method === 'GET') {
+    if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
+      return send(res, 403, { error: 'forbidden' });
+    }
+    const url = (process.env.RUNTIME_CONFIG_URL || '').replace(/\/+$/, '');
+    if (!url || !process.env.RUNTIME_CONFIG_TOKEN) return send(res, 200, { configured: false });
+    try {
+      const full = url.endsWith('/api/internal/runtime-config/snapshot') ? url : url + '/api/internal/runtime-config/snapshot';
+      const r = await fetch(full, { headers: { 'x-api-key': process.env.RUNTIME_CONFIG_TOKEN, accept: 'application/json' }, signal: AbortSignal.timeout(5000) });
+      const j = await r.json().catch(() => null);
+      const keys = o => (o && typeof o === 'object' && !Array.isArray(o)) ? Object.keys(o) : null;
+      return send(res, 200, { configured: true, http: r.status, topKeys: keys(j), dataKeys: keys(j && j.data), secretsKeys: keys(j && j.data && j.data.secrets) });
+    } catch (e) { return send(res, 200, { configured: true, error: String(e && e.message || e).slice(0, 60) }); }
+  }
   if (p === '/api/analysis' && req.method === 'GET') {
     const list = Object.values(store.analysis || {}).map(a => ({ ticker: a.ticker, company: a.company, generatedAt: a.generatedAt, model: a.model, inputItems: a.inputItems, packItems: a.packItems, claims: a.claims.length, counterclaims: a.counterclaims.length }));
     return send(res, 200, { analysis: list });
