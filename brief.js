@@ -59,6 +59,27 @@ function renderSignals(sig,p){
   <p class="state-note">${esc(sig.basis||'')}</p>
   ${aspects?`<p class="overline" style="margin-top:20px">TOP ASPECTS</p><ul class="stream-list brief-list">${aspects}</ul>`:''}`;
 }
+function creditBlock(c){
+  if(!c)return '';
+  const open=role==='vendor'?' open':'';
+  const head='<summary>Credit-bureau data source demonstration (synthetic test person, not this company)</summary>';
+  if(c.state!=='demonstration'||!c.evidence)return `<details class="credit-demo">${head}<p class="state-note">${esc(c.detail||'The credit data source did not return data for this demonstration.')} Nothing is substituted.</p></details>`;
+  const e=c.evidence,sc=e.score,t=e.tradelines||{},d=e.derogatory||{};
+  const n=v=>v==null?'(not recorded)':num(v);
+  const flags=(e.riskFlags||[]).map(f=>String(f.flag||'').replace(/_/g,' ')).filter(Boolean);
+  return `<details class="credit-demo"${open}>${head}
+  <p class="credit-tag">SYNTHETIC CONSUMER DEMONSTRATION · NOT COMPANY CREDIT · NOT ABOUT ${esc((NAMES[ticker]||'').toUpperCase())}</p>
+  <p class="state-note">${esc(c.label||'')}</p>
+  <ul class="brief-checks">
+    ${sc?`<li>${esc(sc.model||'Score')}: ${n(sc.value)} (range ${n(sc.minimum)} to ${n(sc.maximum)}), percentile ${n(sc.percentile)}. Test person: ${esc((e.subject&&(e.subject.firstName+' '+e.subject.lastName))||'')}.</li>`:''}
+    <li>Tradelines: ${n(t.count)} total, ${n(t.openCount)} open, balance ${t.balanceTotal==null?'(not recorded)':'$'+num(t.balanceTotal)}, past due ${t.pastDueTotal==null?'(not recorded)':'$'+num(t.pastDueTotal)}, revolving utilisation ${t.revolvingUtilizationPercent==null?'(not recorded)':t.revolvingUtilizationPercent+'%'}.</li>
+    <li>Derogatory: ${n(d.bankruptcies)} bankruptcies, ${n(d.collections)} collections, ${n(d.chargeOffs)} charge-offs, ${n(d.latePayments30)} late 30 days.</li>
+    ${flags.length?`<li>Flags: ${esc(flags.join(', '))}.</li>`:''}
+    ${sc&&(sc.factors||[]).length?`<li>Score factors: ${esc(sc.factors.join('; '))}</li>`:''}
+  </ul>
+  ${(c.caveats||[]).map(x=>`<p class="state-note">${esc(x)}</p>`).join('')}
+  <p class="state-note">${c.pulledAt?'Pulled '+esc(day(c.pulledAt))+' from the sponsor sandbox. ':''}Shown to demonstrate where a principal credit check fits in supplier vetting.</p></details>`;
+}
 async function renderSupplier(name){
   const el=$('#b-sup');
   el.innerHTML='<p class="state-note">Fetching live public records. Nothing is substituted.</p>';
@@ -69,10 +90,11 @@ async function renderSupplier(name){
   const aw=(r.awards||[]).slice(0,5).map(a=>`<li><p class="b-claim">${safeLink(a.sourceUrl)?`<a href="${esc(a.sourceUrl)}" rel="noopener noreferrer" target="_blank">${esc(a.description||a.awardId||'(untitled award)')}</a>`:esc(a.description||'(untitled award)')}</p><p class="b-meta">${esc(a.agency||'')} · ${esc(a.startDate||'')} · ${money(a.obligatedAmountUsd)} OBLIGATED · RECIPIENT ${esc(a.recipient||'')}</p></li>`).join('');
   const cites=r.citations||[];const ver=cites.filter(c=>c.association&&c.association.state==='affiliation_verified');
   const ci=cites.slice(0,5).map(c=>`<li><p class="b-claim">${safeLink(c.sourceUrl)?`<a href="${esc(c.sourceUrl)}" rel="noopener noreferrer" target="_blank">${esc(c.title)}</a>`:esc(c.title)}</p><p class="b-meta">${c.association&&c.association.state==='affiliation_verified'?'AUTHOR AFFILIATION VERIFIED':'KEYWORD MATCH, COMPANY NOT VERIFIED'}</p></li>`).join('');
+  const credit=creditBlock(r.creditEvidence);
   el.innerHTML=`<p class="state-note">Fetched live ${esc(day(r.fetchedAt))} from USASpending and the NASA Technical Reports Server for the name "${esc(r.supplier||name)}". This is public contract and literature history, not credit data and not a qualification.</p>
   <p class="overline">FEDERAL AWARDS · ${num((r.awards||[]).length)} FOUND${(r.awards||[]).length>5?', FIRST 5 SHOWN':''}</p><ul class="stream-list brief-list">${aw||'<li class="state-note">No federal contract awards found for this exact name. That is not evidence of absence.</li>'}</ul>
   <p class="overline" style="margin-top:20px">NASA LITERATURE · ${num(cites.length)} FOUND, ${num(ver.length)} AFFILIATION-VERIFIED</p><ul class="stream-list brief-list">${ci||'<li class="state-note">No NASA technical reports cite this name.</li>'}</ul>
-  <details><summary>Limits of these records</summary><ul class="brief-checks">${(r.caveats||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul></details>`;
+  <details><summary>Limits of these records</summary><ul class="brief-checks">${(r.caveats||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul></details>${credit}`;
 }
 function postLinks(list){return (list||[]).map(c=>typeof c==='string'?{link:c}:c).filter(c=>safeLink(c.link)).map((c,i)=>`<blockquote>${c.text?esc(String(c.text).slice(0,260))+' ':''}<a href="${esc(c.link)}" rel="noopener noreferrer" target="_blank">source post ${i+1}</a></blockquote>`).join('')}
 function renderAnswer(qa){
@@ -81,9 +103,9 @@ function renderAnswer(qa){
   const lab={supports:'SUPPORTS',contradicts:'CONTRADICTS',context:'CONTEXT'};
   el.innerHTML=(qa.bottomLine?`<p class="b-claim"><strong>${esc(qa.bottomLine)}</strong></p>`:'')+`<p class="state-note">Model inference from stored posts (${esc(qa.model||'a model')}${qa.generatedAt?', '+esc(day(qa.generatedAt)):''}${qa.coverage?', '+num(qa.coverage.analyzed||qa.coverage.read||0)+' posts read':''}). It is not independent verification, and quoted text is the model's excerpt, so open the source post to check it.</p><ul class="stream-list brief-list">`+qa.findings.map(f=>`<li><p class="b-claim">${esc(f.text)}</p><p class="b-meta">${esc(lab[f.stance]||'FINDING')}</p>${f.cite&&f.cite.length?`<details open><summary>Cited posts</summary>${postLinks(f.cite)}</details>`:''}</li>`).join('')+'</ul>';
 }
-function renderStands(sig){
+function renderStands(sig,terms){
   const el=$('#b-stands');
-  const self=new Set([ticker.toLowerCase(),...words(NAMES[ticker]),...words(sig&&sig.company||'')]);
+  const self=new Set([ticker.toLowerCase(),...words(NAMES[ticker]),...words(sig&&sig.company||''),...words((terms||[]).join(' ').replace(/\bOR\b/g,' '))]);
   const asp=(sig&&sig.topAspects||[]).filter(a=>(a.count||0)>=10&&!self.has(String(a.aspect).toLowerCase().trim()));
   if(!asp.length){el.innerHTML='<p class="state-note">Post analysis is not available yet, so nothing is ranked.</p>';return}
   const neg=a=>(a.negative||0)/(a.count||1),pos=a=>(a.positive||0)/(a.count||1);
@@ -105,7 +127,7 @@ async function load(){
   if(!p&&!a){$('#b-metrics').innerHTML='<p class="state-note state-error">No stored evidence found for '+esc(NAMES[ticker])+'. Nothing is substituted.</p>';return}
   renderSupplier(p?p.company:NAMES[ticker]);
   renderAnswer(qa);
-  renderStands(sig);
+  renderStands(sig,p&&p.terms);
   renderQuestions(ans);
   renderSignals(sig,p);
   const claims=rank(a&&a.claims),counter=rank(a&&a.counterclaims);
