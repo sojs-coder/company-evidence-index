@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f5f4f4" />
   <title>Vet any company · Company Evidence Index</title>
-  <link rel="stylesheet" href="cal-hacks-tokens.css?v=11" />
-  <link rel="stylesheet" href="styles.css?v=26" />
+  <link rel="stylesheet" href="cal-hacks-tokens.css?v=12" />
+  <link rel="stylesheet" href="styles.css?v=27" />
 </head>
 <body>
   <header class="topbar">
@@ -32,7 +32,7 @@
       <p class="state-note">For anyone who needs to vet a company before trusting it. Name the company, ask the question you are actually deciding on, pick the exact legal entity, and get a report of cited evidence with its limits stated. Public records only; nothing is fabricated, and no verdict is sold.</p>
       <form id="vet-form" class="vet-form">
         <span class="vet-field"><label for="vet-name">Company name</label><input id="vet-name" name="name" type="text" value="Honeybee Robotics" autocomplete="off" /></span>
-        <span class="vet-field"><label for="vet-question">Your evaluation question</label><input id="vet-question" name="question" type="text" value="Do they have flight heritage for Mars rover mechanisms?" autocomplete="off" /></span>
+        <span class="vet-field vet-field--q"><label for="vet-question">Your evaluation question</label><textarea id="vet-question" name="question" rows="2">Do they have flight heritage for Mars rover mechanisms?</textarea></span>
         <span class="vet-field"><label for="vet-category">Decision (optional)</label><select id="vet-category" name="category">
           <option value="general">General vetting</option>
           <option value="invest">Investment evaluation</option>
@@ -49,6 +49,7 @@
     </section>
     <section class="panel" aria-label="Cited answer" id="answer-panel" hidden>
       <div class="section-heading"><div><p class="overline">STEP 2 · CITED ANSWER</p><h2 id="answer-title">Your question, answered from sources</h2></div><span class="badge-dim" id="answer-count"></span></div>
+      <p class="state-note">Extractive prototype: passages are quoted verbatim from the cited pages and findings are stated from their named sources. No synthesized analysis, no verdict on whether the company deserves trust.</p>
       <div id="quotes"><p class="state-note">Quoted passages appear here.</p></div>
       <div id="findings"></div>
       <div id="limitations"></div>
@@ -67,6 +68,6 @@
       <div id="sources"></div>
     </section>
   </main>
-  <script src="vet.js?v=1"></script>
+  <script src="vet.js?v=2"></script>
 </body>
 </html>
