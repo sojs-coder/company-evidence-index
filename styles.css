@@ -347,3 +347,5 @@ dialog h2{font-size:28px;margin:10px 0 22px}
   .hero{margin-bottom:14px}
   .company-grid{grid-template-columns:1fr}
 }
+
+.rel-note{display:block;font:10px var(--font-mono);color:var(--text-faint);margin-top:2px}
