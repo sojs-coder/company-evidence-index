@@ -276,16 +276,24 @@ function matchClaims(report) {
   });
   return { claims: claimsOut, perSource, totalCollected: pool.length, totalFeeding: usedKeys.size };
 }
+// Apple relevance: query-matched sources (HN, Google News) and Apple-specific
+// endpoints are relevant by construction. General feeds are keyword-filtered;
+// the filter is a heuristic, labeled as such on the dashboard.
+const FEED_FILTERED = new Set(['verge', 'ninetofive', 'macrumors']);
+const APPLE_RE = /\bapple\b|iphone|ipad|ios\b|ipados|macos|macbook|airpods|homepod|airtag|icloud|\bsiri\b|vision pro|apple tv|apple music|apple pay|apple watch|app store|tim cook|\baapl\b|imac|mac mini|mac studio|mac pro|watchos|xcode|swiftui|itunes|airtag|keynote|wwdc|cupertino|apple park|apple store|final cut|logic pro|garageband|airplay|carplay|touch id|face id|apple intelligence|apple care|apple one|apple card|apple news|apple fitness|apple arcade|beats|magsafe|genius bar/i;
+function isRelevant(key, text) { return FEED_FILTERED.has(key) ? APPLE_RE.test(text) : true; }
 async function runReport() {
   const runAt = new Date().toISOString();
   const settled = await Promise.allSettled(SOURCES.map(s => collect(s.key)));
   const sources = settled.map((r, i) => {
     const d = r.status === 'fulfilled' ? r.value : { mode: 'unavailable', source: SOURCES[i].label, name: SOURCES[i].name, fetchedAt: runAt, detail: String(r.reason), items: [] };
-    return { key: SOURCES[i].key, name: d.name, source: d.source, mode: d.mode, fetchedAt: d.fetchedAt, cached: !!d.cached, itemCount: d.items.length, items: d.items.slice(0, 3), allItems: d.items, detail: d.detail };
+    const relevant = d.items.filter(it => isRelevant(SOURCES[i].key, itemTitle(it) + ' ' + (it.outlet || '')));
+    return { key: SOURCES[i].key, name: d.name, source: d.source, mode: d.mode, fetchedAt: d.fetchedAt, cached: !!d.cached, itemCount: d.items.length, relevantCount: relevant.length, items: d.items.slice(0, 3), allItems: d.items, relevantItems: relevant, detail: d.detail };
   });
   const report = {
     company: 'Apple Inc. (AAPL)', generatedAt: runAt,
     liveCount: sources.filter(s => s.mode === 'live').length, downCount: sources.filter(s => s.mode !== 'live').length,
+    relevantTotal: sources.reduce((n, s) => n + (s.relevantCount || 0), 0),
     sources
   };
   let newItems = 0, seenBefore = 0;
