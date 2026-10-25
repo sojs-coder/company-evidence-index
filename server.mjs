@@ -136,6 +136,32 @@ async function handleApi(req, res, url, ip) {
     const { estUsd, ...pub } = pack;
     return send(res, 200, pub);
   }
+  // Admin-only: recent Apify run outcomes (status/items/charge) so a missing
+  // pack is diagnosed from the actor side before any re-launch - never a
+  // blind duplicate. Sanitized; no token, no account metadata.
+  if (p === '/api/packs/apify-status' && req.method === 'GET') {
+    if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
+      return send(res, 403, { error: 'forbidden' });
+    }
+    let token = (process.env.APIFY_API_TOKEN || '').trim();
+    if (!token) {
+      const r = await extractBrokeredSecret('APIFY_API_TOKEN').catch(() => ({ ok: false }));
+      if (r.ok) token = r.value;
+    }
+    if (!token) return send(res, 200, { ok: false, error: 'not_configured' });
+    const actorId = process.env.APIFY_PACK_ACTOR || 'apidojo~tweet-scraper';
+    const r = await fetch(`https://api.apify.com/v2/acts/${encodeURIComponent(actorId)}/runs?limit=10&desc=1`, { headers: { authorization: `Bearer ${token}` } });
+    if (!r.ok) return send(res, 502, { ok: false, error: 'apify_http_' + r.status });
+    const j = await r.json();
+    const runs = ((j.data && j.data.items) || []).map(x => ({
+      id: x.id, status: x.status, startedAt: x.startedAt, finishedAt: x.finishedAt || null,
+      items: (x.stats && x.stats.outputBodySize != null) ? undefined : undefined,
+      datasetItems: x.stats && x.stats.datasetItemCount != null ? x.stats.datasetItemCount : undefined,
+      chargedUsd: x.usageTotalUsd != null ? x.usageTotalUsd : (x.pricingInfo && x.pricingInfo.totalChargeUsd) || null
+    }));
+    return send(res, 200, { ok: true, runs });
+  }
+
   // Ingest an authorized historical export (e.g. Signalor public-mention
   // extract handed off by the ops owner). Same admin gate; no spend involved.
   if (p === '/api/packs/ingest' && req.method === 'POST') {
