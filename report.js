@@ -16,10 +16,14 @@ function renderAspectSentiment(aspects){
     const counts=`${a.negative.toLocaleString('en-US')} negative, ${a.neutral.toLocaleString('en-US')} neutral, ${a.positive.toLocaleString('en-US')} positive`;
     const score=`${net>0?'+':''}${net}`;
     return `<li class="aspect-sentiment-row">
-      <div><span class="sig-name">${esc(a.aspect)}</span><span class="aspect-mentions">${a.count.toLocaleString('en-US')} mentions</span></div>
+      <div class="aspect-label"><span class="sig-name">${esc(a.aspect)}</span><span class="aspect-mentions">${a.count.toLocaleString('en-US')} mentions</span></div>
       <div class="aspect-diverging" role="img" tabindex="0" aria-label="${esc(a.aspect)}: ${esc(counts)}. Net sentiment ${score} percentage points." title="${esc(counts)}">
-        <span class="aspect-half aspect-negative"><span style="width:${share(a.negative)}%"></span></span>
-        <span class="aspect-half aspect-positive"><span style="width:${share(a.positive)}%"></span></span>
+        <svg class="aspect-plot" viewBox="0 0 1000 40" preserveAspectRatio="none" aria-hidden="true">
+          <path class="aspect-grid" d="M1 0V40 M250 0V40 M750 0V40 M999 0V40"/>
+          <rect class="aspect-negative-bar" x="${500-share(a.negative)*5}" y="9" width="${share(a.negative)*5}" height="22"/>
+          <rect class="aspect-positive-bar" x="500" y="9" width="${share(a.positive)*5}" height="22"/>
+          <path class="aspect-zero" d="M500 0V40"/>
+        </svg>
         <span class="aspect-counts">${esc(counts)}</span>
       </div>
       <span class="aspect-net ${net>0?'positive':net<0?'negative':'neutral'}" title="Positive share minus negative share (percentage points)">${score}<span class="aspect-unit"> pp</span></span>
@@ -117,8 +121,10 @@ async function boot(){
         <div class="section-heading"><div><p class="overline">DRIVERS</p><h2 id="aspect-sentiment-title">Aspect sentiment</h2></div></div>
         <label class="aspect-search-label" for="aspect-search">Search top aspects</label>
         <input id="aspect-search" class="aspect-search" type="search" placeholder="Search aspects" aria-controls="aspect-sentiment-list">
-        <div class="aspect-legend"><p class="util-legend"><span><i class="util-sw aspect-negative-swatch"></i>Negative share ←</span><span>→ Positive share<i class="util-sw aspect-positive-swatch"></i></span></p><p class="chart-caption">Neutral share not drawn · counts on hover or focus · net in percentage points</p></div>
+        <div class="aspect-legend"><p class="util-legend"><span><i class="util-sw aspect-negative-swatch"></i>Negative</span><span><i class="util-sw aspect-positive-swatch"></i>Positive</span></p><p class="chart-caption">Share of mentions · neutral not drawn</p></div>
+        <div class="aspect-chart-head" aria-hidden="true"><span>ASPECT / MENTIONS</span><div class="aspect-axis"><span>100%</span><span>50%</span><span>0</span><span>50%</span><span>100%</span></div><span>NET PP</span></div>
         <ul id="aspect-sentiment-list" class="aspect-sentiment-list">${renderAspectSentiment(sg.aspects.slice(0,10))}</ul>
+        <p class="chart-caption aspect-chart-note">Negative ← share of mentions → Positive. Hover or focus a bar for counts. Net = positive share − negative share, in percentage points.</p>
       </section>
       <p class="overline">MENTIONS PER DAY</p>
       <div class="trend-chart">${sg.trends.map(d=>`<div class="trend-col" title="${esc(d.date)}: ${d.total.toLocaleString('en-US')} mentions"><span class="trend-bar${d.total===0?' zero':''}" style="height:${d.total===0?0:Math.max(6,Math.round(d.total/mxT*64))}px"></span><span class="trend-day">${esc(d.date.slice(5))}</span></div>`).join('')}</div>
