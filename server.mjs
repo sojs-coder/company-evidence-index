@@ -8,6 +8,9 @@ import { createServer } from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
+import { maybeWrapWithX402, x402Status } from './x402-gate.mjs';
+import { crsStatus, submitSbssDecision, validateSbssRequest } from './crs-sbss.mjs';
+import { runtimeConfigStatus, extractBrokeredSecret } from './runtime-config.mjs';
 
 const PORT = process.env.PORT || 3000;
 const ROOT = new URL('.', import.meta.url).pathname;
@@ -32,10 +35,31 @@ function send(res, code, obj, extra = {}) {
   res.end(JSON.stringify(obj));
 }
 
+let gateStatus = { state: 'disabled' };
+function readBody(req, cap = 65536) {
+  return new Promise((resolve, reject) => {
+    let n = 0; const chunks = [];
+    req.on('data', c => { n += c.length; if (n > cap) { reject(new Error('body_too_large')); req.destroy(); } else chunks.push(c); });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
 async function handleApi(req, res, url, ip) {
   if (!allowed(ip)) return send(res, 429, { error: 'rate_limited', detail: 'Per-IP request budget exhausted; retry shortly.' });
   const p = url.pathname;
-  if (p === '/api/health') return send(res, 200, { status: 'ok', service: 'company-evidence-index', seeded: true });
+  if (p === '/api/credit/sbss') {
+    const st = crsStatus();
+    if (req.method !== 'POST') return send(res, 405, { error: 'method_not_allowed', detail: 'POST a JSON SbssRequest body (schema: CRS sandbox OpenAPI, sbss-sandbox.crscreditapi.com/openapi.yaml).', state: st.state });
+    if (!st.configured) return send(res, 200, { state: 'not_configured', detail: st.detail, fit: 'SBSS scores small-business credit decisions from principal consumer files; it is not a credit layer for a large-cap public company like Apple. This endpoint exists for private-company / counterparty targets with a defined permitted business purpose. No account was created from code.', sandbox: st.sandbox });
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { return send(res, 400, { error: 'bad_json' }); }
+    const v = validateSbssRequest(body);
+    if (!v.ok) return send(res, 400, { error: 'invalid_request', details: v.errors });
+    const r = await submitSbssDecision(body);
+    return send(res, r.ok ? 200 : 502, r);
+  }
+  if (p === '/api/health') return send(res, 200, { status: 'ok', service: 'company-evidence-index', seeded: true, x402: gateStatus, crs: crsStatus(), runtimeConfig: runtimeConfigStatus() });
 
   const claims = () => {
     const q = (url.searchParams.get('q') || '').slice(0, 120).toLowerCase();
@@ -178,7 +202,8 @@ const SOURCES = [
   { key: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', label: 'The Verge RSS' },
   { key: 'mastodon', name: 'Mastodon #apple', url: 'https://mastodon.social/api/v1/timelines/tag/apple?limit=40', label: 'Mastodon public tag timeline API' },
   { key: 'lemmy', name: 'Lemmy', url: 'https://lemmy.world/api/v3/search?q=apple&type_=Posts&limit=50&sort=New', label: 'Lemmy public search API' },
-  { key: 'reddit', name: 'Reddit r/apple', url: 'https://oauth.reddit.com/r/apple/new?limit=50&raw_json=1', label: 'Reddit OAuth API (script app, read-only)' }
+  { key: 'reddit', name: 'Reddit r/apple', url: 'https://oauth.reddit.com/r/apple/new?limit=50&raw_json=1', label: 'Reddit OAuth API (script app, read-only)' },
+  { key: 'apify', name: 'Apify actors', url: 'https://api.apify.com/v2', label: 'Apify API (actors for X/Twitter, YouTube, Trustpilot, forums; token via env or brokered runtime config)' }
 ];
 const ALLOWED = Object.fromEntries(SOURCES.map(s => [s.key, s.url]));
 // Paginated collectors: several pages per source, fetched sequentially with
@@ -345,6 +370,43 @@ async function collectReddit() {
   return { mode: 'live', source: meta.label, name: meta.name, fetchedAt, runId: fetchedAt, items, trace };
 }
 
+async function collectApify() {
+  const fetchedAt = new Date().toISOString();
+  const base = { source: 'Apify actors', name: 'Apify (X/Twitter, YouTube, Trustpilot, forums)', fetchedAt, items: [] };
+  let token = (process.env.APIFY_API_TOKEN || '').trim();
+  if (!token) {
+    // Brokered runtime config (extract-only; the rest of the envelope is discarded).
+    const r = await extractBrokeredSecret('APIFY_API_TOKEN').catch(() => ({ ok: false }));
+    if (r.ok) token = r.value;
+  }
+  if (!token) return { ...base, mode: 'unavailable', detail: 'not_configured: no Apify token in env (APIFY_API_TOKEN) or brokered runtime config. No run was attempted.' };
+  if (process.env.APIFY_ENABLED !== 'true') return { ...base, mode: 'unavailable', detail: 'Apify token present but APIFY_ENABLED is not true. Actor runs stay off until the user approves paid scrape runs.' };
+  // Free documented validity check (GET /v2/users/me, no actor cost). Account info is never surfaced.
+  try {
+    const me = await fetch('https://api.apify.com/v2/users/me', { headers: { authorization: `Bearer ${token}` } });
+    if (me.status === 401) return { ...base, mode: 'unavailable', detail: 'invalid_token: the configured Apify token was rejected (401). Local state only; nothing was reported upstream.' };
+    if (!me.ok) return { ...base, mode: 'unavailable', detail: `apify_check_failed: users/me returned HTTP ${me.status}.` };
+  } catch (e) {
+    return { ...base, mode: 'unavailable', detail: `apify_check_failed: ${String(e.message || e)}` };
+  }
+  const actors = (process.env.APIFY_ACTORS || '').split(',').map(x => x.trim()).filter(Boolean);
+  if (!actors.length) return { ...base, mode: 'unavailable', detail: 'Token valid, but no actor set configured (APIFY_ACTORS). Specific actors remain proposed, not selected/verified - see the workflow map step 2b.' };
+  const items = []; const failures = [];
+  for (const actorId of actors) {
+    try {
+      const r = await fetch(`https://api.apify.com/v2/acts/${encodeURIComponent(actorId)}/run-sync-get-dataset-items`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: process.env.APIFY_ACTOR_INPUT || '{}' });
+      if (!r.ok) { failures.push(`${actorId}: HTTP ${r.status}`); continue; }
+      const rows = await r.json();
+      for (const row of Array.isArray(rows) ? rows.slice(0, 50) : []) {
+        items.push({ title: String(row.title || row.text || row.url || 'item').slice(0, 300), date: row.createdAt || row.date || fetchedAt, link: row.url || row.link || '' });
+      }
+    } catch (e) { failures.push(`${actorId}: ${String(e.message || e)}`); }
+  }
+  if (!items.length) return { ...base, mode: 'unavailable', detail: `actor run(s) produced no items${failures.length ? '; failures: ' + failures.join('; ') : ''}` };
+  const data = { ...base, mode: 'live', runId: fetchedAt, items, trace: { method: 'POST', url: `${actors.length} actor run(s) via Apify API${failures.length ? ' (' + failures.length + ' failed)' : ''}`, status: 200 } };
+  return data;
+}
+
 async function collect(kind) {
   const hit = collectCache.get(kind);
   if (hit && Date.now() - hit.at < 600_000) return { ...hit.data, cached: true };
@@ -366,6 +428,11 @@ async function collect(kind) {
       } catch (e) {
         return { mode: 'unavailable', source: meta.label, name: meta.name, fetchedAt, detail: String(e.message || e), items: [] };
       }
+    }
+    if (kind === 'apify') {
+      const data = await collectApify();
+      if (data.mode === 'live') collectCache.set(kind, { at: Date.now(), data }); // never cache not_configured states
+      return data;
     }
     if (kind === 'reddit') {
       const data = await collectReddit();
@@ -835,7 +902,7 @@ function tensionsFromV(v) {
   return out;
 }
 
-createServer(async (req, res) => {
+const appHandler = async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
   if (url.pathname.startsWith('/api/')) return handleApi(req, res, url, ip).catch(() => send(res, 500, { error: 'internal' }));
@@ -849,4 +916,10 @@ createServer(async (req, res) => {
   } catch {
     send(res, 404, { error: 'not_found' });
   }
-}).listen(PORT, () => console.log(`company-evidence-index listening on :${PORT}`));
+};
+
+// x402 paid-access gate: absent unless X402_ENABLED=true; fails CLOSED on any
+// enable error (data routes 503, never free). See x402-gate.mjs.
+const gated = await maybeWrapWithX402(appHandler);
+gateStatus = gated.status;
+createServer(gated.handler).listen(PORT, () => console.log(`company-evidence-index listening on :${PORT} (x402: ${gateStatus.state})`));
