@@ -33,18 +33,24 @@ async function boot(){
   if(d){
     const fyHead=d.fundamentals.map(f=>`<th>${esc(f.fy)}<div class="faint mono" style="font-weight:400">ended ${esc(f.date)}</div></th>`).join('');
     const metrics=['Revenue','Net income','R&D expense','Diluted EPS'];
-    const fyRows=metrics.map(m=>`<tr><td>${m}</td>${d.fundamentals.map(f=>{const row=f.rows[m];return row?`<td><a class="detail-source" href="${esc(row.link)}" target="_blank" rel="noreferrer">${esc(row.value.split(' - ')[0])}</a><div class="faint mono" style="font-weight:400">us-gaap:${esc(row.concept)}</div></td>`:'<td class="faint">not collected</td>'}).join('')}</tr>`).join('');
+    const fyRows=metrics.map(m=>`<tr><td>${m}</td>${d.fundamentals.map(f=>{const row=f.rows[m];return row?`<td><a class="detail-source" href="${esc(row.link)}" target="_blank" rel="noreferrer">${esc(row.value.split(' - ')[0])}</a><div class="faint mono" style="font-weight:400">us-gaap:${esc(row.concept)}${row.accession?' · accession '+esc(row.accession)+', filed '+esc(row.filed):''}</div></td>`:'<td class="faint">not collected</td>'}).join('')}</tr>`).join('');
+    const deltaRow=`<tr><td>YoY change (computed)</td>${d.fundamentals.map((f,fi)=>{const cells=metrics.map(m=>{const x=(d.deltas||[]).find(q=>q.metric===m);return x?x.pct+'%':'-'}).join(' / ');return fi===0?`<td>${cells}</td>`:'<td class="faint">-</td>'}).join('')}</tr>`;
     const risk=(d.riskCues||[]).slice(0,6).map(x=>`<li><span class="mono faint">${esc(x.date)}</span><span class="collect-item-title">${x.link?`<a class="detail-source" href="${esc(x.link)}" target="_blank" rel="noreferrer">${esc(x.title)}</a>`:esc(x.title)}</span><span class="faint">${esc(x.source)} · cue: ${esc(x.cue)}</span></li>`).join('');
     const comps=(d.competitors||[]).slice(0,8).map(c=>`<span><b>${c.count}</b> ${esc(c.name)}</span>`).join('');
     const open=(d.openQuestions||[]).map(q=>`<li><span class="collect-item-title">${esc(q.area)}</span><span class="faint">${esc(q.detail)}</span></li>`).join('');
     document.querySelector('#memo-body').innerHTML=
       `<p class="chart-caption">${esc(d.labels.fundamentals)}</p>
-      <table class="memo-table"><thead><tr><th>Filed figure</th>${fyHead}</tr></thead><tbody>${fyRows}</tbody></table>
+      <table class="memo-table"><thead><tr><th>Filed figure</th>${fyHead}</tr></thead><tbody>${fyRows}${deltaRow}</tbody></table>
+      <p class="chart-caption">${esc(d.labels.deltas||'')}</p>
+      <p class="overline memo-sub">EVIDENCE BALANCE</p><p class="chart-caption">${esc(d.labels.balance||'')}</p>
+      <ul class="collect-list">${(d.toward||[]).map(t=>`<li><span class="collect-item-title">Toward:</span><span class="faint">${esc(t)}</span></li>`).join('')}${(d.against||[]).map(t=>`<li><span class="collect-item-title">Against / unresolved:</span><span class="faint">${esc(t)}</span></li>`).join('')}</ul>
       <p class="overline memo-sub">RISK-CUED COVERAGE</p><p class="chart-caption">${esc(d.labels.risk)}</p>
       <ul class="collect-list">${risk||'<li class="faint">No risk-cued items this run.</li>'}</ul>
-      <p class="overline memo-sub">COMPETITIVE CO-MENTIONS</p><p class="chart-caption">${esc(d.labels.competitors)}</p>
+      <p class="overline memo-sub">RESEARCH QUESTIONS</p>
+      <ul class="collect-list">${(d.researchQuestions||[]).map(q=>`<li><span class="collect-item-title">[${esc(q.status)}] ${esc(q.q)}</span><span class="faint">${esc(q.detail)}</span></li>`).join('')}</ul>
+      <p class="overline memo-sub">APPENDIX: CO-MENTION EXPLORATION</p><p class="chart-caption">${esc(d.labels.competitors)}${d.competitorsOldest?' Oldest collected item dates to '+esc(d.competitorsOldest)+'.':''}</p>
       <p class="type-strip">${comps||'<span class="faint">None this run.</span>'}</p>
-      <p class="overline memo-sub">OPEN QUESTIONS (MISSING EVIDENCE)</p><p class="chart-caption">${esc(d.labels.open)}</p>
+      <p class="overline memo-sub">OPEN QUESTIONS (KNOWN GAPS AND MISSING EVIDENCE)</p><p class="chart-caption">${esc(d.labels.open)}</p>
       <ul class="collect-list">${open||'<li class="faint">None identified this run.</li>'}</ul>`;
   }
   // Evidence stream: latest items across all live sources, dense.
@@ -59,7 +65,7 @@ async function boot(){
   document.querySelectorAll('.util-row').forEach(row=>{const open=()=>{const d=document.getElementById('util-detail-'+row.dataset.idx);const show=d.hidden;d.hidden=!show;row.setAttribute('aria-expanded',String(show))};row.addEventListener('click',open);row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}})});
   if(r.history&&r.history.length)document.querySelector('#run-history').textContent=`${r.history.length} runs on record · ${(p.uniqueItems||0).toLocaleString('en-US')} unique items · ${r.storeMode==='attached-volume'?'store on attached volume, survives redeploys':'store resets on redeploy'}`;
   if(r.validation){
-    const badge={'cited-in-press':'FIGURE STRING IN COLLECTED ITEMS','no-press-citation-in-run':'NOT FOUND IN COLLECTED ITEMS','related-separate-wording':'RELATED - DISTINCT WORDING','separate-wording-coverage':'RELATED - DISTINCT WORDING','echoed-only':'SIMILAR WORDING (ECHO)','no-outside-coverage-in-run':'NONE IN COLLECTED ITEMS','possible-tension-review':'REVIEW - POSSIBLE TENSION','different-figure-found':'REVIEW - DIFFERENT FIGURE'};
+    const badge={'cited-in-press':'FIGURE STRING IN COLLECTED ITEMS','no-additional-press-match-in-run':'SEC CITED; NO ADDITIONAL PRESS MATCH','related-separate-wording':'RELATED - DISTINCT WORDING','separate-wording-coverage':'RELATED - DISTINCT WORDING','echoed-only':'SIMILAR WORDING (ECHO)','no-outside-coverage-in-run':'NONE IN COLLECTED ITEMS','possible-tension-review':'REVIEW - POSSIBLE TENSION','different-figure-found':'REVIEW - DIFFERENT FIGURE'};
     const pass=p=>`<li><a class="detail-source" href="${esc(p.link)}" target="_blank" rel="noreferrer">${esc(p.title)}</a><span class="faint">${esc(p.source)} · ${esc(p.date)}${p.wording?' · '+p.wording+' wording':''}${p.tension?' · possible tension':''}</span>${p.excerpt?`<span class="rel-note">"...${esc(p.excerpt)}..."</span>`:''}</li>`;
     const card=(c,kind)=>`<details class="check-card"><summary><span class="check-claim">${esc(c.claim)}</span><span class="check-meta"><span class="mono faint">${esc(kind)} · ${esc(c.basis)}${c.date&&!c.basis.includes(c.date)?' · '+esc(c.date):''}</span><span class="badge-dim">${badge[c.status]||esc(c.status)}</span></span></summary>${c.passages&&c.passages.length?`<ul class="collect-list">${c.passages.map(pass).join('')}</ul>`:'<p class="faint">No matching items collected in this run.</p>'}</details>`;
     const v=r.validation;
