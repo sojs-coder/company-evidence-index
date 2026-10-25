@@ -23,12 +23,6 @@
       <form id="vet-form" class="vet-form">
         <span class="vet-field"><label for="vet-name">Company name</label><input id="vet-name" name="name" type="text" value="Honeybee Robotics" autocomplete="off" list="vet-companies" placeholder="Search by company or ticker" /><datalist id="vet-companies"></datalist></span>
         <span class="vet-field vet-field--q"><label for="vet-question">Your evaluation question</label><textarea id="vet-question" name="question" rows="2">Do they have flight heritage for Mars rover mechanisms?</textarea></span>
-        <span class="vet-field"><label for="vet-category">Decision (optional)</label><select id="vet-category" name="category">
-          <option value="general">General vetting</option>
-          <option value="invest">Investment evaluation</option>
-          <option value="supplier" selected>Supplier qualification</option>
-          <option value="vendor">Vendor contract review</option>
-        </select></span>
         <button type="submit" id="vet-go" class="outline-button">Find the company</button>
       </form>
       <p id="vet-company-status" class="faint" role="status"></p>
@@ -60,7 +54,7 @@
       <div id="sources"></div>
     </section>
   </main>
-  <script src="vet.js?v=3"></script>
+  <script src="vet.js?v=4"></script>
     <script>
     // Role retention into the vet flow: the role changes the evaluation
     // question asked, not the evidence or standards behind the report.
