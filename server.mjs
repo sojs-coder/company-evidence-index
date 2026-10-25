@@ -922,12 +922,12 @@ async function buildSupplierPack(name) {
     caveats: [
       'Contract history shows an agency agreed to buy from this supplier; it does not by itself establish reliability, quality, or qualification.',
       'Award amounts are obligations as recorded in USASpending at query time; always read them with their start date and description.',
-      'Absence of a record here is not evidence of absence - name variants and subaward relationships need deeper research (planned connectors below).'
+      'Records are exact name matches, not entity resolution: subsidiaries, acquisitions and name variants are missed, and absence of a record here is not evidence of absence.'
     ],
     plannedConnectors: [
-      { key: 'context.dev', state: 'planned', detail: 'Deep web research, structured extraction and change monitors. Account claimed; key exchange pending email verification. Not used in this pack.' },
-      { key: 'crs_sbss', state: 'sandbox_documented', detail: 'Business credit evidence (SBSS) as a vetting signal. Sandbox spec integrated; no account, no live pull. Not used in this pack.' },
-      { key: 'x402', state: 'built_disabled', detail: 'Per-datapoint paid access (the marketplace rail). Built with the official CDP SDK, fail-closed; disabled until pricing/wallet decisions are made.' }
+      { key: 'Deep web research', state: 'not included', detail: 'Full-page research, structured extraction and change monitoring. Not included in this pack.' },
+      { key: 'Business credit evidence', state: 'not included', detail: 'Credit-risk signals for the supplier. Not included in this pack.' },
+      { key: 'Evidence purchasing', state: 'not included', detail: 'Per-datapoint paid access to premium evidence. Not included in this pack.' }
     ]
   };
   // USASpending: federal award history for the recipient name (contracts only).
@@ -942,7 +942,15 @@ async function buildSupplierPack(name) {
     });
     if (r.ok) {
       const j = await r.json();
-      pack.awards = (j.results || []).map(a => ({
+      const STOP = new Set(['inc','llc','ltd','corp','corporation','company','co','the','lp','llp']);
+      const toks = name.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t && !STOP.has(t));
+      const nameMatches = (recip) => {
+        const rt = new Set(String(recip || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/));
+        return toks.length > 0 && toks.every(t => rt.has(t));
+      };
+      // Name-matched records only: recipient_search_text is fuzzy text search,
+      // not entity resolution - unfiltered it returns wrong entities.
+      pack.awards = (j.results || []).filter(a => nameMatches(a['Recipient Name'])).map(a => ({
         awardId: a['Award ID'] || null,
         recipient: a['Recipient Name'] || null,
         startDate: a['Start Date'] || null,
