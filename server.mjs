@@ -129,13 +129,6 @@ async function handleApi(req, res, url, ip) {
     await saveStore();
     return send(res, 200, { ok: true, ticker, collected: items.length, added: fresh.length, packTotal: merged.length, sample: items.slice(0, 3).map(i => i.text.slice(0, 120)) });
   }
-  if (p.startsWith('/api/packs/') && req.method === 'GET') {
-    const ticker = p.slice('/api/packs/'.length).toUpperCase();
-    const pack = store.packs && store.packs[ticker];
-    if (!pack) return send(res, 404, { error: 'no_pack', detail: 'No data pack collected for ' + ticker + ' yet.' });
-    const { estUsd, ...pub } = pack;
-    return send(res, 200, pub);
-  }
   // Admin-only: recent Apify run outcomes (status/items/charge) so a missing
   // pack is diagnosed from the actor side before any re-launch - never a
   // blind duplicate. Sanitized; no token, no account metadata.
@@ -162,6 +155,13 @@ async function handleApi(req, res, url, ip) {
     return send(res, 200, { ok: true, runs });
   }
 
+  if (p.startsWith('/api/packs/') && req.method === 'GET') {
+    const ticker = p.slice('/api/packs/'.length).toUpperCase();
+    const pack = store.packs && store.packs[ticker];
+    if (!pack) return send(res, 404, { error: 'no_pack', detail: 'No data pack collected for ' + ticker + ' yet.' });
+    const { estUsd, ...pub } = pack;
+    return send(res, 200, pub);
+  }
   // Ingest an authorized historical export (e.g. Signalor public-mention
   // extract handed off by the ops owner). Same admin gate; no spend involved.
   if (p === '/api/packs/ingest' && req.method === 'POST') {
