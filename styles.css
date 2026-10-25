@@ -371,3 +371,12 @@ dialog h2{font-size:28px;margin:10px 0 22px}
   .util-nums{grid-area:nums;text-align:right}
   .util-detail{grid-area:detail}
 }
+
+/* Coverage score + collected-by-day chart */
+.coverage-score{margin:16px 0 4px}
+.trend-chart{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;margin-top:8px}
+.trend-col{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:34px}
+.trend-bar{display:block;width:22px;background:var(--color-brand);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.trend-day{font:9px var(--font-mono);color:var(--text-faint)}
+.trend-n{font:10px var(--font-mono);color:var(--text)}
+@media(max-width:760px){.trend-chart{gap:4px}.trend-bar{width:18px}}
