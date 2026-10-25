@@ -46,7 +46,9 @@ async function boot(){
     const v=r.validation;
     document.querySelector('#claim-checks').innerHTML=v.figureChecks.map(c=>card(c,'Filed figure')).join('')+v.headlineChecks.map(c=>card(c,'Company statement')).join('');
     document.querySelector('#check-method').textContent=v.method;
+    if(v.coverageScore){document.querySelector('#coverage-score').innerHTML=`<div class="metric"><div class="metric-number">${v.coverageScore.score}</div><div class="metric-label">Coverage score</div><div class="metric-note">${esc(v.coverageScore.drivers)}</div></div><p class="faint">${esc(v.coverageScore.scope)}</p>`}
   }
+  if(r.trends&&r.trends.days&&r.trends.days.length){const mx=Math.max(1,...r.trends.days.map(d=>d.count));document.querySelector('#trend-chart').innerHTML=r.trends.days.map(d=>`<div class="trend-col" title="${esc(d.day)}: ${d.count.toLocaleString('en-US')} collected items"><span class="trend-bar" style="height:${Math.max(2,Math.round(d.count/mx*64))}px"></span><span class="trend-day">${esc(d.day.slice(5))}</span><span class="trend-n">${d.count.toLocaleString('en-US')}</span></div>`).join('')+`<p class="faint">${esc(r.trends.scope)}</p>`}
   document.querySelector('#foot-note').textContent='Items are deduplicated within each source; the same story syndicated across outlets can appear once per source. The on-disk store resets when the service redeploys.';
 }
 boot();
