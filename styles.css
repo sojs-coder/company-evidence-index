@@ -356,6 +356,7 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .stream-list .mono.faint{grid-column:auto;text-align:right}
 
 .collect-list .rel-note{grid-column:2}
+.stream-list .rel-note{grid-column:2}
 
 /* Phone stream: single-line dates, two-line clamp with tap-to-expand */
 @media(max-width:760px){
