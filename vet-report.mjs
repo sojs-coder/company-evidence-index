@@ -28,6 +28,12 @@ const CATEGORIES = {
   general:  { label: 'general vetting' }
 };
 
+// Last observed Context.dev credit counters, captured from responses to calls
+// a run was already making (never a separate billable lookup). Surfaced on an
+// admin-only route in server.mjs; NEVER included in the public report JSON.
+let lastContextCredits = null;
+export function getLastContextCredits() { return lastContextCredits; }
+
 async function ctxCall(path, body, key) {
   const r = await fetch('https://api.context.dev/v1' + path, {
     method: 'POST',
@@ -35,7 +41,18 @@ async function ctxCall(path, body, key) {
     body: JSON.stringify(body)
   });
   if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
-  return r.json();
+  const j = await r.json();
+  const used = r.headers.get('x-credits-used');
+  const meta = (j && j.key_metadata) || {};
+  if (used != null || meta.credits_remaining != null || meta.credits_consumed != null) {
+    lastContextCredits = {
+      lastRequestCreditsUsed: used != null ? Number(used) : null,
+      creditsRemaining: meta.credits_remaining != null ? Number(meta.credits_remaining) : null,
+      creditsConsumed: meta.credits_consumed != null ? Number(meta.credits_consumed) : null,
+      at: new Date().toISOString()
+    };
+  }
+  return j;
 }
 
 // Identity candidates: SEC public-company listings (seeded snapshot first,
@@ -339,7 +356,8 @@ export async function buildVetReport(name, question, categoryKey, identity) {
             const cleaned = cleanPassage(String(p).slice(0, 900));
             if (cleaned) pack.quotes.push({ passage: cleaned, source: { name: w.title || w.url, url: w.url } });
           }
-          sources.push({ key: 'ctx_highlights', name: 'Context.dev highlights', url: w.url, fetched: passages.length, mode: 'live', creditsCounted: 1 });
+          // Docs pricing: scrape base 1 + highlights modifier 1 when at least one passage returns.
+          sources.push({ key: 'ctx_highlights', name: 'Context.dev highlights', url: w.url, fetched: passages.length, mode: 'live', creditsCounted: passages.length ? 2 : 1 });
         } catch (e) {
           sources.push({ key: 'ctx_highlights', name: 'Context.dev highlights', url: w.url, fetched: 0, mode: 'error', detail: String(e.message || e) });
         }
