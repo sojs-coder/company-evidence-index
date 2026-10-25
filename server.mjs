@@ -455,7 +455,7 @@ async function handleApi(req, res, url, ip) {
     if (!process.env.PACK_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.PACK_ADMIN_TOKEN) {
       return send(res, 403, { error: 'forbidden', detail: 'Signal status requires the admin token.' });
     }
-    const ticker = (u.searchParams.get('ticker') || '').toUpperCase();
+    const ticker = (url.searchParams.get('ticker') || '').toUpperCase();
     const job = (store.signalJobs || {})[ticker];
     if (!job) return send(res, 404, { error: 'no_job' });
     return send(res, 200, { ok: true, job });
