@@ -23,15 +23,28 @@ export async function buildPaidGate({ buildVetIdentify, buildVetReport, env = pr
   };
   if (status.state !== 'enabling') return closed;
   const network = env.X402_NETWORK || 'eip155:84532';
+  const payTo = env.X402_PAY_TO.trim();
+  // @x402/core v2 route shape: accepts = PaymentOption(s) with scheme/network/
+  // payTo/price (the {price, networks} shape is the CDP SDK's, not this one's).
   const routes = {
-    'GET /api/paid/vet/identify': { price: env.X402_PRICE_IDENTIFY || '$0.001', networks: [network], description: 'Company identity resolution (x402 testnet paid API)' },
-    'GET /api/paid/vet/report': { price: env.X402_PRICE_REPORT || '$0.01', networks: [network], description: 'Cited company-vetting evidence report (x402 testnet paid API)' }
+    'GET /api/paid/vet/identify': {
+      accepts: { scheme: 'exact', network, payTo, price: env.X402_PRICE_IDENTIFY || '$0.001' },
+      description: 'Company identity resolution (x402 testnet paid API)', mimeType: 'application/json'
+    },
+    'GET /api/paid/vet/report': {
+      accepts: { scheme: 'exact', network, payTo, price: env.X402_PRICE_REPORT || '$0.01' },
+      description: 'Cited company-vetting evidence report (x402 testnet paid API)', mimeType: 'application/json'
+    }
   };
-  const { HTTPFacilitatorClient, x402ResourceServer, x402HTTPResourceServer } = await import('@x402/core/server');
+  const { HTTPFacilitatorClient, x402ResourceServer } = await import('@x402/core/server');
+  const { x402HTTPResourceServer } = await import('@x402/core/http');
+  const { ExactEvmScheme } = await import('@x402/evm/exact/server');
   const { paymentMiddlewareFromHTTPServer } = await import('@x402/express');
   const { default: express } = await import('express');
   const facilitatorClient = new HTTPFacilitatorClient({ url: env.X402_FACILITATOR_URL || 'https://x402.org/facilitator' });
-  const server = new x402HTTPResourceServer(new x402ResourceServer(facilitatorClient), routes);
+  const resourceServer = new x402ResourceServer(facilitatorClient).register('eip155:*', new ExactEvmScheme());
+  await resourceServer.initialize();
+  const server = new x402HTTPResourceServer(resourceServer, routes);
   const app = express();
   app.use(paymentMiddlewareFromHTTPServer(server));
   app.use(async (req, res) => {
