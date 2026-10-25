@@ -322,7 +322,7 @@ async function handleApi(req, res, url, ip) {
     const byEng = withText.slice().sort((a, b) => ((b.likes || b.engagement || 0) - (a.likes || a.engagement || 0)));
     const sample = [...new Map([...byDate.slice(0, 20), ...byEng.slice(0, 20)].map(i => [(i.link || '') + String(i.text).slice(0, 60), i])).values()];
     const posts = sample.map(i => String(i.text).slice(0, 280).replace(/\s+/g, ' ').trim());
-    const prompt = 'You are analyzing public social-media posts that mention ' + (pack.company || ticker) + ' (' + ticker + '). From ONLY the ' + posts.length + ' posts below, extract up to 5 distinct CLAIMS people make about the company and up to 5 distinct COUNTERCLAIMS or criticisms. Return strict JSON: {"claims":[{"text":string,"support":number}],"counterclaims":[{"text":string,"support":number}]} where support counts how many of the given posts express it, each text under 140 characters. Do not add outside knowledge.\n\nPOSTS:\n' + posts.map((t, i) => (i + 1) + '. ' + t).join('\n');
+    const prompt = 'You are analyzing public social-media posts that mention ' + (pack.company || ticker) + ' (' + ticker + '). From ONLY the ' + posts.length + ' numbered posts below, extract up to 5 distinct CLAIMS people report about the company and up to 5 distinct COUNTERCLAIMS or criticisms. Return strict JSON: {"claims":[{"text":string,"posts":[number]}],"counterclaims":[{"text":string,"posts":[number]}]} where posts lists the NUMBERS of the posts below that the claim is extracted from (1-' + posts.length + '), each text under 140 characters. Every claim must cite at least one post number. Do not add outside knowledge; report only what the posts say.\n\nPOSTS:\n' + posts.map((t, i) => (i + 1) + '. ' + t).join('\n');
     const cr = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
@@ -334,13 +334,21 @@ async function handleApi(req, res, url, ip) {
     const cost = +(((usage.prompt_tokens || 0) * 0.15 / 1e6) + ((usage.completion_tokens || 0) * 0.60 / 1e6)).toFixed(6);
     let parsed = { claims: [], counterclaims: [] };
     try { parsed = JSON.parse(cj.choices[0].message.content); } catch { /* keep empty */ }
+    // Deterministic grounding: model cites post NUMBERS; the server maps them
+    // back to the actual sampled posts (text+link) and derives the support
+    // count from the mapping. Claims without a valid citation are dropped.
+    const ground = (arr) => (Array.isArray(arr) ? arr : []).map(c => {
+      const idx = [...new Set((Array.isArray(c.posts) ? c.posts : []).map(n => Math.trunc(Number(n))).filter(n => n >= 1 && n <= sample.length))];
+      const cited = idx.map(n => ({ text: String(sample[n - 1].text).slice(0, 280), link: sample[n - 1].link || null }));
+      return cited.length ? { text: String(c.text || '').slice(0, 200), support: cited.length, posts: cited } : null;
+    }).filter(Boolean).slice(0, 5);
     const at = new Date().toISOString();
     store.analysis = store.analysis || {};
     store.analysis[ticker] = {
       ticker, company: pack.company || ticker, generatedAt: at, model: 'gpt-4o-mini',
       inputItems: posts.length, packItems: pack.items.length,
-      claims: (parsed.claims || []).slice(0, 5), counterclaims: (parsed.counterclaims || []).slice(0, 5),
-      basis: 'Public social posts collected by this project; synthesis by OpenAI (third party), generated, not extractive.'
+      claims: ground(parsed.claims), counterclaims: ground(parsed.counterclaims),
+      basis: 'Reported claims extracted by OpenAI (third party) from a ' + posts.length + '-post sample of ' + pack.items.length + ' collected public posts. Each claim links to the sampled posts it was extracted from; support counts those cited posts. These are claims found in posts, not verified facts.'
     };
     store.openaiSpend.confirmedUsd = +(store.openaiSpend.confirmedUsd + cost).toFixed(6);
     store.openaiSpend.runs.push({ ticker, at, promptTokens: usage.prompt_tokens || 0, completionTokens: usage.completion_tokens || 0, costUsd: cost });
