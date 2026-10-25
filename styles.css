@@ -355,3 +355,10 @@ dialog h2{font-size:28px;margin:10px 0 22px}
 .stream-list .mono.faint{grid-column:auto;text-align:right}
 
 .collect-list .rel-note{grid-column:2}
+
+/* Phone stream: single-line dates, two-line clamp with tap-to-expand */
+@media(max-width:760px){
+  .stream-list .mono.faint{white-space:nowrap;font-size:10px;padding-top:2px}
+  .stream-list .collect-item-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .stream-list .collect-item-title.expanded{display:block;overflow:visible}
+}
