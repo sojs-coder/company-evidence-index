@@ -9,6 +9,7 @@ import { buildVetIdentify, buildVetReport } from './vet-report.mjs';
 import { readFile, writeFile, rename } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { maybeWrapWithX402, x402Status } from './x402-gate.mjs';
 import { SIGNALS_MODEL, BATCH_SIZE, prepareItems, estimateCost, buildBatchPrompt, normalizeBatchSignals, rollupSignals } from './signals.mjs';
 import { buildPaidGate } from './paid-gate.mjs';
@@ -18,7 +19,7 @@ import { healthProjection } from './health-projection.mjs';
 import { groundClaims } from './ground-claims.mjs';
 
 const PORT = process.env.PORT || 3000;
-const ROOT = new URL('.', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('.', import.meta.url));
 const seed = JSON.parse(await readFile(join(ROOT, 'data', 'seed.json'), 'utf8'));
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json', '.pdf': 'application/pdf', '.png': 'image/png', '.svg': 'image/svg+xml', '.md': 'text/markdown; charset=utf-8' };
