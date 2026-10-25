@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f5f4f4" />
   <title>Vet any company · Company Evidence Index</title>
   <link rel="stylesheet" href="cal-hacks-tokens.css?v=12" />
-  <link rel="stylesheet" href="styles.css?v=29" />
+  <link rel="stylesheet" href="styles.css?v=30" />
 </head>
 <body class="vet-page">
   <header class="topbar"></header>
@@ -33,28 +33,37 @@
       <div id="identities"><p class="state-note">Candidates appear here.</p></div>
     </section>
     <section class="panel" aria-label="Cited answer" id="answer-panel" hidden>
-      <div class="section-heading"><div><p class="overline">CITED ANSWER</p><h2 id="answer-title">Your question, answered from sources</h2></div><span class="badge-dim" id="answer-count"></span></div>
-      <p class="state-note">Source quotes and findings, with any AI-generated summary labeled separately.</p>
-      <div id="quotes"><p class="state-note">Quoted passages appear here.</p></div>
-      <div id="findings"></div>
-      <div id="limitations"></div>
-      <div id="synthesis"></div>
+      <div class="section-heading"><div><p class="overline">DECISION BRIEF</p><h2 id="answer-title">Your question, answered from sources</h2></div><span class="badge-dim" id="answer-count"></span></div>
+      <div id="decision-brief" aria-live="polite"></div>
+      <details class="report-detail" id="analysis-detail">
+        <summary>Read generated analysis <span>Third-party interpretation, not verified evidence</span></summary>
+        <div id="synthesis"></div>
+      </details>
+      <details class="report-detail">
+        <summary>Inspect source evidence <span>Quoted passages and public-record findings</span></summary>
+        <div id="quotes"><p class="state-note">Quoted passages appear here.</p></div>
+        <div id="findings"></div>
+      </details>
+      <details class="report-detail">
+        <summary>Review uncertainty and conflict checks</summary>
+        <div id="limitations"></div>
+      </details>
     </section>
-    <section class="panel" aria-label="Award history" id="awards-panel" hidden>
-      <div class="section-heading"><div><p class="overline">FEDERAL AWARD HISTORY</p><h2>USASpending records</h2></div><span class="badge-dim" id="award-count"></span></div>
+    <details class="panel report-detail" id="awards-panel" hidden>
+      <summary>Federal award records <span id="award-count"></span></summary>
       <div id="awards"><p class="state-note">Fetched with the report.</p></div>
-    </section>
-    <section class="panel" aria-label="NASA citations" id="citations-panel" hidden>
-      <div class="section-heading"><div><p class="overline">TECHNICAL LITERATURE</p><h2>NASA technical reports</h2></div><span class="badge-dim" id="citation-count"></span></div>
+    </details>
+    <details class="panel report-detail" id="citations-panel" hidden>
+      <summary>Technical literature <span id="citation-count"></span></summary>
       <div id="citations"><p class="state-note">Fetched with the report.</p></div>
-    </section>
-    <section class="panel" aria-label="Sources and limits" id="sources-panel" hidden>
-      <div class="section-heading"><div><p class="overline">HOW TO READ THIS</p><h2>Sources and limits</h2></div></div>
+    </details>
+    <details class="panel report-detail" id="sources-panel" hidden>
+      <summary>Collection log and methodology</summary>
       <div id="caveats"></div>
       <div id="sources"></div>
-    </section>
+    </details>
   </main>
-  <script src="vet.js?v=4"></script>
+  <script src="vet.js?v=5"></script>
     <script>
     // Role retention into the vet flow: the role changes the evaluation
     // question asked, not the evidence or standards behind the report.
