@@ -91,13 +91,14 @@ async function handleApi(req, res, url, ip) {
         L.push(`- ${p.source}, ${p.date}: "${p.title}" ${p.link}`.trim());
         if (p.excerpt) L.push(`  Passage: "...${p.excerpt}..."`);
         if (p.wording) L.push(`  Wording: ${p.wording} (wording-only observation)`);
+        if (p.tension) L.push(`  Tension: negation/failure wording near the matched span - related evidence for review, not counted as coverage`);
       } else L.push('- No matching items collected in this run.');
       L.push('');
     };
     for (const c of v.figureChecks) card(c, 'Filed figure (SEC XBRL)');
     for (const c of v.headlineChecks) card(c, 'Company statement');
     for (const c of (v.contradictions || [])) card(c, 'Figure mismatch candidate');
-    L.push('## Coverage score');
+    L.push('## Related-evidence coverage (wording level)');
     L.push(`${v.coverageScore.score}/100 - ${v.coverageScore.drivers}`);
     L.push(v.coverageScore.scope);
     L.push('');
@@ -431,11 +432,20 @@ function validateClaims(report) {
       return it._mi >= 0;
     });
     const seen = new Set();
-    const passages = cov.map(it => ({ ...it, echo: jac(it.title, h.title) > 0.55 })).filter(it => { const k = it.title; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
-    const separate = passages.filter(p => !p.echo);
+    // Negation/failure cues near the matched span mark the passage as
+    // possible tension with the claim: kept as related evidence for review,
+    // never counted as related coverage, and never asserted as a contradiction.
+    const TENSION = /\b(not|never|without|no longer|fails?|failed|delays?|delayed|lacks?|lacking|missing|absent|problems?|issues?|bugs?|complaints?|isn'?t|aren'?t|won'?t|don'?t|doesn'?t|didn'?t|cannot|can'?t|unable)\b/i;
+    const passages = cov.map(it => {
+      const hayFull = (it.title || '') + ' ' + (it.context || '') + ' ' + cleanBody(it.body);
+      const win = (it._mi != null && it._mi >= 0) ? hayFull.slice(Math.max(0, it._mi - 150), it._mi + 350) : hayFull.slice(0, 500);
+      return { ...it, echo: jac(it.title, h.title) > 0.55, tension: TENSION.test(win) };
+    }).filter(it => { const k = it.title; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
+    const clean = passages.filter(p => !p.tension);
+    const separate = clean.filter(p => !p.echo);
     return { claim: h.title, basis: 'Apple Newsroom (company statement)', date: fmtDate(h.date), link: h.link || '',
       outlets: [...new Set(passages.map(p => p.source))],
-      status: !passages.length ? 'no-outside-coverage-in-run' : (separate.length ? 'separate-wording-coverage' : 'echoed-only'),
+      status: !passages.length ? 'no-outside-coverage-in-run' : (!clean.length ? 'possible-tension-review' : (separate.length ? 'related-separate-wording' : 'echoed-only')),
       passages: passages.map(p => {
         const hayOrig = (p.title || '') + ' ' + (p.context || '') + ' ' + cleanBody(p.body);
         const hayFull = hayOrig.toLowerCase();
@@ -446,7 +456,7 @@ function validateClaims(report) {
           idx = term ? hayFull.indexOf(term) : -1;
         }
         const excerpt = idx >= 0 ? hayOrig.slice(Math.max(0, idx - 60), idx + 200).trim() : (p.context || '').slice(0, 180);
-        return { title: p.title, link: p.link || '', date: fmtDate(p.date), source: p.source, excerpt, wording: p.echo ? 'echo' : 'separate' };
+        return { title: p.title, link: p.link || '', date: fmtDate(p.date), source: p.source, excerpt, wording: p.echo ? 'echo' : 'separate', tension: !!p.tension };
       }) };
   });
   // Contradiction candidates: collected items citing a different revenue-scale
@@ -473,11 +483,12 @@ function validateClaims(report) {
   }
   // Deterministic coverage score: filed figures count double (verified class).
   const figCited = figureChecks.filter(c => c.status === 'cited-in-press').length;
-  const headCov = headlineChecks.filter(c => c.status !== 'no-outside-coverage-in-run').length;
+  const headCov = headlineChecks.filter(c => c.status === 'related-separate-wording' || c.status === 'echoed-only').length;
+  const tensionN = headlineChecks.reduce((n, c) => n + c.passages.filter(p => p.tension).length, 0);
   const denom = figureChecks.length * 2 + headlineChecks.length;
   const score = denom ? Math.round(((figCited * 2 + headCov) / denom) * 100) : 0;
-  const coverageScore = { score, drivers: `${figCited} of ${figureChecks.length} filed figures cited (weight 2x), ${headCov} of ${headlineChecks.length} company statements covered`, scope: 'Coverage within items collected this run only. A low score means the collected set lacks corroboration, not that claims are false.' };
-  return { figureChecks, headlineChecks, contradictions, coverageScore, method: `Extractive matching over titles, feed summaries, and fetched article bodies (${(report.articleBodies || {}).fetched || 0} of ${(report.articleBodies || {}).of || 0} newest press items) collected in this run: identical figures (word-boundary matched), and date-compatible passages where a distinctive claim term appears within 300 characters of an event anchor phrase (or at least three distinctive terms for anchor-less claims); site navigation stripped from fetched bodies. Matched passages are quoted so the basis of each match is visible. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.` };
+  const coverageScore = { score, label: 'Related-evidence coverage (wording level)', drivers: `${figCited} of ${figureChecks.length} filed figures' exact value strings found (weight 2x), ${headCov} of ${headlineChecks.length} company statements with related collected evidence (echo or distinct wording only); ${tensionN} passage(s) flagged possible tension and excluded`, scope: 'Presence of related wording within items collected this run only. This is not corroboration, support, or verification of any claim, and absence means the collected set lacks related items, not that coverage does not exist.' };
+  return { figureChecks, headlineChecks, contradictions, coverageScore, method: `Extractive matching over titles, feed summaries, and fetched article bodies (${(report.articleBodies || {}).fetched || 0} of ${(report.articleBodies || {}).of || 0} newest press items) collected in this run: identical figures (word-boundary matched), and date-compatible passages where a distinctive claim term appears within 300 characters of an event anchor phrase (or at least three distinctive terms for anchor-less claims); site navigation stripped from fetched bodies. Matched passages are quoted so the basis of each match is visible. Relationship classes: "echo" = near-identical wording (same origin likely); "related" = distinct wording, date-compatible anchor/term proximity - relevance only, never support; "possible tension" = negation or failure wording near the matched span, excluded from coverage and flagged for review, never asserted as a contradiction. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.` };
 }
 async function runReport() {
   const runAt = new Date().toISOString();
