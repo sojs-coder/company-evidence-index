@@ -399,7 +399,7 @@ function validateClaims(report) {
     const fig = m ? m[1] : null;
     const figRe = fig ? new RegExp('\\b' + fig.replace(/\./g, '\\.') + '(?!\\d)') : null;
     const withHit = figRe ? pressItems.map(it => { const hay = (it.title || '') + ' ' + (it.context || '') + ' ' + cleanBody(it.body); const hm = hay.match(figRe); return hm ? { ...it, excerpt: hay.slice(Math.max(0, hm.index - 60), hm.index + hm[0].length + 80).trim() } : null; }).filter(Boolean) : [];
-    return { claim: `${f.title} (filed to the SEC, XBRL)`, basis: 'SEC XBRL company facts', figure: fig, link: f.link || '', date: fmtDate(f.date),
+    return { claim: `${f.title} (filed to the SEC, XBRL)`, basis: 'SEC XBRL company facts, us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax, annual period ended ' + fmtDate(f.date), figure: fig, link: 'https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax.json', date: fmtDate(f.date),
       status: withHit.length ? 'cited-in-press' : 'no-press-citation-in-run',
       passages: withHit.slice(0, 5).map(it => ({ title: it.title, link: it.link || '', date: fmtDate(it.date), source: it.source, excerpt: it.excerpt })) };
   });
@@ -407,17 +407,28 @@ function validateClaims(report) {
   const headlineChecks = nrItems.slice(0, 6).map(h => {
     const ht = new Set(tokens(h.title || ''));
     const anchors = anchorPhrases(h.title);
-    const GEN = new Set(['store','available','launch','launches','unveils','announces','worldwide','today','apple','reportedly','update','updates','week','price','prices','united','states','american','incredible','possibilities','locations','latest','weekend','open','opening','arrives']);
+    const GEN = new Set(['store','available','launch','launches','unveils','announces','worldwide','today','apple','reportedly','update','updates','week','price','prices','united','states','american','incredible','possibilities','locations','latest','weekend','open','opening','arrives','experiences','bring','brings']);
     const anchorTokens = new Set(anchors.flatMap(a => a.split(' ')));
+    // An event anchor alone is not enough (every iPhone Duo story is not
+    // coverage of every Duo claim): a distinctive claim term must co-occur
+    // within 300 chars of the anchor, so the matched passage is about the
+    // claim's event, not just the product.
+    const proxMatch = (hayRaw, anchors, terms) => {
+      for (const a of anchors) { let i = -1; while ((i = hayRaw.indexOf(a, i + 1)) >= 0) {
+        for (const w of terms) { let j = -1; while ((j = hayRaw.indexOf(w, j + 1)) >= 0) {
+          if (Math.abs(i - j) <= 300) return Math.min(i, j);
+        } } } }
+      return -1;
+    };
     const cov = pressItems.filter(it => {
       if (!dateCompatible(h.date, it.date)) return false;
       const hayRaw = ((it.title || '') + ' ' + (it.context || '') + ' ' + cleanBody(it.body)).toLowerCase();
       const st = new Set(tokens(hayRaw));
       const shared = [...ht].filter(w => st.has(w) && w.length > 3 && !GEN.has(w));
-      // An event anchor alone is not enough (every iPhone Duo story is not
-      // coverage of every Duo claim): require a distinctive claim term too.
-      if (!anchors.length) return shared.length >= 3 && shared.some(w => w.length >= 8 || /\d/.test(w));
-      return anchors.some(a => hayRaw.includes(a)) && shared.some(w => !anchorTokens.has(w));
+      if (!anchors.length) { it._mi = -2; return shared.length >= 3 && shared.some(w => w.length >= 8 || /\d/.test(w)); }
+      const nonAnchor = shared.filter(w => !anchorTokens.has(w));
+      it._mi = nonAnchor.length ? proxMatch(hayRaw, anchors, nonAnchor) : -1;
+      return it._mi >= 0;
     });
     const seen = new Set();
     const passages = cov.map(it => ({ ...it, echo: jac(it.title, h.title) > 0.55 })).filter(it => { const k = it.title; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
@@ -425,7 +436,17 @@ function validateClaims(report) {
     return { claim: h.title, basis: 'Apple Newsroom (company statement)', date: fmtDate(h.date), link: h.link || '',
       outlets: [...new Set(passages.map(p => p.source))],
       status: !passages.length ? 'no-outside-coverage-in-run' : (separate.length ? 'separate-wording-coverage' : 'echoed-only'),
-      passages: passages.map(p => ({ title: p.title, link: p.link || '', date: fmtDate(p.date), source: p.source, excerpt: (p.context || '').slice(0, 180), wording: p.echo ? 'echo' : 'separate' })) };
+      passages: passages.map(p => {
+        const hayFull = ((p.title || '') + ' ' + (p.context || '') + ' ' + cleanBody(p.body)).toLowerCase();
+        let idx = (p._mi != null && p._mi >= 0) ? p._mi : -1;
+        if (idx < 0) {
+          const st2 = new Set(tokens(hayFull));
+          const term = [...ht].find(w => st2.has(w) && w.length > 3 && !GEN.has(w) && !anchorTokens.has(w));
+          idx = term ? hayFull.indexOf(term) : -1;
+        }
+        const excerpt = idx >= 0 ? hayFull.slice(Math.max(0, idx - 60), idx + 200).trim() : (p.context || '').slice(0, 180);
+        return { title: p.title, link: p.link || '', date: fmtDate(p.date), source: p.source, excerpt, wording: p.echo ? 'echo' : 'separate' };
+      }) };
   });
   // Contradiction candidates: collected items citing a different revenue-scale
   // figure than the filed XBRL values. A mismatch can be a different period or
@@ -455,7 +476,7 @@ function validateClaims(report) {
   const denom = figureChecks.length * 2 + headlineChecks.length;
   const score = denom ? Math.round(((figCited * 2 + headCov) / denom) * 100) : 0;
   const coverageScore = { score, drivers: `${figCited} of ${figureChecks.length} filed figures cited (weight 2x), ${headCov} of ${headlineChecks.length} company statements covered`, scope: 'Coverage within items collected this run only. A low score means the collected set lacks corroboration, not that claims are false.' };
-  return { figureChecks, headlineChecks, contradictions, coverageScore, method: `Extractive matching over titles, feed summaries, and fetched article bodies (${(report.articleBodies || {}).fetched || 0} of ${(report.articleBodies || {}).of || 0} newest press items) collected in this run: identical figures (word-boundary matched), and date-compatible passages sharing an event anchor phrase plus a distinctive claim term, or at least three distinctive terms, for coverage (site navigation stripped from fetched bodies). "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.` };
+  return { figureChecks, headlineChecks, contradictions, coverageScore, method: `Extractive matching over titles, feed summaries, and fetched article bodies (${(report.articleBodies || {}).fetched || 0} of ${(report.articleBodies || {}).of || 0} newest press items) collected in this run: identical figures (word-boundary matched), and date-compatible passages where a distinctive claim term appears within 300 characters of an event anchor phrase (or at least three distinctive terms for anchor-less claims); site navigation stripped from fetched bodies. Matched passages are quoted so the basis of each match is visible. "Echo" = near-identical wording (same origin likely); "separate" = distinct wording only, not independent verification. "Not found in collected items" means exactly that - it is not evidence that coverage or a citation does not exist.` };
 }
 async function runReport() {
   const runAt = new Date().toISOString();
