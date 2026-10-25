@@ -32,7 +32,7 @@
     <section class="panel" aria-label="Vetting request">
       <p class="state-note">For anyone who needs to vet a company before trusting it. Name the company, ask the question you are actually deciding on, pick the exact legal entity, and get a report of cited evidence with its limits stated. Public records only; nothing is fabricated, and no verdict is sold.</p>
       <form id="vet-form" class="vet-form">
-        <span class="vet-field"><label for="vet-name">Company name</label><input id="vet-name" name="name" type="text" value="Honeybee Robotics" autocomplete="off" /></span>
+        <span class="vet-field"><label for="vet-name">Company name</label><input id="vet-name" name="name" type="text" value="Honeybee Robotics" autocomplete="off" list="vet-companies" placeholder="Search by company or ticker" /><datalist id="vet-companies"></datalist></span>
         <span class="vet-field vet-field--q"><label for="vet-question">Your evaluation question</label><textarea id="vet-question" name="question" rows="2">Do they have flight heritage for Mars rover mechanisms?</textarea></span>
         <span class="vet-field"><label for="vet-category">Decision (optional)</label><select id="vet-category" name="category">
           <option value="general">General vetting</option>
@@ -42,6 +42,7 @@
         </select></span>
         <button type="submit" id="vet-go" class="outline-button">Find the company</button>
       </form>
+      <p id="vet-company-status" class="faint" role="status"></p>
     </section>
     <section class="panel" aria-label="Identity selection" id="identity-panel" hidden>
       <div class="section-heading"><div><p class="overline">STEP 1</p><h2>Which company exactly?</h2></div><span class="badge-dim" id="identity-count"></span></div>

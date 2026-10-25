@@ -95,4 +95,32 @@ async function report(identity){
   document.getElementById('caveats').innerHTML='<ul class="collect-list collect-list--plain">'+r.caveats.map(c=>`<li><span class="collect-item-title">${esc(c)}</span></li>`).join('')+'</ul>';
   document.getElementById('sources').innerHTML='<ul class="collect-list collect-list--plain">'+r.sources.map(s=>`<li><span class="collect-item-title"><a class="detail-source" href="${esc(s.url)}" target="_blank" rel="noreferrer">${esc(s.name)}</a> <span class="badge-dim">${esc(s.mode)}</span></span><span class="faint">${esc((s.fetched!=null?s.fetched+' records':'')+(s.detail?' · '+s.detail:''))}</span></li>`).join('')+'</ul>';
 }
+// Native suggestions retain keyboard selection and allow names outside the seed.
+async function loadCompanySuggestions(){
+  const status=document.getElementById('vet-company-status');
+  try{
+    const response=await fetch('/data/public-companies-seed.json');
+    if(!response.ok)throw new Error('HTTP '+response.status);
+    const seed=await response.json();
+    if(!Array.isArray(seed.companies)||!seed.companies.length)throw new Error('Empty company seed');
+    const companies=new Map();
+    for(const company of seed.companies){
+      if(typeof company.name!=='string'||!company.name.trim())continue;
+      const tickers=companies.get(company.name)||new Set();
+      if(company.ticker)tickers.add(company.ticker);
+      companies.set(company.name,tickers);
+    }
+    const options=[...companies].sort(([a],[b])=>a.localeCompare(b)).map(([name,tickers])=>{
+      const option=document.createElement('option');
+      option.value=name;
+      option.label=[...tickers].join(' / ');
+      return option;
+    });
+    document.getElementById('vet-companies').replaceChildren(...options);
+    status.textContent='';
+  }catch{
+    status.textContent='Company suggestions are unavailable. You can still type any company name and search.';
+  }
+}
+loadCompanySuggestions();
 document.getElementById('vet-form').addEventListener('submit',e=>{e.preventDefault();const n=document.getElementById('vet-name').value.trim();if(n)identify(n)});
