@@ -443,7 +443,7 @@ function validateClaims(report) {
   const figureChecks = [];
   for (const xs of report.sources) {
     if (!xs.key.startsWith('xbrl')) continue;
-    for (const f of (xs.allItems || []).slice(-2).reverse()) {
+    for (const f of (xs.allItems || []).slice(0, 2)) {  // parser returns newest-first: latest 2 FYs
       const t = f.title || '';
       const mB = t.match(/\$([\d.]+)B/);
       const mS = mB ? null : t.match(/\$([\d.]+)(?!\d|B)/);
