@@ -4,38 +4,69 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f5f4f4" />
-  <title>Companies · Company Evidence Index</title>
+  <title>Vet any company · Company Evidence Index</title>
   <link rel="stylesheet" href="cal-hacks-tokens.css?v=11" />
-  <link rel="stylesheet" href="styles.css?v=11" />
+  <link rel="stylesheet" href="styles.css?v=26" />
 </head>
 <body>
   <header class="topbar">
     <a class="wordmark" href="/" aria-label="Open home"><span class="mark">O</span><span>open<span class="wordmark-period">.</span></span></a>
     <nav class="main-nav" aria-label="Primary navigation">
-      <a class="nav-link active" href="/">Companies</a>
+      <a class="nav-link active" href="/">Vet</a>
+      <a class="nav-link" href="/companies.html">Apple demo</a>
       <a class="nav-link" href="/collection.html">Collection</a>
       <a class="nav-link" href="/results.html">Results</a>
-      <a class="nav-link" href="/report.html">Report</a>
-      <a class="nav-link" href="/supplier.html">Supplier</a>
+      <a class="nav-link" href="/report.html">Apple example</a>
+      <a class="nav-link" href="/supplier.html">Supplier example</a>
     </nav>
     <div class="top-actions"><span class="snapshot-state"><i></i> Live</span><button class="theme-toggle" aria-label="Switch color theme" title="Switch theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor"/></svg></button></div>
   </header>
-  <main>
-    <p class="page-kicker"><span>COMPANY EVIDENCE INDEX</span><span class="kicker-rule"></span><span>CAL HACKS 13.0</span></p>
-    <section class="hero">
-      <h1>Companies</h1>
-    </section>
-    <div class="chip-row" role="listbox" aria-label="Companies" aria-multiselectable="true">
-      <span class="chip chip-on" role="option" aria-selected="true">Apple Inc. <span class="mono">AAPL</span></span>
+  <main id="overview">
+    <div class="dash-head">
+      <div>
+        <p class="page-kicker"><span>COMPANY VETTING</span><span class="kicker-rule"></span><span id="run-stamp">CITED EVIDENCE REPORTS</span></p>
+        <h1 class="dash-title">Vet any company</h1>
+      </div>
     </div>
-    <section class="company-grid">
-      <a class="company-card" href="/report.html">
-        <span class="company-card-top"><span class="company-name">Apple Inc.</span><span class="mono faint">AAPL · NASDAQ</span></span>
-        <span class="company-card-meta"><span class="badge-live">LIVE</span><span>21 public sources</span></span>
-        <span class="company-card-cta">Open report <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h10M9 3.5 13 8l-4 4.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span>
-      </a>
+    <section class="panel" aria-label="Vetting request">
+      <p class="state-note">For anyone who needs to vet a company before trusting it. Name the company, ask the question you are actually deciding on, pick the exact legal entity, and get a report of cited evidence with its limits stated. Public records only; nothing is fabricated, and no verdict is sold.</p>
+      <form id="vet-form" class="vet-form">
+        <span class="vet-field"><label for="vet-name">Company name</label><input id="vet-name" name="name" type="text" value="Honeybee Robotics" autocomplete="off" /></span>
+        <span class="vet-field"><label for="vet-question">Your evaluation question</label><input id="vet-question" name="question" type="text" value="Do they have flight heritage for Mars rover mechanisms?" autocomplete="off" /></span>
+        <span class="vet-field"><label for="vet-category">Decision (optional)</label><select id="vet-category" name="category">
+          <option value="general">General vetting</option>
+          <option value="invest">Investment evaluation</option>
+          <option value="supplier" selected>Supplier qualification</option>
+          <option value="vendor">Vendor contract review</option>
+        </select></span>
+        <button type="submit" id="vet-go" class="outline-button">Find the company</button>
+      </form>
+    </section>
+    <section class="panel" aria-label="Identity selection" id="identity-panel" hidden>
+      <div class="section-heading"><div><p class="overline">STEP 1</p><h2>Which company exactly?</h2></div><span class="badge-dim" id="identity-count"></span></div>
+      <p class="state-note">Registry name matches, not resolved entities. Distinct legal entities can share name tokens; acquisitions and subsidiaries are not resolved automatically. Select one before any company-specific report.</p>
+      <div id="identities"><p class="state-note">Candidates appear here.</p></div>
+    </section>
+    <section class="panel" aria-label="Cited answer" id="answer-panel" hidden>
+      <div class="section-heading"><div><p class="overline">STEP 2 · CITED ANSWER</p><h2 id="answer-title">Your question, answered from sources</h2></div><span class="badge-dim" id="answer-count"></span></div>
+      <div id="quotes"><p class="state-note">Quoted passages appear here.</p></div>
+      <div id="findings"></div>
+      <div id="limitations"></div>
+    </section>
+    <section class="panel" aria-label="Award history" id="awards-panel" hidden>
+      <div class="section-heading"><div><p class="overline">FEDERAL AWARD HISTORY</p><h2>USASpending records</h2></div><span class="badge-dim" id="award-count"></span></div>
+      <div id="awards"><p class="state-note">Fetched with the report.</p></div>
+    </section>
+    <section class="panel" aria-label="NASA citations" id="citations-panel" hidden>
+      <div class="section-heading"><div><p class="overline">TECHNICAL LITERATURE</p><h2>NASA technical reports</h2></div><span class="badge-dim" id="citation-count"></span></div>
+      <div id="citations"><p class="state-note">Fetched with the report.</p></div>
+    </section>
+    <section class="panel" aria-label="Sources and limits" id="sources-panel" hidden>
+      <div class="section-heading"><div><p class="overline">HOW TO READ THIS</p><h2>Sources and limits</h2></div></div>
+      <div id="caveats"></div>
+      <div id="sources"></div>
     </section>
   </main>
-  <footer><span>OPEN <span class="footer-dot">·</span> COMPANY EVIDENCE INDEX</span><span>PUBLIC SOURCES ONLY</span><span>Cal Hacks 13.0 <span class="footer-dot">·</span> No investment recommendation</span></footer>
+  <script src="vet.js?v=1"></script>
 </body>
 </html>
