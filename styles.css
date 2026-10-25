@@ -60,7 +60,7 @@ main{max-width:1220px;margin:0 auto;padding:56px var(--edge) 90px}
 .snapshot-state i,.source-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--color-success)}
 .snapshot-state i{margin-right:7px}
 .theme-toggle{font-size:15px;min-width:44px;min-height:44px;justify-content:center;margin:-10px -14px -10px 0}
-.theme-toggle:hover,
+
 /* Hero */
 .hero{margin-top:40px}
 .hero h1{font-size:clamp(44px,6.2vw,84px);font-weight:400;line-height:1.08;letter-spacing:-.01em}
